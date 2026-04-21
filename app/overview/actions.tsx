@@ -220,91 +220,112 @@ export async function createBookGenreAction(args: {
   } = await supabase.auth.getUser()
 
   if (!user) {
-    return { success: false, error: 'You must be logged in to create a genre.' as const }
+    return { success: false, error: 'You must be logged in to create a genre.' }
   }
 
   const languageCode = args.languageCode ?? 'en'
   const title = args.title.trim()
 
   if (!title) {
-    return { success: false, error: 'Genre title is required.' as const }
+    return { success: false, error: 'Genre title is required.' }
   }
 
- const { data: existingTranslations, error: existingError } = await supabase
-  .from('book_theme_translations')
-  .select('book_theme_id, title')
-  .eq('language_code', languageCode)
-  .ilike('title', title)
-  .limit(1)
+  const slug = title
+    .toLowerCase()
+    .trim()
+    .replace(/['’]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
 
-if (existingError) {
-  return { success: false, error: existingError.message as const }
-}
+  // Step 1: existing translation check
+  const { data: existingTranslations, error: existingTranslationsError } = await supabase
+    .from('book_theme_translations')
+    .select('book_theme_id, title')
+    .eq('language_code', languageCode)
+    .ilike('title', title)
+    .limit(1)
 
-const existingTranslation = existingTranslations?.[0]
-
-if (existingTranslation?.book_theme_id) {
-  return {
-    success: true,
-    genreTitle: existingTranslation.title,
-    alreadyExisted: true as const,
+  if (existingTranslationsError) {
+    console.error('Step 1 failed', existingTranslationsError)
+    return { success: false, error: `Step 1 failed: ${existingTranslationsError.message}` }
   }
-}
 
-  const baseSlug = slugify(title)
-
-  const { data: draftStatus, error: draftStatusError } = await supabase
-    .from('content_statuses')
-    .select('id')
-    .eq('code', 'draft')
-    .single()
-
-  if (draftStatusError || !draftStatus) {
+  const existingTranslation = existingTranslations?.[0]
+  if (existingTranslation?.book_theme_id) {
     return {
-      success: false,
-      error: draftStatusError?.message ?? 'Could not find draft content status.',
+      success: true,
+      genreTitle: existingTranslation.title,
+      alreadyExisted: true,
     }
   }
 
-  let bookThemeId: string | null = null
+  // Step 2: find draft status without single()
+  const { data: draftStatuses, error: draftStatusError } = await supabase
+    .from('content_statuses')
+    .select('id, code')
+    .eq('code', 'draft')
+    .limit(2)
 
-  for (let attempt = 0; attempt < 50; attempt += 1) {
-    const slug = attempt === 0 ? baseSlug : `${baseSlug}-${attempt + 1}`
-    const candidateId = crypto.randomUUID()
+    console.log('draftStatuses', draftStatuses, 'draftStatusError', draftStatusError)
 
-    const { error: themeError } = await supabase.from('book_themes').insert({
-      id: candidateId,
-      slug,
-      content_status_id: draftStatus.id,
-      created_by: user.id,
-      updated_by: user.id,
-    })
+  if (draftStatusError) {
+    console.error('Step 2 failed', draftStatusError)
+    return { success: false, error: `Step 2 failed: ${draftStatusError.message}` }
+  }
 
-    if (!themeError) {
-      bookThemeId = candidateId
-      break
+  if (!draftStatuses || draftStatuses.length === 0) {
+    return { success: false, error: 'Step 2 failed: no draft content status found.' }
+  }
+
+  if (draftStatuses.length > 1) {
+    return { success: false, error: 'Step 2 failed: multiple draft content statuses found.' }
+  }
+
+  const draftStatus = draftStatuses[0]
+
+  // Step 3: check existing theme by slug without maybeSingle()
+  const { data: existingThemes, error: existingThemeError } = await supabase
+    .from('book_themes')
+    .select('id, slug')
+    .eq('slug', slug)
+    .limit(1)
+
+  if (existingThemeError) {
+    console.error('Step 3 failed', existingThemeError)
+    return { success: false, error: `Step 3 failed: ${existingThemeError.message}` }
+  }
+
+  let bookThemeId = existingThemes?.[0]?.id as string | undefined
+
+  // Step 4: create parent theme row
+  if (!bookThemeId) {
+    const { data: insertedThemes, error: insertError } = await supabase
+      .from('book_themes')
+      .insert({
+        slug,
+        content_status_id: draftStatus.id,
+        created_by: user.id,
+        updated_by: user.id,
+      })
+      .select('id, slug')
+      .limit(1)
+
+    if (insertError) {
+      console.error('Step 4 failed', insertError)
+      return { success: false, error: `Step 4 failed: ${insertError.message}` }
     }
 
-    const isSlugCollision =
-      themeError.code === '23505' && themeError.message.toLowerCase().includes('slug')
-
-    if (!isSlugCollision) {
+    if (!insertedThemes || insertedThemes.length === 0) {
       return {
         success: false,
-        error: themeError.message,
+        error: 'Step 4 failed: theme inserted but no row was returned. Check RLS/select policy.',
       }
     }
+
+    bookThemeId = insertedThemes[0].id
   }
 
-  if (!bookThemeId) {
-    return {
-      success: false,
-      error: 'Failed to create genre slug after multiple attempts.',
-    }
-  }
-
-  const bookThemeId = themeRow.id
-
+  // Step 5: create translation row
   const { error: translationError } = await supabase
     .from('book_theme_translations')
     .insert({
@@ -316,10 +337,8 @@ if (existingTranslation?.book_theme_id) {
     })
 
   if (translationError) {
-    return {
-      success: false,
-      error: translationError.message,
-    }
+    console.error('Step 5 failed', translationError)
+    return { success: false, error: `Step 5 failed: ${translationError.message}` }
   }
 
   revalidatePath('/overview')
@@ -327,7 +346,7 @@ if (existingTranslation?.book_theme_id) {
   return {
     success: true,
     genreTitle: title,
-    alreadyExisted: false as const,
+    alreadyExisted: false,
   }
 }
 

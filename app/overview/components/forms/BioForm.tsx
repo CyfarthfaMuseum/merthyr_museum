@@ -1,129 +1,64 @@
-import type { BookDraft } from '../../types'
-import { BlackButton } from '../ui/Buttons'
-import Divider from '../ui/Divider'
+'use client'
+
+import type { BioDraft } from '../../types'
 import Input from '../ui/Input'
-import SectionTitle from '../ui/SectionTitle'
-import Select from '../ui/Select'
-import Tag from '../ui/Tag'
 import Textarea from '../ui/Textarea'
+import SectionTitle from '../ui/SectionTitle'
 
 type Props = {
-  value: BookDraft
-  availableGenres: string[]
-  selectedGenre: string
-  onSelectedGenreChange: (value: string) => void
-  onApplyGenre: () => void
-  onNewGenre: () => void
-  onRemoveGenre: (genre: string) => void
-  onChange: (patch: Partial<BookDraft>) => void
+  value: BioDraft
+  onChange: (patch: Partial<BioDraft>) => void
 }
 
-export default function BookForm({
-  value,
-  availableGenres,
-  selectedGenre,
-  onSelectedGenreChange,
-  onApplyGenre,
-  onNewGenre,
-  onRemoveGenre,
-  onChange,
-}: Props) {
+export default function BioForm({ value, onChange }: Props) {
   return (
-    <>
-      <div className="space-y-4">
-        <SectionTitle>Book Genres</SectionTitle>
+    <div className="space-y-6">
+      <SectionTitle>Biography Details</SectionTitle>
 
-        <div className="grid gap-4 md:grid-cols-[1fr_auto_auto]">
-          <Select value={selectedGenre} onChange={(e) => onSelectedGenreChange(e.target.value)}>
-            <option value="">Select Book Genre</option>
-            {availableGenres.map((genre) => (
-              <option key={genre} value={genre}>
-                {genre}
-              </option>
-            ))}
-          </Select>
+      {/* Name */}
+      <Input
+        value={value.name}
+        onChange={(e) => onChange({ name: e.target.value })}
+        placeholder="Full Name"
+      />
 
-          <BlackButton
-            className="min-w-[140px]"
-            onClick={onApplyGenre}
-            disabled={!selectedGenre}
-          >
-            APPLY
-          </BlackButton>
+      {/* Occupation */}
+      <Input
+        value={value.occupation}
+        onChange={(e) => onChange({ occupation: e.target.value })}
+        placeholder="Occupation"
+      />
 
-          <BlackButton className="min-w-[160px]" onClick={onNewGenre}>
-            NEW GENRE
-          </BlackButton>
-        </div>
-
-        {value.genres.length > 0 ? (
-          <div className="flex flex-wrap gap-3">
-            {value.genres.map((genre) => (
-              <Tag key={genre} onRemove={() => onRemoveGenre(genre)}>
-                {genre}
-              </Tag>
-            ))}
-          </div>
-        ) : null}
-      </div>
-
-      <Divider />
-
-      <div className="space-y-4">
-        <SectionTitle>Book Details</SectionTitle>
-
+      {/* Dates */}
+      <div className="grid gap-4 md:grid-cols-2">
         <Input
-          value={value.title}
-          onChange={(e) => onChange({ title: e.target.value })}
-          placeholder="Book Title"
+          value={value.birthDate}
+          onChange={(e) => onChange({ birthDate: e.target.value })}
+          placeholder="Birth Year (e.g. 1820)"
         />
 
         <Input
-          value={value.author}
-          onChange={(e) => onChange({ author: e.target.value })}
-          placeholder="Author"
-        />
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <Input
-            value={value.publisher}
-            onChange={(e) => onChange({ publisher: e.target.value })}
-            placeholder="Publisher"
-          />
-          <Input
-            value={value.isbn}
-            onChange={(e) => onChange({ isbn: e.target.value })}
-            placeholder="ISBN"
-          />
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <Input
-            value={value.publicationDate}
-            onChange={(e) => onChange({ publicationDate: e.target.value })}
-            placeholder="Publication Date (YYYY-MM-DD)"
-          />
-          <Input
-            value={value.pagesCount}
-            onChange={(e) => onChange({ pagesCount: e.target.value })}
-            placeholder="Pages Count"
-          />
-        </div>
-
-        <Textarea
-          rows={4}
-          value={value.summary}
-          onChange={(e) => onChange({ summary: e.target.value })}
-          placeholder="Summary"
-        />
-
-        <Textarea
-          rows={8}
-          value={value.exposition}
-          onChange={(e) => onChange({ exposition: e.target.value })}
-          placeholder="Detailed Content"
+          value={value.deathDate}
+          onChange={(e) => onChange({ deathDate: e.target.value })}
+          placeholder="Death Year (e.g. 1890)"
         />
       </div>
-    </>
+
+      {/* Summary */}
+      <Textarea
+        rows={4}
+        value={value.summary}
+        onChange={(e) => onChange({ summary: e.target.value })}
+        placeholder="Short summary"
+      />
+
+      {/* Full Biography */}
+      <Textarea
+        rows={8}
+        value={value.content}
+        onChange={(e) => onChange({ content: e.target.value })}
+        placeholder="Full biography content"
+      />
+    </div>
   )
 }

@@ -216,7 +216,7 @@ export default function OverviewContent({
       })
 
       if (!result.success) {
-        showToast(result.error, 'error')
+        showToast(result.error ?? '', 'error')
         return
       }
 
