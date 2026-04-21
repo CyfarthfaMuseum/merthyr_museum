@@ -182,6 +182,33 @@ async function syncBookGenres(
   }
 }
 
+async function getUniqueBookThemeSlug(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  desiredSlug: string
+) {
+  const { data: existingRows, error } = await supabase
+    .from('book_themes')
+    .select('slug')
+    .like('slug', `${desiredSlug}%`)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  const existingSlugs = new Set((existingRows ?? []).map((row) => row.slug as string))
+
+  if (!existingSlugs.has(desiredSlug)) {
+    return desiredSlug
+  }
+
+  let suffix = 2
+  while (existingSlugs.has(`${desiredSlug}-${suffix}`)) {
+    suffix += 1
+  }
+
+  return `${desiredSlug}-${suffix}`
+}
+
 export async function createBookGenreAction(args: {
   title: string
   languageCode?: string
@@ -224,7 +251,7 @@ if (existingTranslation?.book_theme_id) {
   }
 }
 
-  const slug = slugify(title)
+  const baseSlug = slugify(title)
 
   const { data: draftStatus, error: draftStatusError } = await supabase
     .from('content_statuses')
@@ -239,43 +266,35 @@ if (existingTranslation?.book_theme_id) {
     }
   }
 
-  const { data: existingThemesBySlug, error: existingThemeBySlugError } = await supabase
-  .from('book_themes')
-  .select('id')
-  .eq('slug', slug)
-  .limit(1)
-
-if (existingThemeBySlugError) {
-  return { success: false, error: existingThemeBySlugError.message as const }
-}
-
-const existingThemeBySlug = existingThemesBySlug?.[0]
-
-  let bookThemeId: string
-
-  if (existingThemeBySlug?.id) {
-    bookThemeId = existingThemeBySlug.id
-  } else {
-    const { data: themeRow, error: themeError } = await supabase
-      .from('book_themes')
-      .insert({
-        slug,
-        content_status_id: draftStatus.id,
-        created_by: user.id,
-        updated_by: user.id,
-      })
-      .select('id')
-      .single()
-
-    if (themeError || !themeRow) {
-      return {
-        success: false,
-        error: themeError?.message ?? 'Failed to create genre.',
-      }
+  let slug: string
+  try {
+    slug = await getUniqueBookThemeSlug(supabase, baseSlug)
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to generate genre slug.',
     }
-
-    bookThemeId = themeRow.id
   }
+
+  const { data: themeRow, error: themeError } = await supabase
+    .from('book_themes')
+    .insert({
+      slug,
+      content_status_id: draftStatus.id,
+      created_by: user.id,
+      updated_by: user.id,
+    })
+    .select('id')
+    .single()
+
+  if (themeError || !themeRow) {
+    return {
+      success: false,
+      error: themeError?.message ?? 'Failed to create genre.',
+    }
+  }
+
+  const bookThemeId = themeRow.id
 
   const { error: translationError } = await supabase
     .from('book_theme_translations')
