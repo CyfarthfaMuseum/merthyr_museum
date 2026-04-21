@@ -9,14 +9,17 @@ type UploadImageResult = {
   publicUrl: string | null
 }
 
-export async function uploadImageToR2(file: File): Promise<UploadImageResult> {
+export async function uploadImageToR2(
+  file: File,
+  contentType: 'book' | 'stories' | 'painting' | 'artifacts' | 'bio' | 'generic'
+): Promise<UploadImageResult> {
   const presignRes = await fetch('/api/uploads/images/presign', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      contentType: 'generic',
+      contentType,
       fileName: file.name,
       mimeType: file.type,
     }),

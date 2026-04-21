@@ -2,16 +2,18 @@
 
 import { useState } from 'react'
 import Input from '../ui/Input'
-import { BlackButton, GreenButton } from '../ui/Buttons'
+import { GreenButton } from '../ui/Buttons'
 import SectionTitle from '../ui/SectionTitle'
 import { uploadImageToR2 } from '../../upload-image'
 import { saveImageMetadataAction } from '../../image-actions'
 
 type Props = {
   contentItemId?: string | null
+  contentType: 'book' | 'stories' | 'painting' | 'artifacts' | 'bio'
+  onUploaded?: (mediaAssetId: string) => void
 }
 
-export default function ImageManager({ contentItemId }: Props) {
+export default function ImageManager({ contentItemId, contentType, onUploaded }: Props) {
   const [file, setFile] = useState<File | null>(null)
   const [altText, setAltText] = useState('')
   const [caption, setCaption] = useState('')
@@ -35,7 +37,7 @@ export default function ImageManager({ contentItemId }: Props) {
       setIsUploading(true)
       setMessage('')
 
-      const uploaded = await uploadImageToR2(file)
+      const uploaded = await uploadImageToR2(file, contentType)
 
       const dimensions = await getImageDimensions(file)
 
@@ -59,6 +61,10 @@ export default function ImageManager({ contentItemId }: Props) {
       if (!result.success) {
         setMessage(result.error)
         return
+      }
+
+      if (result.mediaAssetId && onUploaded) {
+        onUploaded(result.mediaAssetId)
       }
 
       setMessage('Image uploaded successfully.')
