@@ -2,24 +2,26 @@ import { randomUUID } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { PutObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
-import { r2 } from '@/lib/r2'
+import { getR2Client } from '@/lib/r2'
 
-const bucket = process.env.R2_BUCKET_NAME
+const allowedContentTypes = new Set(['book', 'stories', 'painting', 'artifacts', 'bio', 'generic'])
 const publicBaseUrl = process.env.R2_PUBLIC_BASE_URL
-
-if (!bucket) {
-  throw new Error('Missing R2_BUCKET_NAME.')
-}
 
 function sanitizeFileName(fileName: string) {
   return fileName
     .toLowerCase()
     .replace(/[^a-z0-9.\-_]+/g, '-')
     .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '')
 }
 
 export async function POST(req: NextRequest) {
   try {
+    const bucket = process.env.R2_BUCKET_NAME
+    if (!bucket) {
+      return NextResponse.json({ error: 'Missing R2_BUCKET_NAME.' }, { status: 500 })
+    }
+
     const body = await req.json()
 
     const contentType = body.contentType as string | undefined
@@ -33,12 +35,16 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    if (!allowedContentTypes.has(contentType)) {
+      return NextResponse.json({ error: 'Invalid contentType.' }, { status: 400 })
+    }
+
     const safeFileName = sanitizeFileName(fileName)
     const extension = safeFileName.includes('.')
-      ? safeFileName.split('.').pop()
+      ? safeFileName.split('.').pop()?.replace(/[^a-z0-9]/g, '')
       : 'bin'
 
-    const objectKey = `content/${contentType}/images/${randomUUID()}.${extension}`
+    const objectKey = `content/${contentType}/images/${randomUUID()}.${extension || 'bin'}`
 
     const command = new PutObjectCommand({
       Bucket: bucket,
@@ -46,7 +52,7 @@ export async function POST(req: NextRequest) {
       ContentType: mimeType,
     })
 
-    const uploadUrl = await getSignedUrl(r2, command, { expiresIn: 60 * 5 })
+    const uploadUrl = await getSignedUrl(getR2Client(), command, { expiresIn: 60 * 5 })
 
     return NextResponse.json({
       uploadUrl,

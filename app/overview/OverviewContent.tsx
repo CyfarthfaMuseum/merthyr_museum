@@ -19,6 +19,7 @@ import Modal from './components/ui/Modal'
 import SectionTitle from './components/ui/SectionTitle'
 import Textarea from './components/ui/Textarea'
 import Toast from './components/ui/Toast'
+import ImageManager from './components/shared/ImageManager'
 
 type Props = {
   userEmail: string
@@ -66,6 +67,7 @@ export default function OverviewContent({
   const [toastOpen, setToastOpen] = useState(false)
   const [toastMessage, setToastMessage] = useState('')
   const [toastTone, setToastTone] = useState<'success' | 'error'>('success')
+  const [savedContentItemId, setSavedContentItemId] = useState<string | null>(editId)
 
   useEffect(() => {
     setDraft(initialDraft)
@@ -73,7 +75,8 @@ export default function OverviewContent({
     setSlugEditedManually(mode === 'edit')
     setSeoTitleEditedManually(mode === 'edit')
     setSeoDescriptionEditedManually(mode === 'edit')
-  }, [initialDraft, availableBookGenres, mode])
+    setSavedContentItemId(editId)
+  }, [initialDraft, availableBookGenres, mode, editId])
 
   useEffect(() => {
     if (!toastOpen) return
@@ -269,6 +272,7 @@ export default function OverviewContent({
         return
       }
 
+      setSavedContentItemId(result.id)
       showToast(mode === 'edit' ? 'Content updated.' : 'Content saved.', 'success')
     })
   }
@@ -377,6 +381,19 @@ export default function OverviewContent({
                   }
                 />
               )}
+
+              <Divider />
+
+              <ImageManager
+                contentItemId={savedContentItemId}
+                contentType={draft.contentType}
+                onUploaded={(mediaAssetId) =>
+                  setDraft((current) => ({
+                    ...current,
+                    featuredImageId: mediaAssetId,
+                  }))
+                }
+              />
 
               <Divider />
 
