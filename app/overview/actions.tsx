@@ -266,31 +266,40 @@ if (existingTranslation?.book_theme_id) {
     }
   }
 
-  let slug: string
-  try {
-    slug = await getUniqueBookThemeSlug(supabase, baseSlug)
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to generate genre slug.',
-    }
-  }
+  let bookThemeId: string | null = null
 
-  const { data: themeRow, error: themeError } = await supabase
-    .from('book_themes')
-    .insert({
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const slug = attempt === 0 ? baseSlug : `${baseSlug}-${attempt + 1}`
+    const candidateId = crypto.randomUUID()
+
+    const { error: themeError } = await supabase.from('book_themes').insert({
+      id: candidateId,
       slug,
       content_status_id: draftStatus.id,
       created_by: user.id,
       updated_by: user.id,
     })
-    .select('id')
-    .single()
 
-  if (themeError || !themeRow) {
+    if (!themeError) {
+      bookThemeId = candidateId
+      break
+    }
+
+    const isSlugCollision =
+      themeError.code === '23505' && themeError.message.toLowerCase().includes('slug')
+
+    if (!isSlugCollision) {
+      return {
+        success: false,
+        error: themeError.message,
+      }
+    }
+  }
+
+  if (!bookThemeId) {
     return {
       success: false,
-      error: themeError?.message ?? 'Failed to create genre.',
+      error: 'Failed to create genre slug after multiple attempts.',
     }
   }
 
