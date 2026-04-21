@@ -224,7 +224,7 @@ if (existingTranslation?.book_theme_id) {
   }
 }
 
-  const slug = slugify(title)
+  const baseSlug = slugify(title)
 
   const { data: draftStatus, error: draftStatusError } = await supabase
     .from('content_statuses')
@@ -239,42 +239,41 @@ if (existingTranslation?.book_theme_id) {
     }
   }
 
-  const { data: existingThemesBySlug, error: existingThemeBySlugError } = await supabase
-  .from('book_themes')
-  .select('id')
-  .eq('slug', slug)
-  .limit(1)
+  let bookThemeId: string | null = null
 
-if (existingThemeBySlugError) {
-  return { success: false, error: existingThemeBySlugError.message as const }
-}
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const slug = attempt === 0 ? baseSlug : `${baseSlug}-${attempt + 1}`
+    const candidateId = crypto.randomUUID()
 
-const existingThemeBySlug = existingThemesBySlug?.[0]
+    const { error: themeError } = await supabase.from('book_themes').insert({
+      id: candidateId,
+      slug,
+      content_status_id: draftStatus.id,
+      created_by: user.id,
+      updated_by: user.id,
+    })
 
-  let bookThemeId: string
-
-  if (existingThemeBySlug?.id) {
-    bookThemeId = existingThemeBySlug.id
-  } else {
-    const { data: themeRow, error: themeError } = await supabase
-      .from('book_themes')
-      .insert({
-        slug,
-        content_status_id: draftStatus.id,
-        created_by: user.id,
-        updated_by: user.id,
-      })
-      .select('id')
-      .single()
-
-    if (themeError || !themeRow) {
-      return {
-        success: false,
-        error: themeError?.message ?? 'Failed to create genre.',
-      }
+    if (!themeError) {
+      bookThemeId = candidateId
+      break
     }
 
-    bookThemeId = themeRow.id
+    const isSlugCollision =
+      themeError.code === '23505' && themeError.message.toLowerCase().includes('slug')
+
+    if (!isSlugCollision) {
+      return {
+        success: false,
+        error: themeError.message,
+      }
+    }
+  }
+
+  if (!bookThemeId) {
+    return {
+      success: false,
+      error: 'Failed to create genre slug after multiple attempts.',
+    }
   }
 
   const { error: translationError } = await supabase
