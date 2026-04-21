@@ -182,6 +182,33 @@ async function syncBookGenres(
   }
 }
 
+async function getUniqueBookThemeSlug(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  desiredSlug: string
+) {
+  const { data: existingRows, error } = await supabase
+    .from('book_themes')
+    .select('slug')
+    .like('slug', `${desiredSlug}%`)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  const existingSlugs = new Set((existingRows ?? []).map((row) => row.slug as string))
+
+  if (!existingSlugs.has(desiredSlug)) {
+    return desiredSlug
+  }
+
+  let suffix = 2
+  while (existingSlugs.has(`${desiredSlug}-${suffix}`)) {
+    suffix += 1
+  }
+
+  return `${desiredSlug}-${suffix}`
+}
+
 export async function createBookGenreAction(args: {
   title: string
   languageCode?: string
@@ -275,6 +302,8 @@ if (existingTranslation?.book_theme_id) {
       error: 'Failed to create genre slug after multiple attempts.',
     }
   }
+
+  const bookThemeId = themeRow.id
 
   const { error: translationError } = await supabase
     .from('book_theme_translations')
