@@ -26,6 +26,11 @@ type ImageItem = {
   isUploading: boolean
 }
 
+type UploadState = {
+  phase: 'idle' | 'requesting-url' | 'uploading-r2' | 'saving-metadata' | 'done' | 'error'
+  details: string
+}
+
 export default function ImageManager({ contentItemId, contentType, onUploaded }: Props) {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const previewObjectUrlsRef = useRef<string[]>([])
@@ -34,6 +39,10 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   const [message, setMessage] = useState('')
+  const [uploadState, setUploadState] = useState<UploadState>({
+    phase: 'idle',
+    details: '',
+  })
 
   useEffect(() => {
     const previewObjectUrls = previewObjectUrlsRef.current
@@ -72,6 +81,22 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
     )
   }
 
+  function removeImage(localId: string) {
+    setImages((current) => {
+      const nextImages = current.filter((image) => image.localId !== localId)
+
+      setSelectedImageId((currentSelectedId) => {
+        if (currentSelectedId !== localId) {
+          return currentSelectedId
+        }
+
+        return nextImages[0]?.localId ?? null
+      })
+
+      return nextImages
+    })
+  }
+
   async function handleUpload(selectedFile: File) {
     if (!contentItemId) {
       setMessage('Save the content item first, then add images.')
@@ -99,10 +124,33 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
     try {
       setIsUploading(true)
       setMessage('')
+      setUploadState({
+        phase: 'requesting-url',
+        details: 'Requesting upload URL from the server...',
+      })
 
-      const uploaded = await uploadImageToR2(selectedFile, contentType)
+      const uploaded = await uploadImageToR2(selectedFile, contentType, {
+        onPhaseChange: (phase) => {
+          if (phase === 'requesting-presigned-url') {
+            setUploadState({
+              phase: 'requesting-url',
+              details: 'Requesting upload URL from the server...',
+            })
+            return
+          }
+
+          setUploadState({
+            phase: 'uploading-r2',
+            details: 'Uploading image bytes to Cloudflare R2...',
+          })
+        },
+      })
       const dimensions = await getImageDimensions(selectedFile)
 
+      setUploadState({
+        phase: 'saving-metadata',
+        details: 'Saving image metadata in the database...',
+      })
       const result = await saveImageMetadataAction({
         contentItemId,
         objectKey: uploaded.objectKey,
@@ -122,8 +170,13 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
       })
 
       if (!result.success || !result.mediaAssetId) {
-        setMessage(result.error ?? 'Upload failed.')
-        setImages((current) => current.filter((image) => image.localId !== localId))
+        const failure = result.error ?? 'Upload failed while saving metadata.'
+        setUploadState({
+          phase: 'error',
+          details: failure,
+        })
+        setMessage(failure)
+        removeImage(localId)
         return
       }
 
@@ -140,11 +193,20 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
       )
 
       onUploaded?.(result.mediaAssetId)
+      setUploadState({
+        phase: 'done',
+        details: 'Upload complete.',
+      })
       setMessage('Image uploaded successfully.')
     } catch (error) {
       console.error('[ImageManager] Upload failed', error)
-      setMessage(error instanceof Error ? error.message : 'Upload failed.')
-      setImages((current) => current.filter((image) => image.localId !== localId))
+      const failureMessage = error instanceof Error ? error.message : 'Upload failed.'
+      setUploadState({
+        phase: 'error',
+        details: failureMessage,
+      })
+      setMessage(failureMessage)
+      removeImage(localId)
     } finally {
       setIsUploading(false)
       if (fileInputRef.current) {
@@ -176,6 +238,7 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
         {selectedImage ? (
           <div className="overflow-hidden rounded-xl border border-neutral-300 bg-white">
             <Image
+              key={selectedImage.localId}
               src={selectedImage.previewUrl}
               alt={selectedImage.altText || selectedImage.fileName || 'Selected image preview'}
               width={1200}
@@ -280,6 +343,12 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
           {isUploading ? 'UPLOADING...' : 'ADD IMAGE'}
         </GreenButton>
       </div>
+
+      {isUploading ? (
+        <p className="text-sm text-neutral-600">
+          Upload activity: {uploadState.details || 'Preparing upload...'}
+        </p>
+      ) : null}
 
       {message ? <p className="text-sm text-neutral-700">{message}</p> : null}
     </div>
