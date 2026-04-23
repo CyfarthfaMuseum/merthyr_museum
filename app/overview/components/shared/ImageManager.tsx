@@ -82,6 +82,25 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
       return
     }
 
+  useEffect(() => {
+    const previewObjectUrls = previewObjectUrlsRef.current
+
+    return () => {
+      previewObjectUrls.forEach((url) => URL.revokeObjectURL(url))
+    }
+  }, [])
+
+  const selectedImage = useMemo(
+    () => images.find((image) => image.localId === selectedImageId) ?? null,
+    [images, selectedImageId]
+  )
+  const placeholderCount = Math.max(0, 5 - images.length)
+
+  function updateSelectedImage(patch: Partial<Pick<ImageItem, 'altText' | 'caption' | 'credit' | 'isPrimary'>>) {
+    if (!selectedImageId) {
+      return
+    }
+
     setImages((current) =>
       current.map((image) => {
         if (image.localId !== selectedImageId) {
@@ -234,8 +253,20 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
           </div>
         )}
 
-        <div className="overflow-x-auto">
-          <div className="flex w-max items-start gap-3 pb-1">
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-neutral-700">Image list</p>
+          <div className="overflow-x-auto">
+            <div className="flex w-max items-start gap-3 pb-1">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                className="flex h-24 w-24 items-center justify-center rounded-lg border border-dashed border-neutral-400 bg-white text-sm font-medium text-neutral-700 transition hover:border-neutral-600 disabled:cursor-not-allowed disabled:opacity-60"
+                title="Add image"
+              >
+                + Add
+              </button>
+
             {images.map((image) => (
               <button
                 key={image.localId}
@@ -263,6 +294,14 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
                 ) : null}
               </button>
             ))}
+
+              {Array.from({ length: placeholderCount }).map((_, index) => (
+                <div
+                  key={`placeholder-${index}`}
+                  className="h-24 w-24 rounded-lg border border-neutral-200 bg-white"
+                />
+              ))}
+            </div>
           </div>
         </div>
       </div>
