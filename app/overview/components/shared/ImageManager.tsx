@@ -34,35 +34,6 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   const [message, setMessage] = useState('')
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const previewObjectUrlRef = useRef<string | null>(null)
-
-  useEffect(() => {
-    return () => {
-      if (previewObjectUrlRef.current) {
-        URL.revokeObjectURL(previewObjectUrlRef.current)
-      }
-    }
-  }, [])
-
-  function setPreviewFromFile(nextFile: File | null) {
-    if (previewObjectUrlRef.current) {
-      URL.revokeObjectURL(previewObjectUrlRef.current)
-      previewObjectUrlRef.current = null
-    }
-
-    if (!nextFile) {
-      setPreviewUrl(null)
-      return
-    }
-
-    const objectUrl = URL.createObjectURL(nextFile)
-    previewObjectUrlRef.current = objectUrl
-    setPreviewUrl(objectUrl)
-  }
-
-  async function handleUpload(nextFile?: File | null) {
-    const fileToUpload = nextFile ?? file
 
   useEffect(() => {
     const previewObjectUrls = previewObjectUrlsRef.current
@@ -77,26 +48,11 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
     [images, selectedImageId]
   )
 
-  function updateSelectedImage(patch: Partial<Pick<ImageItem, 'altText' | 'caption' | 'credit' | 'isPrimary'>>) {
-    if (!selectedImageId) {
-      return
-    }
-
-  useEffect(() => {
-    const previewObjectUrls = previewObjectUrlsRef.current
-
-    return () => {
-      previewObjectUrls.forEach((url) => URL.revokeObjectURL(url))
-    }
-  }, [])
-
-  const selectedImage = useMemo(
-    () => images.find((image) => image.localId === selectedImageId) ?? null,
-    [images, selectedImageId]
-  )
   const placeholderCount = Math.max(0, 5 - images.length)
 
-  function updateSelectedImage(patch: Partial<Pick<ImageItem, 'altText' | 'caption' | 'credit' | 'isPrimary'>>) {
+  function updateSelectedImage(
+    patch: Partial<Pick<ImageItem, 'altText' | 'caption' | 'credit' | 'isPrimary'>>
+  ) {
     if (!selectedImageId) {
       return
     }
@@ -107,11 +63,8 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
           if (patch.isPrimary && image.isPrimary) {
             return { ...image, isPrimary: false }
           }
-          return image
-        }
 
-        if (typeof patch.isPrimary === 'boolean') {
-          return { ...image, ...patch }
+          return image
         }
 
         return { ...image, ...patch }
@@ -147,20 +100,7 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
       setIsUploading(true)
       setMessage('')
 
-      console.info('[ImageManager] Starting upload to Cloudflare R2', {
-        fileName: selectedFile.name,
-        fileSizeBytes: selectedFile.size,
-        mimeType: selectedFile.type,
-        contentType,
-      })
-
       const uploaded = await uploadImageToR2(selectedFile, contentType)
-
-      console.info('[ImageManager] Upload to Cloudflare R2 succeeded', {
-        objectKey: uploaded.objectKey,
-        publicUrl: uploaded.publicUrl,
-      })
-
       const dimensions = await getImageDimensions(selectedFile)
 
       const result = await saveImageMetadataAction({
@@ -199,10 +139,7 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
         )
       )
 
-      if (onUploaded) {
-        onUploaded(result.mediaAssetId)
-      }
-
+      onUploaded?.(result.mediaAssetId)
       setMessage('Image uploaded successfully.')
     } catch (error) {
       console.error('[ImageManager] Upload failed', error)
@@ -248,8 +185,9 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
             />
           </div>
         ) : (
-          <div className="flex h-[320px] items-center justify-center rounded-xl border border-neutral-300 bg-white text-neutral-500">
-            Select an image to preview
+          <div className="flex h-[320px] flex-col items-center justify-center gap-2 rounded-xl border border-neutral-300 bg-white text-neutral-500">
+            <p>No images yet</p>
+            <p className="text-sm">Use the add image button below to upload your first image.</p>
           </div>
         )}
 
@@ -267,33 +205,33 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
                 + Add
               </button>
 
-            {images.map((image) => (
-              <button
-                key={image.localId}
-                type="button"
-                onClick={() => setSelectedImageId(image.localId)}
-                className={`relative h-24 w-24 overflow-hidden rounded-lg border transition ${
-                  selectedImageId === image.localId
-                    ? 'border-neutral-900 ring-2 ring-neutral-300'
-                    : 'border-neutral-300'
-                }`}
-                title={image.fileName}
-              >
-                <Image
-                  src={image.previewUrl}
-                  alt={image.altText || image.fileName}
-                  width={96}
-                  height={96}
-                  unoptimized
-                  className="h-full w-full object-cover"
-                />
-                {image.isUploading ? (
-                  <span className="absolute inset-0 flex items-center justify-center bg-black/50 text-xs font-medium text-white">
-                    Uploading...
-                  </span>
-                ) : null}
-              </button>
-            ))}
+              {images.map((image) => (
+                <button
+                  key={image.localId}
+                  type="button"
+                  onClick={() => setSelectedImageId(image.localId)}
+                  className={`relative h-24 w-24 overflow-hidden rounded-lg border transition ${
+                    selectedImageId === image.localId
+                      ? 'border-neutral-900 ring-2 ring-neutral-300'
+                      : 'border-neutral-300'
+                  }`}
+                  title={image.fileName}
+                >
+                  <Image
+                    src={image.previewUrl}
+                    alt={image.altText || image.fileName}
+                    width={96}
+                    height={96}
+                    unoptimized
+                    className="h-full w-full object-cover"
+                  />
+                  {image.isUploading ? (
+                    <span className="absolute inset-0 flex items-center justify-center bg-black/50 text-xs font-medium text-white">
+                      Uploading...
+                    </span>
+                  ) : null}
+                </button>
+              ))}
 
               {Array.from({ length: placeholderCount }).map((_, index) => (
                 <div
@@ -338,10 +276,7 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
       ) : null}
 
       <div className="flex gap-3">
-        <GreenButton
-          onClick={() => fileInputRef.current?.click()}
-          disabled={isUploading}
-        >
+        <GreenButton onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
           {isUploading ? 'UPLOADING...' : 'ADD IMAGE'}
         </GreenButton>
       </div>
@@ -357,10 +292,7 @@ function getImageDimensions(file: File): Promise<{ width: number; height: number
     const img = new window.Image()
 
     img.onload = () => {
-      resolve({
-        width: img.width,
-        height: img.height,
-      })
+      resolve({ width: img.width, height: img.height })
       URL.revokeObjectURL(objectUrl)
     }
 
@@ -370,7 +302,5 @@ function getImageDimensions(file: File): Promise<{ width: number; height: number
     }
 
     img.src = objectUrl
-    });
-}
-}
+  })
 }
