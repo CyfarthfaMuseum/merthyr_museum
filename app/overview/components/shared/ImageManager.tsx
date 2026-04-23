@@ -34,6 +34,53 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   const [message, setMessage] = useState('')
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const previewObjectUrlRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (previewObjectUrlRef.current) {
+        URL.revokeObjectURL(previewObjectUrlRef.current)
+      }
+    }
+  }, [])
+
+  function setPreviewFromFile(nextFile: File | null) {
+    if (previewObjectUrlRef.current) {
+      URL.revokeObjectURL(previewObjectUrlRef.current)
+      previewObjectUrlRef.current = null
+    }
+
+    if (!nextFile) {
+      setPreviewUrl(null)
+      return
+    }
+
+    const objectUrl = URL.createObjectURL(nextFile)
+    previewObjectUrlRef.current = objectUrl
+    setPreviewUrl(objectUrl)
+  }
+
+  async function handleUpload(nextFile?: File | null) {
+    const fileToUpload = nextFile ?? file
+
+  useEffect(() => {
+    const previewObjectUrls = previewObjectUrlsRef.current
+
+    return () => {
+      previewObjectUrls.forEach((url) => URL.revokeObjectURL(url))
+    }
+  }, [])
+
+  const selectedImage = useMemo(
+    () => images.find((image) => image.localId === selectedImageId) ?? null,
+    [images, selectedImageId]
+  )
+
+  function updateSelectedImage(patch: Partial<Pick<ImageItem, 'altText' | 'caption' | 'credit' | 'isPrimary'>>) {
+    if (!selectedImageId) {
+      return
+    }
 
   useEffect(() => {
     const previewObjectUrls = previewObjectUrlsRef.current
