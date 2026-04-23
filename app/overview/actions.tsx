@@ -13,6 +13,7 @@ type SaveArgs = {
   mode: 'create' | 'edit'
   editId?: string | null
   languageCode?: string
+  pendingMediaAssetIds?: string[]
 }
 
 const CONTENT_TYPE_CODE_MAP: Record<ContentType, string> = {
@@ -209,6 +210,63 @@ async function getUniqueBookThemeSlug(
   return `${desiredSlug}-${suffix}`
 }
 
+async function linkMediaAssetsToContentItem(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  contentItemId: string,
+  mediaAssetIds: string[]
+) {
+  const uniqueMediaAssetIds = [...new Set(mediaAssetIds.filter(Boolean))]
+
+  if (uniqueMediaAssetIds.length === 0) {
+    return
+  }
+
+  const { data: existingLinks, error: existingLinksError } = await supabase
+    .from('content_media')
+    .select('media_asset_id')
+    .eq('content_item_id', contentItemId)
+    .in('media_asset_id', uniqueMediaAssetIds)
+
+  if (existingLinksError) {
+    throw new Error(existingLinksError.message)
+  }
+
+  const linkedAssetIds = new Set((existingLinks ?? []).map((row) => row.media_asset_id as string))
+  const mediaAssetIdsToInsert = uniqueMediaAssetIds.filter((id) => !linkedAssetIds.has(id))
+
+  if (mediaAssetIdsToInsert.length === 0) {
+    return
+  }
+
+  const { data: highestSortRow, error: sortLookupError } = await supabase
+    .from('content_media')
+    .select('sort_order')
+    .eq('content_item_id', contentItemId)
+    .order('sort_order', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (sortLookupError) {
+    throw new Error(sortLookupError.message)
+  }
+
+  const baseSortOrder = Number(highestSortRow?.sort_order ?? -1)
+
+  const { error: insertError } = await supabase.from('content_media').insert(
+    mediaAssetIdsToInsert.map((mediaAssetId, index) => ({
+      content_item_id: contentItemId,
+      media_asset_id: mediaAssetId,
+      role: 'other',
+      sort_order: baseSortOrder + index + 1,
+      is_primary: false,
+    }))
+  )
+
+  if (insertError) {
+    throw new Error(insertError.message)
+  }
+}
+
 export async function createBookGenreAction(args: {
   title: string
   languageCode?: string
@@ -355,6 +413,7 @@ export async function saveContentAction({
   mode,
   editId,
   languageCode = 'en',
+  pendingMediaAssetIds = [],
 }: SaveArgs): Promise<ActionResult> {
   const supabase = await createClient()
 
@@ -428,6 +487,8 @@ export async function saveContentAction({
     if (!contentItemId) {
       return { success: false, error: 'Content item id was not created.' }
     }
+
+    await linkMediaAssetsToContentItem(supabase, contentItemId, pendingMediaAssetIds)
 
     if (draft.contentType === 'book') {
       const publicationYear = draft.book.publicationDate

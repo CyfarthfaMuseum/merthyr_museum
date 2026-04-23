@@ -98,11 +98,6 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
   }
 
   async function handleUpload(selectedFile: File) {
-    if (!contentItemId) {
-      setMessage('Save the content item first, then add images.')
-      return
-    }
-
     const localId = crypto.randomUUID()
     const previewUrl = URL.createObjectURL(selectedFile)
     previewObjectUrlsRef.current.push(previewUrl)
