@@ -50,7 +50,7 @@ export default function LoginPage() {
 
   return (
     <main className="min-h-screen bg-[#f6f6f4] px-6 py-8 text-[#1f1f1f]">
-      <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-7xl flex-col border border-[#d7d7d2] bg-[#f6f6f4]">
+      <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-7xl flex-col bg-[#f6f6f4]">
         <header className="flex justify-end px-8 pt-8 sm:px-10 sm:pt-10">
           <div className="flex flex-col items-end gap-3">
             <img
