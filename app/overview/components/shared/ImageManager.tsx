@@ -373,3 +373,4 @@ function getImageDimensions(file: File): Promise<{ width: number; height: number
     });
 }
 }
+}
