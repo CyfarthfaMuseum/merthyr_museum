@@ -13,6 +13,12 @@ export async function uploadImageToR2(
   file: File,
   contentType: 'book' | 'stories' | 'painting' | 'artifacts' | 'bio' | 'generic'
 ): Promise<UploadImageResult> {
+  console.info('[uploadImageToR2] Requesting presigned URL', {
+    fileName: file.name,
+    mimeType: file.type,
+    contentType,
+  })
+
   const presignRes = await fetch('/api/uploads/images/presign', {
     method: 'POST',
     headers: {
@@ -42,8 +48,19 @@ export async function uploadImageToR2(
   })
 
   if (!uploadRes.ok) {
+    console.error('[uploadImageToR2] Upload to Cloudflare R2 failed', {
+      status: uploadRes.status,
+      statusText: uploadRes.statusText,
+      objectKey,
+    })
     throw new Error('Upload to R2 failed.')
   }
+
+  console.info('[uploadImageToR2] Upload to Cloudflare R2 completed', {
+    status: uploadRes.status,
+    objectKey,
+    publicUrl,
+  })
 
   return {
     objectKey,
