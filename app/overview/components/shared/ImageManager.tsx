@@ -170,8 +170,17 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
           phase: 'error',
           details: failure,
         })
-        setMessage(failure)
-        removeImage(localId)
+        setMessage(`Image uploaded to R2, but metadata save failed: ${failure}`)
+        setImages((current) =>
+          current.map((image) =>
+            image.localId === localId
+              ? {
+                  ...image,
+                  isUploading: false,
+                }
+              : image
+          )
+        )
         return
       }
 
