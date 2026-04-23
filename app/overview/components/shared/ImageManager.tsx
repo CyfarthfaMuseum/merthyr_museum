@@ -67,7 +67,19 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
       setIsUploading(true)
       setMessage('')
 
+      console.info('[ImageManager] Starting upload to Cloudflare R2', {
+        fileName: fileToUpload.name,
+        fileSizeBytes: fileToUpload.size,
+        mimeType: fileToUpload.type,
+        contentType,
+      })
+
       const uploaded = await uploadImageToR2(fileToUpload, contentType)
+
+      console.info('[ImageManager] Upload to Cloudflare R2 succeeded', {
+        objectKey: uploaded.objectKey,
+        publicUrl: uploaded.publicUrl,
+      })
 
       const dimensions = await getImageDimensions(fileToUpload)
 
@@ -109,6 +121,7 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
       setCredit('')
       setIsPrimary(true)
     } catch (error) {
+      console.error('[ImageManager] Upload failed', error)
       setMessage(error instanceof Error ? error.message : 'Upload failed.')
     } finally {
       setIsUploading(false)
