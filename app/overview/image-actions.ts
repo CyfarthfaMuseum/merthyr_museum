@@ -3,7 +3,7 @@
 import { createClient } from '@/utils/supabase/server'
 
 type SaveImageArgs = {
-  contentItemId: string
+  contentItemId?: string | null
   objectKey: string
   publicUrl?: string | null
   fileName: string
@@ -73,27 +73,29 @@ export async function saveImageMetadataAction(args: SaveImageArgs) {
     }
   }
 
-  if (isPrimary) {
-    const { error: clearPrimaryError } = await supabase
-      .from('content_media')
-      .update({ is_primary: false })
-      .eq('content_item_id', args.contentItemId)
+  if (args.contentItemId) {
+    if (isPrimary) {
+      const { error: clearPrimaryError } = await supabase
+        .from('content_media')
+        .update({ is_primary: false })
+        .eq('content_item_id', args.contentItemId)
 
-    if (clearPrimaryError) {
-      return { success: false, error: clearPrimaryError.message }
+      if (clearPrimaryError) {
+        return { success: false, error: clearPrimaryError.message }
+      }
     }
-  }
 
-  const { error: linkError } = await supabase.from('content_media').insert({
-    content_item_id: args.contentItemId,
-    media_asset_id: mediaAsset.id,
-    role,
-    sort_order: sortOrder,
-    is_primary: isPrimary,
-  })
+    const { error: linkError } = await supabase.from('content_media').insert({
+      content_item_id: args.contentItemId,
+      media_asset_id: mediaAsset.id,
+      role,
+      sort_order: sortOrder,
+      is_primary: isPrimary,
+    })
 
-  if (linkError) {
-    return { success: false, error: linkError.message }
+    if (linkError) {
+      return { success: false, error: linkError.message }
+    }
   }
 
   return {

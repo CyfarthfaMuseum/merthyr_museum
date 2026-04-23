@@ -68,6 +68,7 @@ export default function OverviewContent({
   const [toastMessage, setToastMessage] = useState('')
   const [toastTone, setToastTone] = useState<'success' | 'error'>('success')
   const [savedContentItemId, setSavedContentItemId] = useState<string | null>(editId)
+  const [pendingMediaAssetIds, setPendingMediaAssetIds] = useState<string[]>([])
 
   useEffect(() => {
     setDraft(initialDraft)
@@ -76,6 +77,7 @@ export default function OverviewContent({
     setSeoTitleEditedManually(mode === 'edit')
     setSeoDescriptionEditedManually(mode === 'edit')
     setSavedContentItemId(editId)
+    setPendingMediaAssetIds([])
   }, [initialDraft, availableBookGenres, mode, editId])
 
   useEffect(() => {
@@ -265,6 +267,7 @@ export default function OverviewContent({
         mode,
         editId,
         languageCode: 'en',
+        pendingMediaAssetIds,
       })
 
       if (!result.success) {
@@ -273,6 +276,7 @@ export default function OverviewContent({
       }
 
       setSavedContentItemId(result.id)
+      setPendingMediaAssetIds([])
       showToast(mode === 'edit' ? 'Content updated.' : 'Content saved.', 'success')
     })
   }
@@ -387,12 +391,15 @@ export default function OverviewContent({
               <ImageManager
                 contentItemId={savedContentItemId}
                 contentType={draft.contentType}
-                onUploaded={(mediaAssetId) =>
+                onUploaded={(mediaAssetId) => {
+                  setPendingMediaAssetIds((current) =>
+                    current.includes(mediaAssetId) ? current : [...current, mediaAssetId]
+                  )
                   setDraft((current) => ({
                     ...current,
                     featuredImageId: mediaAssetId,
                   }))
-                }
+                }}
               />
 
               <Divider />
