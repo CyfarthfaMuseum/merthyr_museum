@@ -5,6 +5,7 @@ import { createClient } from '@/utils/supabase/server'
 type SaveImageArgs = {
   contentItemId: string
   objectKey: string
+  publicUrl?: string | null
   fileName: string
   mimeType: string
   fileSizeBytes?: number | null
@@ -38,7 +39,7 @@ export async function saveImageMetadataAction(args: SaveImageArgs) {
   const { data: mediaAsset, error: mediaAssetError } = await supabase
     .from('media_assets')
     .insert({
-      storage_path: args.objectKey,
+      storage_path: args.publicUrl ?? args.objectKey,
       file_name: args.fileName,
       mime_type: args.mimeType,
       file_size_bytes: args.fileSizeBytes ?? null,

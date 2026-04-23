@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import Image from 'next/image'
 import Input from '../ui/Input'
 import { GreenButton } from '../ui/Buttons'
 import SectionTitle from '../ui/SectionTitle'
@@ -14,6 +15,7 @@ type Props = {
 }
 
 export default function ImageManager({ contentItemId, contentType, onUploaded }: Props) {
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [file, setFile] = useState<File | null>(null)
   const [altText, setAltText] = useState('')
   const [caption, setCaption] = useState('')
@@ -21,14 +23,42 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
   const [isPrimary, setIsPrimary] = useState(true)
   const [isUploading, setIsUploading] = useState(false)
   const [message, setMessage] = useState('')
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const previewObjectUrlRef = useRef<string | null>(null)
 
-  async function handleUpload() {
+  useEffect(() => {
+    return () => {
+      if (previewObjectUrlRef.current) {
+        URL.revokeObjectURL(previewObjectUrlRef.current)
+      }
+    }
+  }, [])
+
+  function setPreviewFromFile(nextFile: File | null) {
+    if (previewObjectUrlRef.current) {
+      URL.revokeObjectURL(previewObjectUrlRef.current)
+      previewObjectUrlRef.current = null
+    }
+
+    if (!nextFile) {
+      setPreviewUrl(null)
+      return
+    }
+
+    const objectUrl = URL.createObjectURL(nextFile)
+    previewObjectUrlRef.current = objectUrl
+    setPreviewUrl(objectUrl)
+  }
+
+  async function handleUpload(nextFile?: File | null) {
+    const fileToUpload = nextFile ?? file
+
     if (!contentItemId) {
       setMessage('Save the content item first, then add images.')
       return
     }
 
-    if (!file) {
+    if (!fileToUpload) {
       setMessage('Please choose an image first.')
       return
     }
@@ -37,16 +67,29 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
       setIsUploading(true)
       setMessage('')
 
-      const uploaded = await uploadImageToR2(file, contentType)
+      console.info('[ImageManager] Starting upload to Cloudflare R2', {
+        fileName: fileToUpload.name,
+        fileSizeBytes: fileToUpload.size,
+        mimeType: fileToUpload.type,
+        contentType,
+      })
 
-      const dimensions = await getImageDimensions(file)
+      const uploaded = await uploadImageToR2(fileToUpload, contentType)
+
+      console.info('[ImageManager] Upload to Cloudflare R2 succeeded', {
+        objectKey: uploaded.objectKey,
+        publicUrl: uploaded.publicUrl,
+      })
+
+      const dimensions = await getImageDimensions(fileToUpload)
 
       const result = await saveImageMetadataAction({
         contentItemId,
         objectKey: uploaded.objectKey,
-        fileName: file.name,
-        mimeType: file.type,
-        fileSizeBytes: file.size,
+        publicUrl: uploaded.publicUrl,
+        fileName: fileToUpload.name,
+        mimeType: fileToUpload.type,
+        fileSizeBytes: fileToUpload.size,
         width: dimensions.width,
         height: dimensions.height,
         altText,
@@ -69,11 +112,16 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
 
       setMessage('Image uploaded successfully.')
       setFile(null)
+      setPreviewFromFile(null)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
       setAltText('')
       setCaption('')
       setCredit('')
       setIsPrimary(true)
     } catch (error) {
+      console.error('[ImageManager] Upload failed', error)
       setMessage(error instanceof Error ? error.message : 'Upload failed.')
     } finally {
       setIsUploading(false)
@@ -85,41 +133,72 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
       <SectionTitle>Images</SectionTitle>
 
       <input
+        ref={fileInputRef}
         type="file"
         accept="image/*"
-        onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+        className="hidden"
+        onChange={(e) => {
+          const selectedFile = e.target.files?.[0] ?? null
+          setFile(selectedFile)
+          setPreviewFromFile(selectedFile)
+          setAltText('')
+          setCaption('')
+          setCredit('')
+          setIsPrimary(true)
+          if (selectedFile) {
+            void handleUpload(selectedFile)
+          }
+        }}
       />
 
-      <Input
-        value={altText}
-        onChange={(e) => setAltText(e.target.value)}
-        placeholder="Alt text"
-      />
+      {previewUrl ? (
+        <div className="space-y-4">
+          <div className="overflow-hidden rounded-xl border border-neutral-300 bg-neutral-50">
+            <Image
+              src={previewUrl}
+              alt={altText || file?.name || 'Selected image preview'}
+              width={1200}
+              height={900}
+              unoptimized
+              className="max-h-96 w-full object-contain"
+            />
+          </div>
 
-      <Input
-        value={caption}
-        onChange={(e) => setCaption(e.target.value)}
-        placeholder="Caption"
-      />
+          <Input
+            value={altText}
+            onChange={(e) => setAltText(e.target.value)}
+            placeholder="Alt text"
+          />
 
-      <Input
-        value={credit}
-        onChange={(e) => setCredit(e.target.value)}
-        placeholder="Credit"
-      />
+          <Input
+            value={caption}
+            onChange={(e) => setCaption(e.target.value)}
+            placeholder="Caption"
+          />
 
-      <label className="flex items-center gap-3">
-        <input
-          type="checkbox"
-          checked={isPrimary}
-          onChange={(e) => setIsPrimary(e.target.checked)}
-        />
-        <span>Set as primary image</span>
-      </label>
+          <Input
+            value={credit}
+            onChange={(e) => setCredit(e.target.value)}
+            placeholder="Credit"
+          />
+
+          <label className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              checked={isPrimary}
+              onChange={(e) => setIsPrimary(e.target.checked)}
+            />
+            <span>Set as primary image</span>
+          </label>
+        </div>
+      ) : null}
 
       <div className="flex gap-3">
-        <GreenButton onClick={handleUpload} disabled={isUploading}>
-          {isUploading ? 'UPLOADING...' : 'UPLOAD IMAGE'}
+        <GreenButton
+          onClick={() => fileInputRef.current?.click()}
+          disabled={isUploading}
+        >
+          {isUploading ? 'UPLOADING...' : 'ADD IMAGE'}
         </GreenButton>
       </div>
 
