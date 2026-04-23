@@ -15,6 +15,7 @@ type Props = {
 }
 
 export default function ImageManager({ contentItemId, contentType, onUploaded }: Props) {
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [file, setFile] = useState<File | null>(null)
   const [altText, setAltText] = useState('')
   const [caption, setCaption] = useState('')
@@ -49,13 +50,15 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
     setPreviewUrl(objectUrl)
   }
 
-  async function handleUpload() {
+  async function handleUpload(nextFile?: File | null) {
+    const fileToUpload = nextFile ?? file
+
     if (!contentItemId) {
       setMessage('Save the content item first, then add images.')
       return
     }
 
-    if (!file) {
+    if (!fileToUpload) {
       setMessage('Please choose an image first.')
       return
     }
@@ -64,17 +67,17 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
       setIsUploading(true)
       setMessage('')
 
-      const uploaded = await uploadImageToR2(file, contentType)
+      const uploaded = await uploadImageToR2(fileToUpload, contentType)
 
-      const dimensions = await getImageDimensions(file)
+      const dimensions = await getImageDimensions(fileToUpload)
 
       const result = await saveImageMetadataAction({
         contentItemId,
         objectKey: uploaded.objectKey,
         publicUrl: uploaded.publicUrl,
-        fileName: file.name,
-        mimeType: file.type,
-        fileSizeBytes: file.size,
+        fileName: fileToUpload.name,
+        mimeType: fileToUpload.type,
+        fileSizeBytes: fileToUpload.size,
         width: dimensions.width,
         height: dimensions.height,
         altText,
@@ -98,6 +101,9 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
       setMessage('Image uploaded successfully.')
       setFile(null)
       setPreviewFromFile(null)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
       setAltText('')
       setCaption('')
       setCredit('')
@@ -114,8 +120,10 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
       <SectionTitle>Images</SectionTitle>
 
       <input
+        ref={fileInputRef}
         type="file"
         accept="image/*"
+        className="hidden"
         onChange={(e) => {
           const selectedFile = e.target.files?.[0] ?? null
           setFile(selectedFile)
@@ -124,6 +132,9 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
           setCaption('')
           setCredit('')
           setIsPrimary(true)
+          if (selectedFile) {
+            void handleUpload(selectedFile)
+          }
         }}
       />
 
@@ -170,8 +181,11 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
       ) : null}
 
       <div className="flex gap-3">
-        <GreenButton onClick={handleUpload} disabled={isUploading || !file}>
-          {isUploading ? 'UPLOADING...' : 'UPLOAD IMAGE'}
+        <GreenButton
+          onClick={() => fileInputRef.current?.click()}
+          disabled={isUploading}
+        >
+          {isUploading ? 'UPLOADING...' : 'ADD IMAGE'}
         </GreenButton>
       </div>
 
