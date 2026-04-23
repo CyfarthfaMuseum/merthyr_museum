@@ -9,10 +9,21 @@ type UploadImageResult = {
   publicUrl: string | null
 }
 
+type UploadPhase = 'requesting-presigned-url' | 'uploading-to-r2'
+type UploadImageOptions = {
+  onPhaseChange?: (phase: UploadPhase) => void
+}
+
+function buildUploadError(phase: UploadPhase, message: string) {
+  return new Error(`[${phase}] ${message}`)
+}
+
 export async function uploadImageToR2(
   file: File,
-  contentType: 'book' | 'stories' | 'painting' | 'artifacts' | 'bio' | 'generic'
+  contentType: 'book' | 'stories' | 'painting' | 'artifacts' | 'bio' | 'generic',
+  options?: UploadImageOptions
 ): Promise<UploadImageResult> {
+  options?.onPhaseChange?.('requesting-presigned-url')
   console.info('[uploadImageToR2] Requesting presigned URL', {
     fileName: file.name,
     mimeType: file.type,
@@ -33,12 +44,16 @@ export async function uploadImageToR2(
 
   if (!presignRes.ok) {
     const error = await presignRes.json().catch(() => null)
-    throw new Error(error?.error ?? 'Failed to get upload URL.')
+    throw buildUploadError(
+      'requesting-presigned-url',
+      error?.error ?? 'Failed to get upload URL.'
+    )
   }
 
   const { uploadUrl, objectKey, publicUrl } =
     (await presignRes.json()) as PresignResponse
 
+  options?.onPhaseChange?.('uploading-to-r2')
   const uploadRes = await fetch(uploadUrl, {
     method: 'PUT',
     headers: {
@@ -53,7 +68,10 @@ export async function uploadImageToR2(
       statusText: uploadRes.statusText,
       objectKey,
     })
-    throw new Error('Upload to R2 failed.')
+    throw buildUploadError(
+      'uploading-to-r2',
+      `Upload to R2 failed with status ${uploadRes.status} ${uploadRes.statusText}.`
+    )
   }
 
   console.info('[uploadImageToR2] Upload to Cloudflare R2 completed', {
