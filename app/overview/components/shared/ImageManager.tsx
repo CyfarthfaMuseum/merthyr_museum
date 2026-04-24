@@ -75,6 +75,7 @@ export default function ImageManager({
   const [images, setImages] = useState<ImageItem[]>([])
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
+  const [message, setMessage] = useState('')
   const [imageryMessage, setImageryMessage] = useState('')
   const [qrMessage, setQrMessage] = useState('')
   const [qrDataUrl, setQrDataUrl] = useState('')
