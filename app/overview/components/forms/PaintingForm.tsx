@@ -34,6 +34,11 @@ export default function PaintingForm({ value, onChange }: Props) {
         <Input
           value={value.yearCreated}
           onChange={(e) => onChange({ yearCreated: e.target.value })}
+          type="number"
+          min="0"
+          max="9999"
+          step="1"
+          inputMode="numeric"
           placeholder="Year Created"
         />
       </div>
