@@ -85,7 +85,7 @@ export default function ImageManager({
     phase: 'idle',
     details: '',
   })
-  const [message, setMessage] = useState('')
+  const [locationMessage, setLocationMessage] = useState('')
   const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false)
   const [locationAddress, setLocationAddress] = useState('')
   const [selectedCoordinates, setSelectedCoordinates] = useState<{ lat: number; lng: number } | null>(
@@ -360,7 +360,7 @@ export default function ImageManager({
 
   async function handleConfirmLocation() {
     if (!selectedCoordinates) {
-      setMessage('Please drop a pin before confirming location.')
+      setLocationMessage('Please drop a pin before confirming location.')
       return
     }
 
@@ -385,7 +385,7 @@ export default function ImageManager({
       latitude: lat,
       longitude: lng,
     })
-    setMessage('Location confirmed. Address and coordinates were logged in the console.')
+    setLocationMessage('Location confirmed. Address and coordinates were logged in the console.')
     setIsLocationDialogOpen(false)
   }
 
@@ -556,6 +556,8 @@ export default function ImageManager({
             </p>
           </div>
         ) : null}
+
+        {locationMessage ? <p className="mt-3 text-sm text-neutral-700">{locationMessage}</p> : null}
       </div>
 
       <div className="border-t border-neutral-300 pt-8">
@@ -618,8 +620,6 @@ export default function ImageManager({
           Upload activity: {uploadState.details || 'Preparing upload...'}
         </p>
       ) : null}
-
-      {message ? <p className="text-sm text-neutral-700">{message}</p> : null}
 
       {isLocationDialogOpen ? (
         <div className="fixed inset-0 z-[60] flex flex-col bg-white">
