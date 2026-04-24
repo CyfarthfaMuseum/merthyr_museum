@@ -34,13 +34,23 @@ export default function BioForm({ value, onChange }: Props) {
         <Input
           value={value.birthDate}
           onChange={(e) => onChange({ birthDate: e.target.value })}
-          placeholder="Birth Year (e.g. 1820)"
+          type="number"
+          min="0"
+          max="9999"
+          step="1"
+          inputMode="numeric"
+          placeholder="Birth Year"
         />
 
         <Input
           value={value.deathDate}
           onChange={(e) => onChange({ deathDate: e.target.value })}
-          placeholder="Death Year (e.g. 1890)"
+          type="number"
+          min="0"
+          max="9999"
+          step="1"
+          inputMode="numeric"
+          placeholder="Death Year"
         />
       </div>
 

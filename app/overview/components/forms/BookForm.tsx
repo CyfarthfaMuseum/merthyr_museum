@@ -101,7 +101,8 @@ export default function BookForm({
           <Input
             value={value.publicationDate}
             onChange={(e) => onChange({ publicationDate: e.target.value })}
-            placeholder="Publication Date (YYYY-MM-DD)"
+            type="date"
+            aria-label="Publication Date"
           />
           <Input
             value={value.pagesCount}
