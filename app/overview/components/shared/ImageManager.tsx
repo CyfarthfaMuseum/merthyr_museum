@@ -72,6 +72,7 @@ export default function ImageManager({
   const mapContainerRef = useRef<HTMLDivElement | null>(null)
   const mapInstanceRef = useRef<LeafletMap | null>(null)
   const markerRef = useRef<LeafletMarker | null>(null)
+  const selectedCoordinatesRef = useRef<{ lat: number; lng: number } | null>(null)
 
   const [images, setImages] = useState<ImageItem[]>([])
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null)
@@ -90,6 +91,10 @@ export default function ImageManager({
   const [selectedCoordinates, setSelectedCoordinates] = useState<{ lat: number; lng: number } | null>(
     null
   )
+
+  useEffect(() => {
+    selectedCoordinatesRef.current = selectedCoordinates
+  }, [selectedCoordinates])
 
   useEffect(() => {
     const previewObjectUrls = previewObjectUrlsRef.current
@@ -133,13 +138,22 @@ export default function ImageManager({
       }
 
       if (!mapInstanceRef.current) {
-        const map = L.map(mapContainerRef.current).setView([51.7465, -3.378], 13)
+        const initialCoordinates = selectedCoordinatesRef.current
+        const initialPosition: [number, number] = initialCoordinates
+          ? [initialCoordinates.lat, initialCoordinates.lng]
+          : [51.7465, -3.378]
+        const initialZoom = initialCoordinates ? 16 : 13
+        const map = L.map(mapContainerRef.current).setView(initialPosition, initialZoom)
         mapInstanceRef.current = map
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           maxZoom: 19,
           attribution: '&copy; OpenStreetMap contributors',
         }).addTo(map)
+
+        if (initialCoordinates) {
+          markerRef.current = L.marker([initialCoordinates.lat, initialCoordinates.lng]).addTo(map)
+        }
 
         map.on('click', (event: LeafletMouseEvent) => {
           const { lat, lng } = event.latlng
@@ -530,7 +544,7 @@ export default function ImageManager({
             aria-label="Selected location"
           />
           <BlackButton className="min-w-[260px]" onClick={() => setIsLocationDialogOpen(true)}>
-            ADD NEW LOCATION
+            SET LOCATION
           </BlackButton>
         </div>
 
