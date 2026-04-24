@@ -12,6 +12,8 @@ import { saveImageMetadataAction } from '../../image-actions'
 type Props = {
   contentItemId?: string | null
   contentType: 'book' | 'stories' | 'painting' | 'artifacts' | 'bio'
+  slugValue: string
+  onSlugChange: (value: string) => void
   onUploaded?: (mediaAssetId: string) => void
 }
 
@@ -32,15 +34,21 @@ type UploadState = {
   details: string
 }
 
-export default function ImageManager({ contentItemId, contentType, onUploaded }: Props) {
+export default function ImageManager({
+  contentItemId,
+  contentType,
+  slugValue,
+  onSlugChange,
+  onUploaded,
+}: Props) {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const previewObjectUrlsRef = useRef<string[]>([])
 
   const [images, setImages] = useState<ImageItem[]>([])
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
-  const [message, setMessage] = useState('')
-  const [qrVendorName, setQrVendorName] = useState('')
+  const [imageryMessage, setImageryMessage] = useState('')
+  const [qrMessage, setQrMessage] = useState('')
   const [qrDataUrl, setQrDataUrl] = useState('')
   const [qrLink, setQrLink] = useState('')
   const [uploadState, setUploadState] = useState<UploadState>({
@@ -69,7 +77,6 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
     () => images.filter((image) => image.localId !== primaryImage?.localId),
     [images, primaryImage?.localId]
   )
-  const placeholderCount = Math.max(0, 5 - additionalImages.length)
 
   function updateSelectedImage(
     patch: Partial<Pick<ImageItem, 'altText' | 'caption' | 'credit' | 'isPrimary'>>
@@ -130,7 +137,7 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
 
     try {
       setIsUploading(true)
-      setMessage('')
+      setImageryMessage('')
       setUploadState({
         phase: 'requesting-url',
         details: 'Requesting upload URL from the server...',
@@ -182,7 +189,7 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
           phase: 'error',
           details: failure,
         })
-        setMessage(`Image uploaded to R2, but metadata save failed: ${failure}`)
+        setImageryMessage(`Image uploaded to R2, but metadata save failed: ${failure}`)
         setImages((current) =>
           current.map((image) =>
             image.localId === localId
@@ -213,7 +220,7 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
         phase: 'done',
         details: 'Upload complete.',
       })
-      setMessage('Image uploaded successfully.')
+      setImageryMessage('Image uploaded successfully.')
     } catch (error) {
       console.error('[ImageManager] Upload failed', error)
       const failureMessage = error instanceof Error ? error.message : 'Upload failed.'
@@ -221,7 +228,7 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
         phase: 'error',
         details: failureMessage,
       })
-      setMessage(failureMessage)
+      setImageryMessage(failureMessage)
       removeImage(localId)
     } finally {
       setIsUploading(false)
@@ -232,20 +239,19 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
   }
 
   function handleGenerateQr() {
-    const vendorOrLibraryName = qrVendorName.trim()
-    if (!vendorOrLibraryName) {
-      setMessage('Please enter a vendor/library name before generating a QR code.')
+    const slug = slugValue.trim()
+    if (!slug) {
+      setQrMessage('Please enter a slug before generating a QR code.')
       return
     }
 
-    const slug = vendorOrLibraryName.toLowerCase().replace(/\s+/g, '-')
     const qrUrl = `https://merthyrmuseummap.app/location/${contentType}/${contentItemId ?? 'draft'}-${slug}`
     const encoded = encodeURIComponent(qrUrl)
     const generatedQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&format=png&data=${encoded}`
 
     setQrLink(qrUrl)
     setQrDataUrl(generatedQrUrl)
-    setMessage('QR code generated.')
+    setQrMessage('QR code generated.')
   }
 
   return (
@@ -268,7 +274,7 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
           }}
         />
 
-        <div className="grid gap-6 lg:grid-cols-[160px_1fr]">
+        <div className="grid gap-6 lg:grid-cols-[160px_minmax(0,1fr)]">
           <div className="space-y-2">
             <p className="text-[18px] text-neutral-800">Primary</p>
             {primaryImage ? (
@@ -303,7 +309,7 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
 
           <div className="space-y-2">
             <p className="text-[18px] text-neutral-800">Additional Imagery</p>
-            <div className="overflow-x-auto pb-2">
+            <div className="max-w-full overflow-x-auto pb-2">
               <div className="flex w-max items-start gap-3">
                 <button
                   type="button"
@@ -349,7 +355,7 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
                   </div>
                 ))}
 
-                {Array.from({ length: placeholderCount }).map((_, index) => (
+                {Array.from({ length: Math.max(0, 4 - additionalImages.length) }).map((_, index) => (
                   <div
                     key={`placeholder-${index}`}
                     className="h-32 w-32 shrink-0 rounded-md bg-neutral-100"
@@ -359,6 +365,9 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
             </div>
           </div>
         </div>
+
+        {imageryMessage ? <p className="text-sm text-neutral-700">{imageryMessage}</p> : null}
+      </div>
 
         {selectedImage ? (
           <div className="grid gap-3 rounded-xl border border-neutral-300 p-4 md:grid-cols-2">
@@ -390,20 +399,22 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
             </label>
           </div>
         ) : null}
-      </div>
-
       <div className="border-t border-neutral-300 pt-8">
         <SectionTitle>QR Code</SectionTitle>
         <div className="mt-4 grid gap-3 md:grid-cols-[1fr_auto]">
           <Input
-            value={qrVendorName}
-            onChange={(e) => setQrVendorName(e.target.value)}
-            placeholder="Enter book vendor/library name"
+            value={slugValue}
+            onChange={(e) => {
+              const nextValue = e.target.value
+              setQrMessage('')
+              onSlugChange(nextValue)
+            }}
+            placeholder="Enter slug / QR value"
           />
           <BlackButton
             className="min-w-[260px]"
             onClick={handleGenerateQr}
-            disabled={isUploading || !qrVendorName.trim()}
+            disabled={isUploading || !slugValue.trim()}
           >
             GENERATE QR CODE
           </BlackButton>
@@ -413,8 +424,8 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
           <div className="mt-5 grid gap-4 rounded-xl border border-neutral-400 p-4 md:grid-cols-[220px_1fr_auto]">
             <Image src={qrDataUrl} alt="Generated QR code" width={220} height={220} unoptimized />
             <div className="space-y-2 text-[18px] text-neutral-800">
-              <p className="font-medium">Book Title</p>
-              <p>{qrVendorName}</p>
+              <p className="font-medium">Slug</p>
+              <p>{slugValue}</p>
               <p className="break-all text-neutral-700">{qrLink}</p>
               <BlackButton
                 className="mt-3"
@@ -439,6 +450,8 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
             </button>
           </div>
         ) : null}
+
+        {qrMessage ? <p className="mt-3 text-sm text-neutral-700">{qrMessage}</p> : null}
       </div>
 
       {isUploading ? (
@@ -447,7 +460,6 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
         </p>
       ) : null}
 
-      {message ? <p className="text-sm text-neutral-700">{message}</p> : null}
     </div>
   )
 }

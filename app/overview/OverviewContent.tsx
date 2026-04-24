@@ -281,6 +281,11 @@ export default function OverviewContent({
     })
   }
 
+  function handleSlugManualChange(nextSlug: string) {
+    setSlugEditedManually(true)
+    setDraft((current) => ({ ...current, slug: nextSlug }))
+  }
+
   return (
     <div className="min-h-screen bg-neutral-100 text-neutral-900">
       <div className="mx-auto flex min-h-screen max-w-[1600px] border-x border-neutral-300 bg-neutral-50">
@@ -391,6 +396,8 @@ export default function OverviewContent({
               <ImageManager
                 contentItemId={savedContentItemId}
                 contentType={draft.contentType}
+                slugValue={draft.slug}
+                onSlugChange={handleSlugManualChange}
                 onUploaded={(mediaAssetId) => {
                   setPendingMediaAssetIds((current) =>
                     current.includes(mediaAssetId) ? current : [...current, mediaAssetId]
@@ -470,10 +477,7 @@ export default function OverviewContent({
                   <div className="space-y-4">
                     <Input
                       value={draft.slug}
-                      onChange={(e) => {
-                        setSlugEditedManually(true)
-                        setDraft((current) => ({ ...current, slug: e.target.value }))
-                      }}
+                      onChange={(e) => handleSlugManualChange(e.target.value)}
                       placeholder="Slug"
                     />
 
