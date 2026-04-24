@@ -8,7 +8,7 @@ type Props = {
 
 export default function Sidebar({ userEmail, counts }: Props) {
   return (
-    <aside className="hidden w-[420px] shrink-0 border-r border-neutral-300 xl:flex xl:flex-col">
+    <aside className="sticky top-0 hidden h-screen w-[420px] shrink-0 border-r border-neutral-300 xl:flex xl:flex-col">
       <div className="border-b border-neutral-200 px-8 py-12">
         <div className="text-[34px] font-semibold tracking-tight text-emerald-700">
           HER·STORIES
@@ -63,7 +63,7 @@ export default function Sidebar({ userEmail, counts }: Props) {
         </div>
       </div>
 
-      <div className="border-t border-neutral-300 px-8 py-6">
+      <div className="sticky bottom-0 border-t border-neutral-300 bg-neutral-50 px-8 py-6">
         <div className="text-[18px] font-semibold">LOG OUT</div>
         <div className="text-[15px] text-neutral-600">{userEmail}</div>
       </div>

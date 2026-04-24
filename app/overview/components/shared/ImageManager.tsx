@@ -303,54 +303,59 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
 
           <div className="space-y-2">
             <p className="text-[18px] text-neutral-800">Additional Imagery</p>
-            <div className="flex flex-wrap items-start gap-3">
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isUploading}
-                className="flex h-32 w-32 items-center justify-center rounded-md bg-neutral-950 text-white disabled:cursor-not-allowed disabled:opacity-70"
-                title="Add image"
-              >
-                <Plus size={34} />
-              </button>
+            <div className="overflow-x-auto pb-2">
+              <div className="flex w-max items-start gap-3">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                  className="flex h-32 w-32 shrink-0 items-center justify-center rounded-md bg-neutral-950 text-white disabled:cursor-not-allowed disabled:opacity-70"
+                  title="Add image"
+                >
+                  <Plus size={34} />
+                </button>
 
-              {additionalImages.map((image) => (
-                <div key={image.localId} className="space-y-2">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedImageId(image.localId)}
-                    className={`relative h-32 w-32 overflow-hidden rounded-md border ${
-                      selectedImageId === image.localId ? 'border-neutral-900' : 'border-neutral-300'
-                    }`}
-                  >
-                    <Image
-                      src={image.previewUrl}
-                      alt={image.altText || image.fileName}
-                      width={128}
-                      height={128}
-                      unoptimized
-                      className="h-full w-full object-cover"
-                    />
-                    {image.isUploading ? (
-                      <span className="absolute inset-0 flex items-center justify-center bg-black/50 text-xs text-white">
-                        Uploading...
-                      </span>
-                    ) : null}
-                  </button>
-                  <div className="flex items-center justify-center gap-3 text-neutral-700">
-                    <button type="button" onClick={() => setSelectedImageId(image.localId)}>
-                      <Pencil size={18} />
+                {additionalImages.map((image) => (
+                  <div key={image.localId} className="shrink-0 space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedImageId(image.localId)}
+                      className={`relative h-32 w-32 overflow-hidden rounded-md border ${
+                        selectedImageId === image.localId ? 'border-neutral-900' : 'border-neutral-300'
+                      }`}
+                    >
+                      <Image
+                        src={image.previewUrl}
+                        alt={image.altText || image.fileName}
+                        width={128}
+                        height={128}
+                        unoptimized
+                        className="h-full w-full object-cover"
+                      />
+                      {image.isUploading ? (
+                        <span className="absolute inset-0 flex items-center justify-center bg-black/50 text-xs text-white">
+                          Uploading...
+                        </span>
+                      ) : null}
                     </button>
-                    <button type="button" onClick={() => removeImage(image.localId)}>
-                      <Trash2 size={18} />
-                    </button>
+                    <div className="flex items-center justify-center gap-3 text-neutral-700">
+                      <button type="button" onClick={() => setSelectedImageId(image.localId)}>
+                        <Pencil size={18} />
+                      </button>
+                      <button type="button" onClick={() => removeImage(image.localId)}>
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
 
-              {Array.from({ length: placeholderCount }).map((_, index) => (
-                <div key={`placeholder-${index}`} className="h-32 w-32 rounded-md bg-neutral-100" />
-              ))}
+                {Array.from({ length: placeholderCount }).map((_, index) => (
+                  <div
+                    key={`placeholder-${index}`}
+                    className="h-32 w-32 shrink-0 rounded-md bg-neutral-100"
+                  />
+                ))}
+              </div>
             </div>
           </div>
         </div>
