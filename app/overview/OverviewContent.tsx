@@ -29,6 +29,7 @@ type Props = {
   editId: string | null
   editType: ContentType | null
   availableBookGenres: string[]
+  showEditor: boolean
 }
 
 function slugify(value: string) {
@@ -47,6 +48,7 @@ export default function OverviewContent({
   mode,
   editId,
   availableBookGenres,
+  showEditor,
 }: Props) {
   const [draft, setDraft] = useState<OverviewDraft>(initialDraft)
   const [genres, setGenres] = useState<string[]>(availableBookGenres)
@@ -293,253 +295,264 @@ export default function OverviewContent({
 
         <main className="flex min-w-0 flex-1 flex-col">
           <div className="flex-1 overflow-y-auto px-6 py-8 md:px-12 xl:px-16">
-            <div className="mb-10 flex items-center gap-3">
-              <div className="text-emerald-600">▣</div>
-              <h1 className="text-[22px] font-semibold">
-                {mode === 'edit' ? 'Edit Content' : 'New Content'}
-              </h1>
-            </div>
+            {showEditor ? (
+              <>
+                <div className="mb-10 flex items-center gap-3">
+                  <div className="text-emerald-600">▣</div>
+                  <h1 className="text-[22px] font-semibold">
+                    {mode === 'edit' ? 'Edit Content' : 'New Content'}
+                  </h1>
+                </div>
 
-            <div className="mx-auto max-w-[920px] space-y-8 pb-32">
-              <div className="space-y-4">
-                <SectionTitle>Select Content Type</SectionTitle>
-                <ContentTypeSelector value={draft.contentType} onChange={updateContentType} />
-              </div>
-
-              <Divider />
-
-              {draft.contentType === 'book' && (
-                <BookForm
-                  value={draft.book}
-                  availableGenres={genres}
-                  selectedGenre={selectedBookGenre}
-                  onSelectedGenreChange={setSelectedBookGenre}
-                  onApplyGenre={applyBookGenre}
-                  onNewGenre={handleOpenNewGenre}
-                  onRemoveGenre={removeBookGenre}
-                  onChange={(patch) =>
-                    setDraft((current) => ({
-                      ...current,
-                      book: { ...current.book, ...patch },
-                    }))
-                  }
-                />
-              )}
-
-              {draft.contentType === 'stories' && (
-                <>
+                <div className="mx-auto max-w-[920px] space-y-8 pb-32">
                   <div className="space-y-4">
-                    <SectionTitle>Select Story Type</SectionTitle>
-                    <StoryTypeSelector
-                      value={draft.story.storyType}
-                      onChange={(storyType) =>
-                        setDraft((current) => ({
-                          ...current,
-                          story: { ...current.story, storyType },
-                        }))
-                      }
-                    />
+                    <SectionTitle>Select Content Type</SectionTitle>
+                    <ContentTypeSelector value={draft.contentType} onChange={updateContentType} />
                   </div>
 
                   <Divider />
 
-                  <StoryForm
-                    value={draft.story}
-                    onChange={(patch) =>
-                      setDraft((current) => ({
-                        ...current,
-                        story: { ...current.story, ...patch },
-                      }))
-                    }
-                  />
-                </>
-              )}
-
-              {draft.contentType === 'painting' && (
-                <PaintingForm
-                  value={draft.painting}
-                  onChange={(patch) =>
-                    setDraft((current) => ({
-                      ...current,
-                      painting: { ...current.painting, ...patch },
-                    }))
-                  }
-                />
-              )}
-
-              {draft.contentType === 'artifacts' && (
-                <ArtifactForm
-                  value={draft.artifact}
-                  onChange={(patch) =>
-                    setDraft((current) => ({
-                      ...current,
-                      artifact: { ...current.artifact, ...patch },
-                    }))
-                  }
-                />
-              )}
-
-              {draft.contentType === 'bio' && (
-                <BioForm
-                  value={draft.bio}
-                  onChange={(patch) =>
-                    setDraft((current) => ({
-                      ...current,
-                      bio: { ...current.bio, ...patch },
-                    }))
-                  }
-                />
-              )}
-
-              <Divider />
-
-              <ImageManager
-                contentItemId={savedContentItemId}
-                contentType={draft.contentType}
-                slugValue={draft.slug}
-                onSlugChange={handleSlugManualChange}
-                onUploaded={(mediaAssetId) => {
-                  setPendingMediaAssetIds((current) =>
-                    current.includes(mediaAssetId) ? current : [...current, mediaAssetId]
-                  )
-                  setDraft((current) => ({
-                    ...current,
-                    featuredImageId: mediaAssetId,
-                  }))
-                }}
-              />
-
-              <Divider />
-
-              <div className="space-y-4">
-                <button
-                  type="button"
-                  onClick={() => setSeoOpen((current) => !current)}
-                  className="flex items-center gap-3 text-left"
-                >
-                  <span className="text-[20px] font-semibold text-neutral-900">SEO</span>
-                  <span className="text-[18px] text-neutral-500">
-                    {seoOpen ? '−' : '+'}
-                  </span>
-                </button>
-
-                {!seoOpen ? (
-                  <p className="text-sm text-neutral-600">
-                    Hidden by default. SEO title and description are auto-filled unless you edit them.
-                  </p>
-                ) : (
-                  <div className="space-y-4">
-                    <Input
-                      value={draft.seoTitle}
-                      onChange={(e) => {
-                        setSeoTitleEditedManually(true)
-                        setDraft((current) => ({ ...current, seoTitle: e.target.value }))
-                      }}
-                      placeholder="Meta Title"
-                    />
-                    <Textarea
-                      rows={4}
-                      value={draft.seoDescription}
-                      onChange={(e) => {
-                        setSeoDescriptionEditedManually(true)
+                  {draft.contentType === 'book' && (
+                    <BookForm
+                      value={draft.book}
+                      availableGenres={genres}
+                      selectedGenre={selectedBookGenre}
+                      onSelectedGenreChange={setSelectedBookGenre}
+                      onApplyGenre={applyBookGenre}
+                      onNewGenre={handleOpenNewGenre}
+                      onRemoveGenre={removeBookGenre}
+                      onChange={(patch) =>
                         setDraft((current) => ({
                           ...current,
-                          seoDescription: e.target.value,
+                          book: { ...current.book, ...patch },
                         }))
-                      }}
-                      placeholder="Meta Description"
+                      }
                     />
-                  </div>
-                )}
-              </div>
+                  )}
 
-              <Divider />
+                  {draft.contentType === 'stories' && (
+                    <>
+                      <div className="space-y-4">
+                        <SectionTitle>Select Story Type</SectionTitle>
+                        <StoryTypeSelector
+                          value={draft.story.storyType}
+                          onChange={(storyType) =>
+                            setDraft((current) => ({
+                              ...current,
+                              story: { ...current.story, storyType },
+                            }))
+                          }
+                        />
+                      </div>
 
-              <div className="space-y-4">
-                <button
-                  type="button"
-                  onClick={() => setPublishingSettingsOpen((current) => !current)}
-                  className="flex items-center gap-3 text-left"
-                >
-                  <span className="text-[20px] font-semibold text-neutral-900">
-                    Publishing Settings
-                  </span>
-                  <span className="text-[18px] text-neutral-500">
-                    {publishingSettingsOpen ? '−' : '+'}
-                  </span>
-                </button>
+                      <Divider />
 
-                {!publishingSettingsOpen ? (
-                  <p className="text-sm text-neutral-600">
-                    Hidden by default. Slug is auto-generated, sort order defaults to 100, featured image is blank unless set.
-                  </p>
-                ) : (
-                  <div className="space-y-4">
-                    <Input
-                      value={draft.slug}
-                      onChange={(e) => handleSlugManualChange(e.target.value)}
-                      placeholder="Slug"
-                    />
-
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <Input
-                        value={draft.sortOrder}
-                        onChange={(e) =>
-                          setDraft((current) => ({ ...current, sortOrder: e.target.value }))
-                        }
-                        placeholder="Sort Order"
-                      />
-                      <Input
-                        value={draft.featuredImageId}
-                        onChange={(e) =>
+                      <StoryForm
+                        value={draft.story}
+                        onChange={(patch) =>
                           setDraft((current) => ({
                             ...current,
-                            featuredImageId: e.target.value,
+                            story: { ...current.story, ...patch },
                           }))
                         }
-                        placeholder="Featured Image ID"
                       />
-                    </div>
+                    </>
+                  )}
 
-                    <div className="flex flex-wrap gap-8">
-                      <label className="flex items-center gap-3">
-                        <input
-                          type="checkbox"
-                          checked={draft.isFeatured}
-                          onChange={(e) =>
+                  {draft.contentType === 'painting' && (
+                    <PaintingForm
+                      value={draft.painting}
+                      onChange={(patch) =>
+                        setDraft((current) => ({
+                          ...current,
+                          painting: { ...current.painting, ...patch },
+                        }))
+                      }
+                    />
+                  )}
+
+                  {draft.contentType === 'artifacts' && (
+                    <ArtifactForm
+                      value={draft.artifact}
+                      onChange={(patch) =>
+                        setDraft((current) => ({
+                          ...current,
+                          artifact: { ...current.artifact, ...patch },
+                        }))
+                      }
+                    />
+                  )}
+
+                  {draft.contentType === 'bio' && (
+                    <BioForm
+                      value={draft.bio}
+                      onChange={(patch) =>
+                        setDraft((current) => ({
+                          ...current,
+                          bio: { ...current.bio, ...patch },
+                        }))
+                      }
+                    />
+                  )}
+
+                  <Divider />
+
+                  <ImageManager
+                    contentItemId={savedContentItemId}
+                    contentType={draft.contentType}
+                    slugValue={draft.slug}
+                    onSlugChange={handleSlugManualChange}
+                    onUploaded={(mediaAssetId) => {
+                      setPendingMediaAssetIds((current) =>
+                        current.includes(mediaAssetId) ? current : [...current, mediaAssetId]
+                      )
+                      setDraft((current) => ({
+                        ...current,
+                        featuredImageId: mediaAssetId,
+                      }))
+                    }}
+                  />
+
+                  <Divider />
+
+                  <div className="space-y-4">
+                    <button
+                      type="button"
+                      onClick={() => setSeoOpen((current) => !current)}
+                      className="flex items-center gap-3 text-left"
+                    >
+                      <span className="text-[20px] font-semibold text-neutral-900">SEO</span>
+                      <span className="text-[18px] text-neutral-500">
+                        {seoOpen ? '−' : '+'}
+                      </span>
+                    </button>
+
+                    {!seoOpen ? (
+                      <p className="text-sm text-neutral-600">
+                        Hidden by default. SEO title and description are auto-filled unless you edit them.
+                      </p>
+                    ) : (
+                      <div className="space-y-4">
+                        <Input
+                          value={draft.seoTitle}
+                          onChange={(e) => {
+                            setSeoTitleEditedManually(true)
+                            setDraft((current) => ({ ...current, seoTitle: e.target.value }))
+                          }}
+                          placeholder="Meta Title"
+                        />
+                        <Textarea
+                          rows={4}
+                          value={draft.seoDescription}
+                          onChange={(e) => {
+                            setSeoDescriptionEditedManually(true)
                             setDraft((current) => ({
                               ...current,
-                              isFeatured: e.target.checked,
+                              seoDescription: e.target.value,
                             }))
-                          }
+                          }}
+                          placeholder="Meta Description"
                         />
-                        <span>Featured</span>
-                      </label>
-
-                      <label className="flex items-center gap-3">
-                        <input
-                          type="checkbox"
-                          checked={draft.isPublished}
-                          onChange={(e) =>
-                            setDraft((current) => ({
-                              ...current,
-                              isPublished: e.target.checked,
-                            }))
-                          }
-                        />
-                        <span>Published</span>
-                      </label>
-                    </div>
+                      </div>
+                    )}
                   </div>
-                )}
+
+                  <Divider />
+
+                  <div className="space-y-4">
+                    <button
+                      type="button"
+                      onClick={() => setPublishingSettingsOpen((current) => !current)}
+                      className="flex items-center gap-3 text-left"
+                    >
+                      <span className="text-[20px] font-semibold text-neutral-900">
+                        Publishing Settings
+                      </span>
+                      <span className="text-[18px] text-neutral-500">
+                        {publishingSettingsOpen ? '−' : '+'}
+                      </span>
+                    </button>
+
+                    {!publishingSettingsOpen ? (
+                      <p className="text-sm text-neutral-600">
+                        Hidden by default. Slug is auto-generated, sort order defaults to 100, featured image is blank unless set.
+                      </p>
+                    ) : (
+                      <div className="space-y-4">
+                        <Input
+                          value={draft.slug}
+                          onChange={(e) => handleSlugManualChange(e.target.value)}
+                          placeholder="Slug"
+                        />
+
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <Input
+                            value={draft.sortOrder}
+                            onChange={(e) =>
+                              setDraft((current) => ({ ...current, sortOrder: e.target.value }))
+                            }
+                            placeholder="Sort Order"
+                          />
+                          <Input
+                            value={draft.featuredImageId}
+                            onChange={(e) =>
+                              setDraft((current) => ({
+                                ...current,
+                                featuredImageId: e.target.value,
+                              }))
+                            }
+                            placeholder="Featured Image ID"
+                          />
+                        </div>
+
+                        <div className="flex flex-wrap gap-8">
+                          <label className="flex items-center gap-3">
+                            <input
+                              type="checkbox"
+                              checked={draft.isFeatured}
+                              onChange={(e) =>
+                                setDraft((current) => ({
+                                  ...current,
+                                  isFeatured: e.target.checked,
+                                }))
+                              }
+                            />
+                            <span>Featured</span>
+                          </label>
+
+                          <label className="flex items-center gap-3">
+                            <input
+                              type="checkbox"
+                              checked={draft.isPublished}
+                              onChange={(e) =>
+                                setDraft((current) => ({
+                                  ...current,
+                                  isPublished: e.target.checked,
+                                }))
+                              }
+                            />
+                            <span>Published</span>
+                          </label>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="mx-auto flex min-h-[60vh] max-w-[920px] items-center justify-center rounded-xl border border-dashed border-neutral-300 bg-white/70 p-10 text-center">
+                <p className="text-lg text-neutral-600">
+                  Select <span className="font-semibold text-neutral-900">ADD NEW</span> to begin creating content.
+                </p>
               </div>
-            </div>
+            )}
           </div>
 
           <div className="sticky bottom-0 border-t border-neutral-300 bg-neutral-50 px-6 py-6 md:px-12 xl:px-16">
             <div className="mx-auto flex max-w-[920px] items-center justify-between gap-4">
               <button
                 type="button"
+                disabled={!showEditor}
                 className="text-[18px] font-medium text-neutral-800 transition hover:text-neutral-600"
               >
                 ARCHIVE
@@ -549,12 +562,16 @@ export default function OverviewContent({
                 <BlackButton
                   className="min-w-[140px]"
                   onClick={handleSave}
-                  disabled={isPending}
+                  disabled={isPending || !showEditor}
                 >
                   {isPending ? (mode === 'edit' ? 'UPDATING...' : 'SAVING...') : 'SAVE'}
                 </BlackButton>
-                <BlackButton className="min-w-[140px]">PREVIEW</BlackButton>
-                <GreenButton className="min-w-[160px]">PUBLISH</GreenButton>
+                <BlackButton className="min-w-[140px]" disabled={!showEditor}>
+                  PREVIEW
+                </BlackButton>
+                <GreenButton className="min-w-[160px]" disabled={!showEditor}>
+                  PUBLISH
+                </GreenButton>
               </div>
             </div>
           </div>

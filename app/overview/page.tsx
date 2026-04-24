@@ -13,6 +13,7 @@ type PageProps = {
   searchParams?: Promise<{
     type?: string
     id?: string
+    new?: string
   }>
 }
 
@@ -433,6 +434,7 @@ export default async function OverviewPage({ searchParams }: PageProps) {
   }
 
   const resolvedParams = (await searchParams) ?? {}
+  const createSelected = resolvedParams.new === '1'
 
   const [sidebarCounts, editState, availableBookGenres] = await Promise.all([
     getSidebarCounts(supabase),
@@ -449,6 +451,7 @@ export default async function OverviewPage({ searchParams }: PageProps) {
       editId={editState.editId}
       editType={editState.editType}
       availableBookGenres={availableBookGenres}
+      showEditor={editState.mode === 'edit' || createSelected}
     />
   )
 }

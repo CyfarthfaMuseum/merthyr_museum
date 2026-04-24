@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import type { SidebarCounts } from '../types'
 import { GreenButton } from './ui/Buttons'
 
@@ -25,7 +26,9 @@ export default function Sidebar({ userEmail, counts }: Props) {
           <div className="mb-6 text-[20px] font-semibold">
             Content ({counts.totalContent})
           </div>
-          <GreenButton className="w-full">ADD NEW</GreenButton>
+          <Link href="/overview?new=1">
+            <GreenButton className="w-full">ADD NEW</GreenButton>
+          </Link>
         </div>
 
         <div className="border-b border-neutral-200 px-8 py-6">
