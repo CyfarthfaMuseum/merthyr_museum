@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
+import { Pencil, Plus, Printer, Trash2, X } from 'lucide-react'
 import Input from '../ui/Input'
-import { GreenButton } from '../ui/Buttons'
+import { BlackButton } from '../ui/Buttons'
 import SectionTitle from '../ui/SectionTitle'
 import { uploadImageToR2 } from '../../upload-image'
 import { saveImageMetadataAction } from '../../image-actions'
@@ -39,6 +40,9 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   const [message, setMessage] = useState('')
+  const [qrVendorName, setQrVendorName] = useState('')
+  const [qrDataUrl, setQrDataUrl] = useState('')
+  const [qrLink, setQrLink] = useState('')
   const [uploadState, setUploadState] = useState<UploadState>({
     phase: 'idle',
     details: '',
@@ -57,7 +61,15 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
     [images, selectedImageId]
   )
 
-  const placeholderCount = Math.max(0, 5 - images.length)
+  const primaryImage = useMemo(
+    () => images.find((image) => image.isPrimary) ?? images[0] ?? null,
+    [images]
+  )
+  const additionalImages = useMemo(
+    () => images.filter((image) => image.localId !== primaryImage?.localId),
+    [images, primaryImage?.localId]
+  )
+  const placeholderCount = Math.max(0, 5 - additionalImages.length)
 
   function updateSelectedImage(
     patch: Partial<Pick<ImageItem, 'altText' | 'caption' | 'credit' | 'isPrimary'>>
@@ -219,133 +231,209 @@ export default function ImageManager({ contentItemId, contentType, onUploaded }:
     }
   }
 
+  function handleGenerateQr() {
+    const vendorOrLibraryName = qrVendorName.trim()
+    if (!vendorOrLibraryName) {
+      setMessage('Please enter a vendor/library name before generating a QR code.')
+      return
+    }
+
+    const slug = vendorOrLibraryName.toLowerCase().replace(/\s+/g, '-')
+    const qrUrl = `https://merthyrmuseummap.app/location/${contentType}/${contentItemId ?? 'draft'}-${slug}`
+    const encoded = encodeURIComponent(qrUrl)
+    const generatedQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&format=png&data=${encoded}`
+
+    setQrLink(qrUrl)
+    setQrDataUrl(generatedQrUrl)
+    setMessage('QR code generated.')
+  }
+
   return (
-    <div className="space-y-4">
-      <SectionTitle>Images</SectionTitle>
+    <div className="space-y-8">
+      <div className="space-y-4">
+        <SectionTitle>Imagery</SectionTitle>
 
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={(e) => {
-          const selectedFile = e.target.files?.[0] ?? null
-          if (!selectedFile) {
-            return
-          }
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const selectedFile = e.target.files?.[0] ?? null
+            if (!selectedFile) {
+              return
+            }
 
-          void handleUpload(selectedFile)
-        }}
-      />
+            void handleUpload(selectedFile)
+          }}
+        />
 
-      <div className="space-y-4 rounded-2xl border border-neutral-300 bg-neutral-50 p-6">
-        {selectedImage ? (
-          <div className="overflow-hidden rounded-xl border border-neutral-300 bg-white">
-            <Image
-              key={selectedImage.localId}
-              src={selectedImage.previewUrl}
-              alt={selectedImage.altText || selectedImage.fileName || 'Selected image preview'}
-              width={1200}
-              height={700}
-              unoptimized
-              className="h-[320px] w-full object-contain"
-            />
+        <div className="grid gap-6 lg:grid-cols-[160px_1fr]">
+          <div className="space-y-2">
+            <p className="text-[18px] text-neutral-800">Primary</p>
+            {primaryImage ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setSelectedImageId(primaryImage.localId)}
+                  className="h-32 w-32 overflow-hidden rounded-md border border-neutral-300"
+                >
+                  <Image
+                    src={primaryImage.previewUrl}
+                    alt={primaryImage.altText || primaryImage.fileName}
+                    width={128}
+                    height={128}
+                    unoptimized
+                    className="h-full w-full object-cover"
+                  />
+                </button>
+                <div className="flex items-center justify-center gap-3 text-neutral-700">
+                  <button type="button" onClick={() => setSelectedImageId(primaryImage.localId)}>
+                    <Pencil size={20} />
+                  </button>
+                  <button type="button" onClick={() => removeImage(primaryImage.localId)}>
+                    <Trash2 size={20} />
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="h-32 w-32 rounded-md border border-dashed border-neutral-300 bg-neutral-100" />
+            )}
           </div>
-        ) : (
-          <div className="flex h-[320px] flex-col items-center justify-center gap-2 rounded-xl border border-neutral-300 bg-white text-neutral-500">
-            <p>No images yet</p>
-            <p className="text-sm">Use the add image button below to upload your first image.</p>
-          </div>
-        )}
 
-        <div className="space-y-2">
-          <p className="text-sm font-medium text-neutral-700">Image list</p>
-          <div className="overflow-x-auto">
-            <div className="flex w-max items-start gap-3 pb-1">
+          <div className="space-y-2">
+            <p className="text-[18px] text-neutral-800">Additional Imagery</p>
+            <div className="flex flex-wrap items-start gap-3">
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isUploading}
-                className="flex h-24 w-24 items-center justify-center rounded-lg border border-dashed border-neutral-400 bg-white text-sm font-medium text-neutral-700 transition hover:border-neutral-600 disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex h-32 w-32 items-center justify-center rounded-md bg-neutral-950 text-white disabled:cursor-not-allowed disabled:opacity-70"
                 title="Add image"
               >
-                + Add
+                <Plus size={34} />
               </button>
 
-              {images.map((image) => (
-                <button
-                  key={image.localId}
-                  type="button"
-                  onClick={() => setSelectedImageId(image.localId)}
-                  className={`relative h-24 w-24 overflow-hidden rounded-lg border transition ${
-                    selectedImageId === image.localId
-                      ? 'border-neutral-900 ring-2 ring-neutral-300'
-                      : 'border-neutral-300'
-                  }`}
-                  title={image.fileName}
-                >
-                  <Image
-                    src={image.previewUrl}
-                    alt={image.altText || image.fileName}
-                    width={96}
-                    height={96}
-                    unoptimized
-                    className="h-full w-full object-cover"
-                  />
-                  {image.isUploading ? (
-                    <span className="absolute inset-0 flex items-center justify-center bg-black/50 text-xs font-medium text-white">
-                      Uploading...
-                    </span>
-                  ) : null}
-                </button>
+              {additionalImages.map((image) => (
+                <div key={image.localId} className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedImageId(image.localId)}
+                    className={`relative h-32 w-32 overflow-hidden rounded-md border ${
+                      selectedImageId === image.localId ? 'border-neutral-900' : 'border-neutral-300'
+                    }`}
+                  >
+                    <Image
+                      src={image.previewUrl}
+                      alt={image.altText || image.fileName}
+                      width={128}
+                      height={128}
+                      unoptimized
+                      className="h-full w-full object-cover"
+                    />
+                    {image.isUploading ? (
+                      <span className="absolute inset-0 flex items-center justify-center bg-black/50 text-xs text-white">
+                        Uploading...
+                      </span>
+                    ) : null}
+                  </button>
+                  <div className="flex items-center justify-center gap-3 text-neutral-700">
+                    <button type="button" onClick={() => setSelectedImageId(image.localId)}>
+                      <Pencil size={18} />
+                    </button>
+                    <button type="button" onClick={() => removeImage(image.localId)}>
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                </div>
               ))}
 
               {Array.from({ length: placeholderCount }).map((_, index) => (
-                <div
-                  key={`placeholder-${index}`}
-                  className="h-24 w-24 rounded-lg border border-neutral-200 bg-white"
-                />
+                <div key={`placeholder-${index}`} className="h-32 w-32 rounded-md bg-neutral-100" />
               ))}
             </div>
           </div>
         </div>
+
+        {selectedImage ? (
+          <div className="grid gap-3 rounded-xl border border-neutral-300 p-4 md:grid-cols-2">
+            <Input
+              value={selectedImage.altText}
+              onChange={(e) => updateSelectedImage({ altText: e.target.value })}
+              placeholder="Alt text"
+            />
+
+            <Input
+              value={selectedImage.caption}
+              onChange={(e) => updateSelectedImage({ caption: e.target.value })}
+              placeholder="Caption"
+            />
+
+            <Input
+              value={selectedImage.credit}
+              onChange={(e) => updateSelectedImage({ credit: e.target.value })}
+              placeholder="Credit"
+            />
+
+            <label className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                checked={selectedImage.isPrimary}
+                onChange={(e) => updateSelectedImage({ isPrimary: e.target.checked })}
+              />
+              <span>Set as primary image</span>
+            </label>
+          </div>
+        ) : null}
       </div>
 
-      {selectedImage ? (
-        <>
+      <div className="border-t border-neutral-300 pt-8">
+        <SectionTitle>QR Code</SectionTitle>
+        <div className="mt-4 grid gap-3 md:grid-cols-[1fr_auto]">
           <Input
-            value={selectedImage.altText}
-            onChange={(e) => updateSelectedImage({ altText: e.target.value })}
-            placeholder="Alt text"
+            value={qrVendorName}
+            onChange={(e) => setQrVendorName(e.target.value)}
+            placeholder="Enter book vendor/library name"
           />
+          <BlackButton
+            className="min-w-[260px]"
+            onClick={handleGenerateQr}
+            disabled={isUploading || !qrVendorName.trim()}
+          >
+            GENERATE QR CODE
+          </BlackButton>
+        </div>
 
-          <Input
-            value={selectedImage.caption}
-            onChange={(e) => updateSelectedImage({ caption: e.target.value })}
-            placeholder="Caption"
-          />
-
-          <Input
-            value={selectedImage.credit}
-            onChange={(e) => updateSelectedImage({ credit: e.target.value })}
-            placeholder="Credit"
-          />
-
-          <label className="flex items-center gap-3">
-            <input
-              type="checkbox"
-              checked={selectedImage.isPrimary}
-              onChange={(e) => updateSelectedImage({ isPrimary: e.target.checked })}
-            />
-            <span>Set as primary image</span>
-          </label>
-        </>
-      ) : null}
-
-      <div className="flex gap-3">
-        <GreenButton onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
-          {isUploading ? 'UPLOADING...' : 'ADD IMAGE'}
-        </GreenButton>
+        {qrDataUrl ? (
+          <div className="mt-5 grid gap-4 rounded-xl border border-neutral-400 p-4 md:grid-cols-[220px_1fr_auto]">
+            <Image src={qrDataUrl} alt="Generated QR code" width={220} height={220} unoptimized />
+            <div className="space-y-2 text-[18px] text-neutral-800">
+              <p className="font-medium">Book Title</p>
+              <p>{qrVendorName}</p>
+              <p className="break-all text-neutral-700">{qrLink}</p>
+              <BlackButton
+                className="mt-3"
+                onClick={() => window.open(qrDataUrl, '_blank', 'noopener,noreferrer')}
+              >
+                <span className="inline-flex items-center gap-2">
+                  <Printer size={18} />
+                  PRINT QR CODE
+                </span>
+              </BlackButton>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setQrDataUrl('')
+                setQrLink('')
+              }}
+              className="self-start justify-self-end text-neutral-700"
+              aria-label="Remove QR code"
+            >
+              <X size={30} />
+            </button>
+          </div>
+        ) : null}
       </div>
 
       {isUploading ? (
