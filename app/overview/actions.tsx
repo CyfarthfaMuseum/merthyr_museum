@@ -1,5 +1,6 @@
 'use server'
 
+import { randomUUID } from 'crypto'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/utils/supabase/server'
 import type { ContentType, OverviewDraft } from './types'
@@ -208,6 +209,42 @@ async function getUniqueBookThemeSlug(
   }
 
   return `${desiredSlug}-${suffix}`
+}
+
+async function getUniqueContentItemSlug(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  desiredSlug: string,
+  excludingContentItemId?: string | null
+) {
+  const baseSlug = slugify(desiredSlug) || 'untitled'
+
+  let query = supabase
+    .from('content_items')
+    .select('id, slug')
+    .like('slug', `${baseSlug}%`)
+
+  if (excludingContentItemId) {
+    query = query.neq('id', excludingContentItemId)
+  }
+
+  const { data: existingRows, error } = await query
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  const existingSlugs = new Set((existingRows ?? []).map((row) => row.slug as string))
+
+  if (!existingSlugs.has(baseSlug)) {
+    return baseSlug
+  }
+
+  let suffix = 2
+  while (existingSlugs.has(`${baseSlug}-${suffix}`)) {
+    suffix += 1
+  }
+
+  return `${baseSlug}-${suffix}`
 }
 
 async function linkMediaAssetsToContentItem(
@@ -436,31 +473,37 @@ export async function saveContentAction({
     )
 
     let contentItemId = editId ?? null
+    const uniqueSlug = await getUniqueContentItemSlug(
+      supabase,
+      draft.slug,
+      mode === 'edit' ? contentItemId : null
+    )
 
     if (mode === 'create') {
-      const { data, error } = await supabase
+      const newContentItemId = randomUUID()
+
+      const { error } = await supabase
         .from('content_items')
         .insert({
+          id: newContentItemId,
           content_type_id: contentTypeId,
           content_status_id: contentStatusId,
-          slug: draft.slug.trim(),
+          slug: uniqueSlug,
           featured: draft.isFeatured,
           created_by: user.id,
           updated_by: user.id,
           published_by: draft.isPublished ? user.id : null,
           published_at: draft.isPublished ? new Date().toISOString() : null,
         })
-        .select('id')
-        .single()
 
-      if (error || !data) {
+      if (error) {
         return {
           success: false,
-          error: error?.message ?? 'Failed to create content item.',
+          error: error.message,
         }
       }
 
-      contentItemId = data.id
+      contentItemId = newContentItemId
     } else {
       if (!contentItemId) {
         return { success: false, error: 'Missing content item id for edit.' }
@@ -471,7 +514,7 @@ export async function saveContentAction({
         .update({
           content_type_id: contentTypeId,
           content_status_id: contentStatusId,
-          slug: draft.slug.trim(),
+          slug: uniqueSlug,
           featured: draft.isFeatured,
           updated_by: user.id,
           published_by: draft.isPublished ? user.id : null,
