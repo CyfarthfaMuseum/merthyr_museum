@@ -40,6 +40,7 @@ type LeafletMap = {
   setView: (center: [number, number], zoom: number) => LeafletMap
   on: (event: 'click', handler: (event: LeafletMouseEvent) => void) => LeafletMap
   invalidateSize: () => void
+  remove: () => void
 }
 type LeafletMarker = {
   addTo: (map: LeafletMap) => LeafletMarker
@@ -84,6 +85,7 @@ export default function ImageManager({
     phase: 'idle',
     details: '',
   })
+  const [message, setMessage] = useState('')
   const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false)
   const [locationAddress, setLocationAddress] = useState('')
   const [selectedCoordinates, setSelectedCoordinates] = useState<{ lat: number; lng: number } | null>(
@@ -161,6 +163,9 @@ export default function ImageManager({
 
     return () => {
       isCancelled = true
+      mapInstanceRef.current?.remove()
+      mapInstanceRef.current = null
+      markerRef.current = null
     }
   }, [isLocationDialogOpen])
 
