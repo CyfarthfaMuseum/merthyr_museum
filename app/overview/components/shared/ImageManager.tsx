@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
-import { Pencil, Plus, Printer, Trash2, X } from 'lucide-react'
+import { MapPin, Pencil, Plus, Printer, Trash2, X } from 'lucide-react'
 import Input from '../ui/Input'
 import { BlackButton } from '../ui/Buttons'
 import SectionTitle from '../ui/SectionTitle'
@@ -34,6 +34,31 @@ type UploadState = {
   details: string
 }
 
+type LeafletLatLng = { lat: number; lng: number }
+type LeafletMouseEvent = { latlng: LeafletLatLng }
+type LeafletMap = {
+  setView: (center: [number, number], zoom: number) => LeafletMap
+  on: (event: 'click', handler: (event: LeafletMouseEvent) => void) => LeafletMap
+  invalidateSize: () => void
+}
+type LeafletMarker = {
+  addTo: (map: LeafletMap) => LeafletMarker
+  setLatLng: (position: [number, number]) => LeafletMarker
+}
+type LeafletNamespace = {
+  map: (element: HTMLElement) => LeafletMap
+  tileLayer: (urlTemplate: string, options: { maxZoom: number; attribution: string }) => { addTo: (map: LeafletMap) => void }
+  marker: (position: [number, number]) => LeafletMarker
+}
+
+declare global {
+  interface Window {
+    L?: LeafletNamespace
+  }
+}
+
+let leafletLoader: Promise<void> | null = null
+
 export default function ImageManager({
   contentItemId,
   contentType,
@@ -43,6 +68,9 @@ export default function ImageManager({
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const previewObjectUrlsRef = useRef<string[]>([])
+  const mapContainerRef = useRef<HTMLDivElement | null>(null)
+  const mapInstanceRef = useRef<LeafletMap | null>(null)
+  const markerRef = useRef<LeafletMarker | null>(null)
 
   const [images, setImages] = useState<ImageItem[]>([])
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null)
@@ -55,6 +83,11 @@ export default function ImageManager({
     phase: 'idle',
     details: '',
   })
+  const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false)
+  const [locationAddress, setLocationAddress] = useState('')
+  const [selectedCoordinates, setSelectedCoordinates] = useState<{ lat: number; lng: number } | null>(
+    null
+  )
 
   useEffect(() => {
     const previewObjectUrls = previewObjectUrlsRef.current
@@ -77,6 +110,58 @@ export default function ImageManager({
     () => images.filter((image) => image.localId !== primaryImage?.localId),
     [images, primaryImage?.localId]
   )
+
+  useEffect(() => {
+    if (!isLocationDialogOpen) {
+      return
+    }
+
+    let isCancelled = false
+
+    const initializeMap = async () => {
+      await loadLeaflet()
+
+      if (isCancelled || !mapContainerRef.current) {
+        return
+      }
+
+      const L = window.L
+      if (!L) {
+        return
+      }
+
+      if (!mapInstanceRef.current) {
+        const map = L.map(mapContainerRef.current).setView([51.7465, -3.378], 13)
+        mapInstanceRef.current = map
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '&copy; OpenStreetMap contributors',
+        }).addTo(map)
+
+        map.on('click', (event: LeafletMouseEvent) => {
+          const { lat, lng } = event.latlng
+          setSelectedCoordinates({ lat, lng })
+
+          if (!markerRef.current) {
+            markerRef.current = L.marker([lat, lng]).addTo(map)
+          } else {
+            markerRef.current.setLatLng([lat, lng])
+          }
+        })
+      }
+
+      setTimeout(() => {
+        mapInstanceRef.current?.invalidateSize()
+      }, 0)
+    }
+
+    void initializeMap()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [isLocationDialogOpen])
 
   function updateSelectedImage(
     patch: Partial<Pick<ImageItem, 'altText' | 'caption' | 'credit' | 'isPrimary'>>
@@ -254,6 +339,37 @@ export default function ImageManager({
     setQrMessage('QR code generated.')
   }
 
+  async function handleConfirmLocation() {
+    if (!selectedCoordinates) {
+      setMessage('Please drop a pin before confirming location.')
+      return
+    }
+
+    const { lat, lng } = selectedCoordinates
+    let resolvedAddress = 'Address not found'
+
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`
+      )
+      if (response.ok) {
+        const result = await response.json()
+        resolvedAddress = result.display_name || resolvedAddress
+      }
+    } catch (error) {
+      console.error('[Location] Reverse geocoding failed', error)
+    }
+
+    setLocationAddress(resolvedAddress)
+    console.log('[Location selected]', {
+      address: resolvedAddress,
+      latitude: lat,
+      longitude: lng,
+    })
+    setMessage('Location confirmed. Address and coordinates were logged in the console.')
+    setIsLocationDialogOpen(false)
+  }
+
   return (
     <div className="space-y-8">
       <div className="space-y-4">
@@ -400,6 +516,30 @@ export default function ImageManager({
           </div>
         ) : null}
       <div className="border-t border-neutral-300 pt-8">
+        <SectionTitle>Location</SectionTitle>
+        <div className="mt-4 grid gap-3 md:grid-cols-[1fr_auto]">
+          <Input
+            value={locationAddress}
+            readOnly
+            placeholder="Select from Locations"
+            aria-label="Selected location"
+          />
+          <BlackButton className="min-w-[260px]" onClick={() => setIsLocationDialogOpen(true)}>
+            ADD NEW LOCATION
+          </BlackButton>
+        </div>
+
+        {selectedCoordinates ? (
+          <div className="mt-4 rounded-xl border border-neutral-300 p-4 text-[16px] text-neutral-800">
+            <p className="font-medium">{locationAddress || 'Pin selected'}</p>
+            <p className="mt-2 text-neutral-700">
+              Lat: {selectedCoordinates.lat.toFixed(6)}, Lng: {selectedCoordinates.lng.toFixed(6)}
+            </p>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="border-t border-neutral-300 pt-8">
         <SectionTitle>QR Code</SectionTitle>
         <div className="mt-4 grid gap-3 md:grid-cols-[1fr_auto]">
           <Input
@@ -460,8 +600,95 @@ export default function ImageManager({
         </p>
       ) : null}
 
+      {message ? <p className="text-sm text-neutral-700">{message}</p> : null}
+
+      {isLocationDialogOpen ? (
+        <div className="fixed inset-0 z-[60] flex flex-col bg-white">
+          <div className="flex items-center justify-between border-b border-neutral-300 px-6 py-4">
+            <div>
+              <h2 className="text-xl font-semibold text-neutral-900">Select Location</h2>
+              <p className="text-sm text-neutral-600">Click anywhere on the map to drop a pin.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsLocationDialogOpen(false)}
+              aria-label="Close location dialog"
+              className="rounded-md p-2 text-neutral-700 hover:bg-neutral-100"
+            >
+              <X size={28} />
+            </button>
+          </div>
+
+          <div ref={mapContainerRef} className="min-h-0 flex-1" />
+
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-300 px-6 py-4">
+            <p className="text-sm text-neutral-700">
+              {selectedCoordinates
+                ? `Selected: ${selectedCoordinates.lat.toFixed(6)}, ${selectedCoordinates.lng.toFixed(6)}`
+                : 'No pin selected yet.'}
+            </p>
+            <div className="flex items-center gap-3">
+              <BlackButton
+                className="bg-neutral-200 text-neutral-900 hover:bg-neutral-300"
+                onClick={() => setIsLocationDialogOpen(false)}
+              >
+                CANCEL
+              </BlackButton>
+              <BlackButton onClick={() => void handleConfirmLocation()} disabled={!selectedCoordinates}>
+                <span className="inline-flex items-center gap-2">
+                  <MapPin size={18} />
+                  CONFIRM LOCATION
+                </span>
+              </BlackButton>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
+}
+
+function loadLeaflet(): Promise<void> {
+  if (typeof window === 'undefined') {
+    return Promise.resolve()
+  }
+
+  if (window.L) {
+    return Promise.resolve()
+  }
+
+  if (leafletLoader) {
+    return leafletLoader
+  }
+
+  leafletLoader = new Promise((resolve, reject) => {
+    if (!document.getElementById('leaflet-style')) {
+      const leafletStyle = document.createElement('link')
+      leafletStyle.id = 'leaflet-style'
+      leafletStyle.rel = 'stylesheet'
+      leafletStyle.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
+      document.head.appendChild(leafletStyle)
+    }
+
+    const existingScript = document.getElementById('leaflet-script') as HTMLScriptElement | null
+    if (existingScript) {
+      existingScript.addEventListener('load', () => resolve(), { once: true })
+      existingScript.addEventListener('error', () => reject(new Error('Could not load Leaflet script.')), {
+        once: true,
+      })
+      return
+    }
+
+    const leafletScript = document.createElement('script')
+    leafletScript.id = 'leaflet-script'
+    leafletScript.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
+    leafletScript.async = true
+    leafletScript.onload = () => resolve()
+    leafletScript.onerror = () => reject(new Error('Could not load Leaflet script.'))
+    document.body.appendChild(leafletScript)
+  })
+
+  return leafletLoader
 }
 
 function getImageDimensions(file: File): Promise<{ width: number; height: number }> {
