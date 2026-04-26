@@ -239,11 +239,7 @@ async function getEditDraft(
       .from('books')
       .select('*')
       .eq('content_item_id', id)
-      .single()
-
-    if (!book) {
-      return { mode: 'create', draft: initialDraft, editId: null, editType: null }
-    }
+      .maybeSingle()
 
     const { data: translation } = await supabase
       .from('book_translations')
@@ -287,11 +283,11 @@ async function getEditDraft(
         book: {
           title: itemTranslation?.title ?? '',
           author: translation?.author ?? '',
-          publisher: book.publisher ?? '',
-          isbn: book.isbn ?? '',
+          publisher: book?.publisher ?? '',
+          isbn: book?.isbn ?? '',
           summary: translation?.excerpt ?? itemTranslation?.summary ?? '',
           exposition: itemTranslation?.body ?? '',
-          publicationDate: book.publication_year ? String(book.publication_year) : '',
+          publicationDate: book?.publication_year ? String(book.publication_year) : '',
           pagesCount: '',
           genres,
         },
