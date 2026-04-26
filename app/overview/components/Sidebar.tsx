@@ -1,13 +1,19 @@
+'use client'
+
 import Link from 'next/link'
-import type { SidebarCounts } from '../types'
+import { useState } from 'react'
+import type { SidebarBookGroup, SidebarCounts } from '../types'
 import { GreenButton } from './ui/Buttons'
 
 type Props = {
   userEmail: string
   counts: SidebarCounts
+  bookGroups: SidebarBookGroup[]
 }
 
-export default function Sidebar({ userEmail, counts }: Props) {
+export default function Sidebar({ userEmail, counts, bookGroups }: Props) {
+  const [booksExpanded, setBooksExpanded] = useState(false)
+
   return (
     <aside className="sticky top-0 hidden h-screen w-[420px] shrink-0 border-r border-neutral-300 xl:flex xl:flex-col">
       <div className="border-b border-neutral-200 px-8 py-12">
@@ -32,11 +38,40 @@ export default function Sidebar({ userEmail, counts }: Props) {
         </div>
 
         <div className="border-b border-neutral-200 px-8 py-6">
-          <div className="text-[18px] font-semibold">Books ({counts.books})</div>
+          <button
+            type="button"
+            className="flex w-full items-center justify-between text-left"
+            onClick={() => setBooksExpanded((current) => !current)}
+          >
+            <span className="text-[18px] font-semibold">Books ({counts.books})</span>
+            <span className="text-[18px] text-neutral-500">{booksExpanded ? '▾' : '▸'}</span>
+          </button>
 
-          {counts.historicalFictionBooks > 0 ? (
-            <div className="mt-4 text-[15px] text-neutral-700">
-              Historical Fiction ({counts.historicalFictionBooks})
+          {booksExpanded ? (
+            <div className="mt-4 space-y-4">
+              {bookGroups.length > 0 ? (
+                bookGroups.map((group) => (
+                  <div key={group.genre}>
+                    <div className="text-[15px] font-semibold text-neutral-700">
+                      {group.genre} ({group.books.length})
+                    </div>
+                    <ul className="mt-2 space-y-1 pl-4">
+                      {group.books.map((book) => (
+                        <li key={book.id}>
+                          <Link
+                            href={`/overview?type=book&id=${book.id}`}
+                            className="text-[14px] text-neutral-600 hover:text-neutral-900"
+                          >
+                            {book.title}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))
+              ) : (
+                <div className="text-[14px] text-neutral-600">No books available.</div>
+              )}
             </div>
           ) : null}
         </div>

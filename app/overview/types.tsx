@@ -5,11 +5,21 @@ export type EditorMode = 'create' | 'edit'
 export type SidebarCounts = {
   totalContent: number
   books: number
-  historicalFictionBooks: number
   stories: number
   paintings: number
   artifacts: number
   biographies: number
+}
+
+export type SidebarBook = {
+  id: string
+  title: string
+  genres: string[]
+}
+
+export type SidebarBookGroup = {
+  genre: string
+  books: SidebarBook[]
 }
 
 export type BookDraft = {
