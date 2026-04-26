@@ -5,6 +5,7 @@ import {
   initialDraft,
   type ContentType,
   type EditorMode,
+  type SidebarBookGroup,
   type OverviewDraft,
   type SidebarCounts,
 } from './types'
@@ -90,24 +91,6 @@ async function getSidebarCounts(
       : Promise.resolve({ count: 0 } as any),
   ])
 
-  const { data: historicalGenreTranslation } = await supabase
-    .from('book_theme_translations')
-    .select('book_theme_id')
-    .eq('language_code', 'en')
-    .eq('title', 'Historical Fiction')
-    .maybeSingle()
-
-  let historicalFictionBooks = 0
-
-  if (historicalGenreTranslation?.book_theme_id) {
-    const { count } = await supabase
-      .from('book_theme_books')
-      .select('*', { count: 'exact', head: true })
-      .eq('book_theme_id', historicalGenreTranslation.book_theme_id)
-
-    historicalFictionBooks = count ?? 0
-  }
-
   const books = booksResult.count ?? 0
   const stories = storiesResult.count ?? 0
   const paintings = paintingsResult.count ?? 0
@@ -117,12 +100,86 @@ async function getSidebarCounts(
   return {
     totalContent: books + stories + paintings + artifacts + biographies,
     books,
-    historicalFictionBooks,
     stories,
     paintings,
     artifacts,
     biographies,
   }
+}
+
+async function getSidebarBookGroups(
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<SidebarBookGroup[]> {
+  const typeIds = await getContentTypeIds(supabase)
+  const bookTypeId = typeIds.get('book')
+
+  if (!bookTypeId) return []
+
+  const { data: bookItems } = await supabase
+    .from('content_items')
+    .select('id')
+    .eq('content_type_id', bookTypeId)
+
+  const bookIds = (bookItems ?? []).map((book) => book.id)
+  if (bookIds.length === 0) return []
+
+  const [{ data: translations }, { data: genreLinks }, { data: genreTranslations }] =
+    await Promise.all([
+      supabase
+        .from('content_item_translations')
+        .select('content_item_id, title')
+        .eq('language_code', 'en')
+        .in('content_item_id', bookIds),
+      supabase
+        .from('book_theme_books')
+        .select('book_content_item_id, book_theme_id')
+        .in('book_content_item_id', bookIds),
+      supabase
+        .from('book_theme_translations')
+        .select('book_theme_id, title')
+        .eq('language_code', 'en'),
+    ])
+
+  const titleByBookId = new Map<string, string>(
+    (translations ?? [])
+      .filter((row) => row.title)
+      .map((row) => [row.content_item_id as string, row.title as string])
+  )
+
+  const genreById = new Map<string, string>(
+    (genreTranslations ?? [])
+      .filter((row) => row.title)
+      .map((row) => [String(row.book_theme_id), row.title as string])
+  )
+
+  const genresByBookId = new Map<string, string[]>()
+  for (const link of genreLinks ?? []) {
+    const genreTitle = genreById.get(String(link.book_theme_id))
+    if (!genreTitle) continue
+    const current = genresByBookId.get(link.book_content_item_id) ?? []
+    if (!current.includes(genreTitle)) {
+      genresByBookId.set(link.book_content_item_id, [...current, genreTitle])
+    }
+  }
+
+  const grouped = new Map<string, SidebarBookGroup['books']>()
+  for (const bookId of bookIds) {
+    const title = titleByBookId.get(bookId) ?? 'Untitled book'
+    const genres = genresByBookId.get(bookId) ?? []
+    const targetGenres = genres.length > 0 ? genres : ['Uncategorised']
+
+    for (const genre of targetGenres) {
+      const current = grouped.get(genre) ?? []
+      grouped.set(genre, [...current, { id: bookId, title, genres }])
+    }
+  }
+
+  return [...grouped.entries()]
+    .map(([genre, books]) => ({
+      genre,
+      books: [...books].sort((a, b) => a.title.localeCompare(b.title)),
+    }))
+    .sort((a, b) => a.genre.localeCompare(b.genre))
 }
 
 async function getAvailableBookGenres(
@@ -436,10 +493,11 @@ export default async function OverviewPage({ searchParams }: PageProps) {
   const resolvedParams = (await searchParams) ?? {}
   const createSelected = resolvedParams.new === '1'
 
-  const [sidebarCounts, editState, availableBookGenres] = await Promise.all([
+  const [sidebarCounts, editState, availableBookGenres, sidebarBookGroups] = await Promise.all([
     getSidebarCounts(supabase),
     getEditDraft(supabase, resolvedParams.type, resolvedParams.id),
     getAvailableBookGenres(supabase),
+    getSidebarBookGroups(supabase),
   ])
 
   return (
@@ -451,6 +509,7 @@ export default async function OverviewPage({ searchParams }: PageProps) {
       editId={editState.editId}
       editType={editState.editType}
       availableBookGenres={availableBookGenres}
+      sidebarBookGroups={sidebarBookGroups}
       showEditor={editState.mode === 'edit' || createSelected}
     />
   )

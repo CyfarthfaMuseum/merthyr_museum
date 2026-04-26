@@ -3,7 +3,13 @@
 import { useEffect, useMemo, useState, useTransition } from 'react'
 import { createBookGenreAction, saveContentAction } from './actions'
 import { validateDraft } from './validation'
-import type { ContentType, EditorMode, OverviewDraft, SidebarCounts } from './types'
+import type {
+  ContentType,
+  EditorMode,
+  OverviewDraft,
+  SidebarBookGroup,
+  SidebarCounts,
+} from './types'
 import Sidebar from './components/Sidebar'
 import ContentTypeSelector from './components/ContentTypeSelector'
 import StoryTypeSelector from './components/StoryTypeSelector'
@@ -24,6 +30,7 @@ import ImageManager from './components/shared/ImageManager'
 type Props = {
   userEmail: string
   sidebarCounts: SidebarCounts
+  sidebarBookGroups: SidebarBookGroup[]
   initialDraft: OverviewDraft
   mode: EditorMode
   editId: string | null
@@ -44,6 +51,7 @@ function slugify(value: string) {
 export default function OverviewContent({
   userEmail,
   sidebarCounts,
+  sidebarBookGroups,
   initialDraft,
   mode,
   editId,
@@ -291,7 +299,7 @@ export default function OverviewContent({
   return (
     <div className="min-h-screen bg-neutral-100 text-neutral-900">
       <div className="mx-auto flex min-h-screen max-w-[1600px] border-x border-neutral-300 bg-neutral-50">
-        <Sidebar userEmail={userEmail} counts={sidebarCounts} />
+        <Sidebar userEmail={userEmail} counts={sidebarCounts} bookGroups={sidebarBookGroups} />
 
         <main className="flex min-w-0 flex-1 flex-col">
           <div className="flex-1 overflow-y-auto px-6 py-8 md:px-12 xl:px-16">
