@@ -301,7 +301,7 @@ export default function OverviewContent({
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-neutral-100 text-neutral-900">
+    <div className="flex h-screen flex-col overflow-hidden bg-neutral-100 text-neutral-900">
       <button
         type="button"
         onClick={() => setSidebarOpen((current) => !current)}
@@ -312,7 +312,7 @@ export default function OverviewContent({
         <span className="text-sm font-semibold">Menu</span>
       </button>
 
-      <div className="mx-auto flex max-w-[1600px] border-x border-neutral-300 bg-neutral-50 h-[calc(100vh-56px)]">
+      <div className="mx-auto flex min-h-0 w-full max-w-[1600px] flex-1 border-x border-neutral-300 bg-neutral-50">
         <Sidebar
           userEmail={userEmail}
           counts={sidebarCounts}
@@ -320,7 +320,7 @@ export default function OverviewContent({
           isOpen={sidebarOpen}
           onToggle={() => setSidebarOpen((current) => !current)}
         />
-        <main className="flex min-w-0 flex-1 flex-col h-[calc(100vh-56px)]">
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col">
           <div className="flex-1 min-h-0 overflow-y-auto px-6 py-8 md:px-12 xl:px-16">
             {showEditor ? (
               <>
@@ -574,7 +574,7 @@ export default function OverviewContent({
             )}
           </div>
 
-          <div className="border-t border-neutral-300 bg-neutral-50 px-6 py-6 md:px-12 xl:px-16 sticky bottom-0 z-10">
+          <div className="shrink-0 border-t border-neutral-300 bg-neutral-50 px-6 py-6 md:px-12 xl:px-16">
             <div className="mx-auto flex max-w-[920px] items-center justify-between gap-4">
               <button
                 type="button"
