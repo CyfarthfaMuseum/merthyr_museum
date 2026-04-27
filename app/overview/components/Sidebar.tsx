@@ -113,10 +113,10 @@ export default function Sidebar({ userEmail, counts, bookGroups, isOpen, onToggl
 
         {/* Footer (fixed height) */}
         <div className="shrink-0">
-          <div className="border-t border-neutral-200 px-8 py-4 bg-neutral-50">
+          <div className="border-t border-neutral-200 px-8 py-3 bg-neutral-50">
             <div className="text-[16px] font-semibold">Admin Users ({adminUserCount})</div>
           </div>
-          <div className="border-t border-neutral-300 bg-neutral-50 px-8 py-3">
+          <div className="border-t-0 border-neutral-300 bg-neutral-50 px-8 py-3">
             <div className="text-[18px] font-semibold">LOG OUT</div>
             <div className="text-[15px] text-neutral-600">{userEmail}</div>
           </div>
