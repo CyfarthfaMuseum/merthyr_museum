@@ -2,6 +2,7 @@
 
 import { randomUUID } from 'crypto'
 import { revalidatePath } from 'next/cache'
+import { createAdminClient } from '@/utils/supabase/admin'
 import { createClient } from '@/utils/supabase/server'
 import type { ContentType, OverviewDraft } from './types'
 
@@ -89,6 +90,26 @@ async function getStoryTypeId(
   }
 
   return data.id as number
+}
+
+async function ensureActiveAdminAccess(userId: string) {
+  const adminSupabase = createAdminClient()
+
+  const { data: adminUser, error } = await adminSupabase
+    .from('admin_users')
+    .select('id')
+    .eq('id', userId)
+    .eq('status', 'active')
+    .in('role', ['super_admin', 'admin', 'editor'])
+    .maybeSingle()
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  if (!adminUser) {
+    throw new Error('You do not have permission to manage book genres.')
+  }
 }
 
 async function upsertContentItemTranslation(
@@ -318,130 +339,139 @@ export async function createBookGenreAction(args: {
     return { success: false, error: 'You must be logged in to create a genre.' }
   }
 
-  const languageCode = args.languageCode ?? 'en'
-  const title = args.title.trim()
+  try {
+    await ensureActiveAdminAccess(user.id)
 
-  if (!title) {
-    return { success: false, error: 'Genre title is required.' }
-  }
+    const adminSupabase: Awaited<ReturnType<typeof createClient>> = createAdminClient()
+    const languageCode = args.languageCode ?? 'en'
+    const title = args.title.trim()
 
-  const slug = title
-    .toLowerCase()
-    .trim()
-    .replace(/['’]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-
-  // Step 1: existing translation check
-  const { data: existingTranslations, error: existingTranslationsError } = await supabase
-    .from('book_theme_translations')
-    .select('book_theme_id, title')
-    .eq('language_code', languageCode)
-    .ilike('title', title)
-    .limit(1)
-
-  if (existingTranslationsError) {
-    console.error('Step 1 failed', existingTranslationsError)
-    return { success: false, error: `Step 1 failed: ${existingTranslationsError.message}` }
-  }
-
-  const existingTranslation = existingTranslations?.[0]
-  if (existingTranslation?.book_theme_id) {
-    return {
-      success: true,
-      genreTitle: existingTranslation.title,
-      alreadyExisted: true,
+    if (!title) {
+      return { success: false, error: 'Genre title is required.' }
     }
-  }
 
-  // Step 2: find draft status without single()
-  const { data: draftStatuses, error: draftStatusError } = await supabase
-    .from('content_statuses')
-    .select('id, code')
-    .eq('code', 'draft')
-    .limit(2)
+    const baseSlug = title
+      .toLowerCase()
+      .trim()
+      .replace(/['’]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
 
-    console.log('draftStatuses', draftStatuses, 'draftStatusError', draftStatusError)
-
-  if (draftStatusError) {
-    console.error('Step 2 failed', draftStatusError)
-    return { success: false, error: `Step 2 failed: ${draftStatusError.message}` }
-  }
-
-  if (!draftStatuses || draftStatuses.length === 0) {
-    return { success: false, error: 'Step 2 failed: no draft content status found.' }
-  }
-
-  if (draftStatuses.length > 1) {
-    return { success: false, error: 'Step 2 failed: multiple draft content statuses found.' }
-  }
-
-  const draftStatus = draftStatuses[0]
-
-  // Step 3: check existing theme by slug without maybeSingle()
-  const { data: existingThemes, error: existingThemeError } = await supabase
-    .from('book_themes')
-    .select('id, slug')
-    .eq('slug', slug)
-    .limit(1)
-
-  if (existingThemeError) {
-    console.error('Step 3 failed', existingThemeError)
-    return { success: false, error: `Step 3 failed: ${existingThemeError.message}` }
-  }
-
-  let bookThemeId = existingThemes?.[0]?.id as string | undefined
-
-  // Step 4: create parent theme row
-  if (!bookThemeId) {
-    const { data: insertedThemes, error: insertError } = await supabase
-      .from('book_themes')
-      .insert({
-        slug,
-        content_status_id: draftStatus.id,
-        created_by: user.id,
-        updated_by: user.id,
-      })
-      .select('id, slug')
+    // Step 1: existing translation check
+    const { data: existingTranslations, error: existingTranslationsError } = await adminSupabase
+      .from('book_theme_translations')
+      .select('book_theme_id, title')
+      .eq('language_code', languageCode)
+      .ilike('title', title)
       .limit(1)
 
-    if (insertError) {
-      console.error('Step 4 failed', insertError)
-      return { success: false, error: `Step 4 failed: ${insertError.message}` }
+    if (existingTranslationsError) {
+      console.error('Step 1 failed', existingTranslationsError)
+      return { success: false, error: `Step 1 failed: ${existingTranslationsError.message}` }
     }
 
-    if (!insertedThemes || insertedThemes.length === 0) {
+    const existingTranslation = existingTranslations?.[0]
+    if (existingTranslation?.book_theme_id) {
       return {
-        success: false,
-        error: 'Step 4 failed: theme inserted but no row was returned. Check RLS/select policy.',
+        success: true,
+        genreTitle: existingTranslation.title,
+        alreadyExisted: true,
       }
     }
 
-    bookThemeId = insertedThemes[0].id
-  }
+    // Step 2: find draft status without single()
+    const { data: draftStatuses, error: draftStatusError } = await adminSupabase
+      .from('content_statuses')
+      .select('id, code')
+      .eq('code', 'draft')
+      .limit(2)
 
-  // Step 5: create translation row
-  const { error: translationError } = await supabase
-    .from('book_theme_translations')
-    .insert({
-      book_theme_id: bookThemeId,
-      language_code: languageCode,
-      title,
-      summary: null,
-      body: null,
-    })
+    if (draftStatusError) {
+      console.error('Step 2 failed', draftStatusError)
+      return { success: false, error: `Step 2 failed: ${draftStatusError.message}` }
+    }
 
-  if (translationError) {
-    console.error('Step 5 failed', translationError)
-    return { success: false, error: `Step 5 failed: ${translationError.message}` }
-  }
+    if (!draftStatuses || draftStatuses.length === 0) {
+      return { success: false, error: 'Step 2 failed: no draft content status found.' }
+    }
 
-  revalidatePath('/overview')
+    if (draftStatuses.length > 1) {
+      return { success: false, error: 'Step 2 failed: multiple draft content statuses found.' }
+    }
 
-  return {
-    success: true,
-    genreTitle: title,
-    alreadyExisted: false,
+    const draftStatus = draftStatuses[0]
+
+    // Step 3: check existing theme by slug without maybeSingle()
+    const { data: existingThemes, error: existingThemeError } = await adminSupabase
+      .from('book_themes')
+      .select('id, slug')
+      .eq('slug', baseSlug)
+      .limit(1)
+
+    if (existingThemeError) {
+      console.error('Step 3 failed', existingThemeError)
+      return { success: false, error: `Step 3 failed: ${existingThemeError.message}` }
+    }
+
+    let bookThemeId = existingThemes?.[0]?.id as string | undefined
+
+    // Step 4: create parent theme row
+    if (!bookThemeId) {
+      const slug = await getUniqueBookThemeSlug(adminSupabase, baseSlug || 'genre')
+      const { data: insertedThemes, error: insertError } = await adminSupabase
+        .from('book_themes')
+        .insert({
+          slug,
+          content_status_id: draftStatus.id,
+          created_by: user.id,
+          updated_by: user.id,
+        })
+        .select('id, slug')
+        .limit(1)
+
+      if (insertError) {
+        console.error('Step 4 failed', insertError)
+        return { success: false, error: `Step 4 failed: ${insertError.message}` }
+      }
+
+      if (!insertedThemes || insertedThemes.length === 0) {
+        return {
+          success: false,
+          error: 'Step 4 failed: theme inserted but no row was returned. Check RLS/select policy.',
+        }
+      }
+
+      bookThemeId = insertedThemes[0].id
+    }
+
+    // Step 5: create translation row
+    const { error: translationError } = await adminSupabase
+      .from('book_theme_translations')
+      .insert({
+        book_theme_id: bookThemeId,
+        language_code: languageCode,
+        title,
+        summary: null,
+        body: null,
+      })
+
+    if (translationError) {
+      console.error('Step 5 failed', translationError)
+      return { success: false, error: `Step 5 failed: ${translationError.message}` }
+    }
+
+    revalidatePath('/overview')
+
+    return {
+      success: true,
+      genreTitle: title,
+      alreadyExisted: false,
+    }
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to create genre.',
+    }
   }
 }
 
@@ -463,6 +493,8 @@ export async function saveContentAction({
   }
 
   try {
+    await ensureActiveAdminAccess(user.id)
+
     const contentTypeId = await getContentTypeId(
       supabase,
       CONTENT_TYPE_CODE_MAP[draft.contentType]
@@ -576,7 +608,8 @@ export async function saveContentAction({
         seoDescription: draft.seoDescription || draft.book.summary || null,
       })
 
-      await syncBookGenres(supabase, contentItemId, draft.book.genres, languageCode)
+      const adminSupabase: Awaited<ReturnType<typeof createClient>> = createAdminClient()
+      await syncBookGenres(adminSupabase, contentItemId, draft.book.genres, languageCode)
     }
 
     if (draft.contentType === 'stories') {

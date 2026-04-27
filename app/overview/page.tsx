@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { createAdminClient } from '@/utils/supabase/admin'
 import { createClient } from '@/utils/supabase/server'
 import OverviewContent from './OverviewContent'
 import {
@@ -110,6 +111,7 @@ async function getSidebarCounts(
 async function getSidebarBookGroups(
   supabase: Awaited<ReturnType<typeof createClient>>
 ): Promise<SidebarBookGroup[]> {
+  const adminSupabase = createAdminClient()
   const typeIds = await getContentTypeIds(supabase)
   const bookTypeId = typeIds.get('book')
 
@@ -130,11 +132,11 @@ async function getSidebarBookGroups(
         .select('content_item_id, title')
         .eq('language_code', 'en')
         .in('content_item_id', bookIds),
-      supabase
+      adminSupabase
         .from('book_theme_books')
         .select('book_content_item_id, book_theme_id')
         .in('book_content_item_id', bookIds),
-      supabase
+      adminSupabase
         .from('book_theme_translations')
         .select('book_theme_id, title')
         .eq('language_code', 'en'),
@@ -185,7 +187,9 @@ async function getSidebarBookGroups(
 async function getAvailableBookGenres(
   supabase: Awaited<ReturnType<typeof createClient>>
 ): Promise<string[]> {
-  const { data, error } = await supabase
+  const adminSupabase = createAdminClient()
+
+  const { data, error } = await adminSupabase
     .from('book_theme_translations')
     .select('title')
     .eq('language_code', 'en')
@@ -235,6 +239,8 @@ async function getEditDraft(
   }
 
   if (resolvedType === 'book') {
+    const adminSupabase = createAdminClient()
+
     const { data: book } = await supabase
       .from('books')
       .select('*')
@@ -248,7 +254,7 @@ async function getEditDraft(
       .eq('language_code', 'en')
       .maybeSingle()
 
-    const { data: genreLinks } = await supabase
+    const { data: genreLinks } = await adminSupabase
       .from('book_theme_books')
       .select('book_theme_id')
       .eq('book_content_item_id', id)
@@ -257,7 +263,7 @@ async function getEditDraft(
 
     if (genreLinks && genreLinks.length > 0) {
       const ids = genreLinks.map((row) => row.book_theme_id)
-      const { data: genreTranslations } = await supabase
+      const { data: genreTranslations } = await adminSupabase
         .from('book_theme_translations')
         .select('book_theme_id, title')
         .eq('language_code', 'en')

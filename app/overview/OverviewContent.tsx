@@ -62,6 +62,7 @@ export default function OverviewContent({
   const [genres, setGenres] = useState<string[]>(availableBookGenres)
   const [selectedBookGenre, setSelectedBookGenre] = useState('')
   const [isPending, startTransition] = useTransition()
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const [publishingSettingsOpen, setPublishingSettingsOpen] = useState(false)
   const [seoOpen, setSeoOpen] = useState(false)
@@ -184,16 +185,17 @@ export default function OverviewContent({
     setDraft((current) => ({ ...current, contentType: value }))
   }
 
-  function applyBookGenre() {
-    if (!selectedBookGenre) return
+  function handleSelectedBookGenreChange(value: string) {
+    setSelectedBookGenre(value)
+    if (!value) return
 
     setDraft((current) => {
-      if (current.book.genres.includes(selectedBookGenre)) return current
+      if (current.book.genres.includes(value)) return current
       return {
         ...current,
         book: {
           ...current.book,
-          genres: [...current.book.genres, selectedBookGenre],
+          genres: [...current.book.genres, value],
         },
       }
     })
@@ -237,14 +239,14 @@ export default function OverviewContent({
 
       setGenres((current) => {
         const next = current.includes(result.genreTitle)
-            ? current
-            : [...current, result.genreTitle]
+          ? current
+          : [...current, result.genreTitle]
         return [...next].sort((a, b) => a.localeCompare(b))
       })
 
-      setSelectedBookGenre(result.genreTitle)
       setGenreModalOpen(false)
 
+      // Always apply the new genre to the book immediately
       setDraft((current) => {
         if (current.book.genres.includes(result.genreTitle)) return current
         return {
@@ -256,8 +258,10 @@ export default function OverviewContent({
         }
       })
 
+      setSelectedBookGenre('')
+
       showToast(
-        result.alreadyExisted ? 'Genre already existed and has been applied.' : 'Genre created.',
+        result.alreadyExisted ? 'Genre already existed and has been applied.' : 'Genre created and applied.',
         'success'
       )
     })
@@ -297,12 +301,27 @@ export default function OverviewContent({
   }
 
   return (
-    <div className="min-h-screen bg-neutral-100 text-neutral-900">
-      <div className="mx-auto flex min-h-screen max-w-[1600px] border-x border-neutral-300 bg-neutral-50">
-        <Sidebar userEmail={userEmail} counts={sidebarCounts} bookGroups={sidebarBookGroups} />
+    <div className="flex min-h-screen flex-col bg-neutral-100 text-neutral-900">
+      <button
+        type="button"
+        onClick={() => setSidebarOpen((current) => !current)}
+        className="sticky top-0 z-40 flex h-14 items-center justify-start gap-3 border-b border-neutral-300 bg-neutral-50 px-6 lg:hidden"
+        aria-label="Toggle sidebar"
+      >
+        <span className="text-xl">☰</span>
+        <span className="text-sm font-semibold">Menu</span>
+      </button>
 
-        <main className="flex min-w-0 flex-1 flex-col">
-          <div className="flex-1 overflow-y-auto px-6 py-8 md:px-12 xl:px-16">
+      <div className="mx-auto flex max-w-[1600px] border-x border-neutral-300 bg-neutral-50 h-[calc(100vh-56px)]">
+        <Sidebar
+          userEmail={userEmail}
+          counts={sidebarCounts}
+          bookGroups={sidebarBookGroups}
+          isOpen={sidebarOpen}
+          onToggle={() => setSidebarOpen((current) => !current)}
+        />
+        <main className="flex min-w-0 flex-1 flex-col h-[calc(100vh-56px)]">
+          <div className="flex-1 min-h-0 overflow-y-auto px-6 py-8 md:px-12 xl:px-16">
             {showEditor ? (
               <>
                 <div className="mb-10 flex items-center gap-3">
@@ -325,8 +344,7 @@ export default function OverviewContent({
                       value={draft.book}
                       availableGenres={genres}
                       selectedGenre={selectedBookGenre}
-                      onSelectedGenreChange={setSelectedBookGenre}
-                      onApplyGenre={applyBookGenre}
+                      onSelectedGenreChange={handleSelectedBookGenreChange}
                       onNewGenre={handleOpenNewGenre}
                       onRemoveGenre={removeBookGenre}
                       onChange={(patch) =>
@@ -556,7 +574,7 @@ export default function OverviewContent({
             )}
           </div>
 
-          <div className="sticky bottom-0 border-t border-neutral-300 bg-neutral-50 px-6 py-6 md:px-12 xl:px-16">
+          <div className="border-t border-neutral-300 bg-neutral-50 px-6 py-6 md:px-12 xl:px-16 sticky bottom-0 z-10">
             <div className="mx-auto flex max-w-[920px] items-center justify-between gap-4">
               <button
                 type="button"

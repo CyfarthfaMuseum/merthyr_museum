@@ -9,26 +9,34 @@ type Props = {
   userEmail: string
   counts: SidebarCounts
   bookGroups: SidebarBookGroup[]
+  isOpen: boolean
+  onToggle: () => void
+  adminUserCount?: number // optional for now
 }
 
-export default function Sidebar({ userEmail, counts, bookGroups }: Props) {
+export default function Sidebar({ userEmail, counts, bookGroups, isOpen, onToggle, adminUserCount = 0 }: Props) {
   const [booksExpanded, setBooksExpanded] = useState(false)
 
   return (
-    <aside className="sticky top-0 hidden h-screen w-[420px] shrink-0 border-r border-neutral-300 xl:flex xl:flex-col">
-      <div className="border-b border-neutral-200 px-8 py-12">
-        <div className="text-[34px] font-semibold tracking-tight text-emerald-700">
-          HER·STORIES
+    <>
+      <aside className={`${isOpen ? 'fixed' : 'hidden'} left-0 top-14 z-40 h-[calc(100vh-56px)] w-[420px] border-r border-neutral-300 bg-neutral-50 grid grid-rows-[96px_1fr_110px] lg:sticky lg:top-0 lg:relative lg:h-[calc(100vh-56px)] lg:z-auto lg:block`}>
+        {/* Header (fixed height) */}
+        <div className="border-b border-neutral-200 px-8 flex items-center h-[96px]">
+          <div>
+            <div className="text-[34px] font-semibold tracking-tight text-emerald-700">
+              HER·STORIES
+            </div>
+            <div className="mt-1 text-[14px] font-semibold uppercase leading-tight tracking-wide text-emerald-700">
+              Content
+              <br />
+              Manager
+            </div>
+          </div>
         </div>
-        <div className="mt-1 text-[14px] font-semibold uppercase leading-tight tracking-wide text-emerald-700">
-          Content
-          <br />
-          Manager
-        </div>
-      </div>
 
-      <div className="flex-1 overflow-y-auto">
-        <div className="border-b border-neutral-200 px-8 py-8">
+        {/* Scrollable/fill content (middle row) */}
+        <div className="min-h-0 max-h-full overflow-y-auto flex flex-col">
+          <div className="border-b border-neutral-200 px-8 py-8">
           <div className="mb-6 text-[20px] font-semibold">
             Content ({counts.totalContent})
           </div>
@@ -99,12 +107,27 @@ export default function Sidebar({ userEmail, counts, bookGroups }: Props) {
             Artefacts ({counts.artifacts})
           </div>
         </div>
-      </div>
-
-      <div className="sticky bottom-0 border-t border-neutral-300 bg-neutral-50 px-8 py-6">
-        <div className="text-[18px] font-semibold">LOG OUT</div>
-        <div className="text-[15px] text-neutral-600">{userEmail}</div>
-      </div>
+        </div>
+        {/* Footer (fixed height) */}
+        <div className="flex flex-col justify-end h-[110px]">
+          <div className="border-t border-neutral-200 px-8 py-4 bg-neutral-50">
+            <div className="text-[16px] font-semibold">Admin Users ({adminUserCount})</div>
+          </div>
+          <div className="border-t border-neutral-300 bg-neutral-50 px-8 py-3">
+            <div className="text-[18px] font-semibold">LOG OUT</div>
+            <div className="text-[15px] text-neutral-600">{userEmail}</div>
+          </div>
+        </div>
     </aside>
+
+    {isOpen && (
+      <button
+        type="button"
+        onClick={onToggle}
+        className="fixed inset-0 z-30 bg-black/20 lg:hidden"
+        aria-label="Close sidebar"
+      />
+    )}
+    </>
   )
 }

@@ -12,7 +12,6 @@ type Props = {
   availableGenres: string[]
   selectedGenre: string
   onSelectedGenreChange: (value: string) => void
-  onApplyGenre: () => void
   onNewGenre: () => void
   onRemoveGenre: (genre: string) => void
   onChange: (patch: Partial<BookDraft>) => void
@@ -23,36 +22,29 @@ export default function BookForm({
   availableGenres,
   selectedGenre,
   onSelectedGenreChange,
-  onApplyGenre,
   onNewGenre,
   onRemoveGenre,
   onChange,
 }: Props) {
+  // Filter out genres already applied to the book
+  const genresToShow = availableGenres.filter((g) => !value.genres.includes(g));
   return (
     <>
       <div className="space-y-4">
         <SectionTitle>Book Genres</SectionTitle>
 
-        <div className="grid gap-4 md:grid-cols-[1fr_auto_auto]">
+        <div className="grid gap-4 md:grid-cols-[1fr_auto]">
           <Select value={selectedGenre} onChange={(e) => onSelectedGenreChange(e.target.value)}>
-            <option value="">Select Book Genre</option>
-            {availableGenres.map((genre) => (
+            <option value="">Select or add a genre</option>
+            {genresToShow.map((genre) => (
               <option key={genre} value={genre}>
                 {genre}
               </option>
             ))}
           </Select>
 
-          <BlackButton
-            className="min-w-[140px]"
-            onClick={onApplyGenre}
-            disabled={!selectedGenre}
-          >
-            APPLY
-          </BlackButton>
-
           <BlackButton className="min-w-[160px]" onClick={onNewGenre}>
-            NEW GENRE
+            ADD GENRE
           </BlackButton>
         </div>
 
