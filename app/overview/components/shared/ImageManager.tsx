@@ -438,7 +438,7 @@ export default function ImageManager({
                 </div>
               </>
             ) : (
-              <div className="h-32 w-32 rounded-md border border-dashed border-neutral-300 bg-neutral-100" />
+              <div className="h-32 w-32 rounded-md border border-dashed border-neutral-300 bg-white" />
             )}
           </div>
 
@@ -450,7 +450,7 @@ export default function ImageManager({
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isUploading}
-                  className="flex h-32 w-32 shrink-0 items-center justify-center rounded-md bg-neutral-950 text-white disabled:cursor-not-allowed disabled:opacity-70"
+                  className="flex h-32 w-32 shrink-0 items-center justify-center rounded-md bg-white text-white disabled:cursor-not-allowed disabled:opacity-70"
                   title="Add image"
                 >
                   <Plus size={34} />
@@ -493,7 +493,7 @@ export default function ImageManager({
                 {Array.from({ length: Math.max(0, 4 - additionalImages.length) }).map((_, index) => (
                   <div
                     key={`placeholder-${index}`}
-                    className="h-32 w-32 shrink-0 rounded-md bg-neutral-100"
+                    className="h-32 w-32 shrink-0 rounded-md bg-white"
                   />
                 ))}
               </div>
@@ -632,7 +632,7 @@ export default function ImageManager({
               type="button"
               onClick={() => setIsLocationDialogOpen(false)}
               aria-label="Close location dialog"
-              className="rounded-md p-2 text-neutral-700 hover:bg-neutral-100"
+              className="rounded-md p-2 text-neutral-700 hover:bg-white"
             >
               <X size={28} />
             </button>
@@ -648,7 +648,7 @@ export default function ImageManager({
             </p>
             <div className="flex items-center gap-3">
               <BlackButton
-                className="bg-neutral-200 text-neutral-900 hover:bg-neutral-300"
+                className="bg-white text-neutral-900 hover:bg-neutral-300"
                 onClick={() => setIsLocationDialogOpen(false)}
               >
                 CANCEL

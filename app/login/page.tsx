@@ -49,19 +49,14 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f6f6f4] px-6 py-8 text-[#1f1f1f]">
-      <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-7xl flex-col bg-[#f6f6f4]">
+    <main className="min-h-screen bg-[#ffffff] px-6 py-8 text-[#1f1f1f]">
+      <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-7xl flex-col bg-[#ffffff]">
         <header className="flex justify-end px-8 pt-8 sm:px-10 sm:pt-10">
           <div className="flex flex-col items-end gap-3">
             <img
-              src="/welsh-government-logo.png"
-              alt="Welsh Government"
-              className="h-24 w-auto object-contain sm:h-28"
-            />
-            <img
-              src="/merthyr-council-logo.png"
-              alt="Merthyr Tydfil County Borough Council"
-              className="h-20 w-auto object-contain sm:h-24"
+              src="/logos.png"
+              alt="Welsh Government and Merthyr Tydfil County Borough Council Logos"
+              className="h-24 w-auto object-contain sm:h-48"
             />
           </div>
         </header>
@@ -69,13 +64,7 @@ export default function LoginPage() {
         <section className="flex flex-1 items-center justify-center px-6 py-12">
           <div className="w-full max-w-sm">
             <div className="mb-14 text-center">
-              <p className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-[#147a4c]">
-                Content Manager
-              </p>
-              <div className="mx-auto mb-4 h-px w-64 bg-[#147a4c]" />
-              <h1 className="font-serif text-5xl tracking-wide text-[#147a4c] sm:text-6xl">
-                HERSTORIES
-              </h1>
+              <img src="/mainLogo.svg" alt="Her Stories Content Manager" className="mx-auto h-46 w-auto sm:h-24" />
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">

@@ -20,20 +20,13 @@ export default function Sidebar({ userEmail, counts, bookGroups, isOpen, onToggl
   return (
     <>
       <aside
-        className={`${isOpen ? 'fixed' : 'hidden'} left-0 top-14 z-40 flex h-[calc(100vh-56px)] w-[420px] flex-col border-r border-neutral-300 bg-neutral-50 lg:relative lg:top-0 lg:flex lg:h-full lg:z-auto`}
+        className={`${isOpen ? 'fixed' : 'hidden'} left-0 top-14 z-40 flex h-[calc(100vh-56px)] w-[420px] flex-col border-r border-neutral-300 bg-white lg:relative lg:top-0 lg:flex lg:h-full lg:z-auto`}
       >
         {/* Header (fixed height) */}
         <div className="border-b border-neutral-200 px-8 flex items-center h-[96px]">
-          <div>
-            <div className="text-[34px] font-semibold tracking-tight text-emerald-700">
-              HER·STORIES
-            </div>
-            <div className="mt-1 text-[14px] font-semibold uppercase leading-tight tracking-wide text-emerald-700">
-              Content
-              <br />
-              Manager
-            </div>
-          </div>
+          <img src="/menuLogo.png" 
+              alt="Her Stories Content Manager Logo"
+              className="h-24 w-auto object-contain sm:h-48"/>
         </div>
 
         {/* Scrollable/fill content (middle row) */}
@@ -113,10 +106,10 @@ export default function Sidebar({ userEmail, counts, bookGroups, isOpen, onToggl
 
         {/* Footer (fixed height) */}
         <div className="shrink-0">
-          <div className="border-t border-neutral-200 px-8 py-3 bg-neutral-50">
+          <div className="border-t border-neutral-200 px-8 py-3 bg-white">
             <div className="text-[16px] font-semibold">Admin Users ({adminUserCount})</div>
           </div>
-          <div className="border-t-0 border-neutral-300 bg-neutral-50 px-8 py-3">
+          <div className="border-t-0 border-neutral-300 bg-white px-8 py-3">
             <div className="text-[18px] font-semibold">LOG OUT</div>
             <div className="text-[15px] text-neutral-600">{userEmail}</div>
           </div>

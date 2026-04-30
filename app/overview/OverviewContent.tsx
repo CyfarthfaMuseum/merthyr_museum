@@ -301,18 +301,18 @@ export default function OverviewContent({
   }
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-neutral-100 text-neutral-900">
+    <div className="flex h-screen flex-col overflow-hidden bg-white text-neutral-900">
       <button
         type="button"
         onClick={() => setSidebarOpen((current) => !current)}
-        className="sticky top-0 z-40 flex h-14 items-center justify-start gap-3 border-b border-neutral-300 bg-neutral-50 px-6 lg:hidden"
+        className="sticky top-0 z-40 flex h-14 items-center justify-start gap-3 border-b border-neutral-300 bg-white px-6 lg:hidden"
         aria-label="Toggle sidebar"
       >
         <span className="text-xl">☰</span>
         <span className="text-sm font-semibold">Menu</span>
       </button>
 
-      <div className="mx-auto flex min-h-0 w-full max-w-[1600px] flex-1 border-x border-neutral-300 bg-neutral-50">
+      <div className="mx-auto flex min-h-0 w-full max-w-[1600px] flex-1 border-x border-neutral-300 bg-white">
         <Sidebar
           userEmail={userEmail}
           counts={sidebarCounts}
@@ -574,7 +574,7 @@ export default function OverviewContent({
             )}
           </div>
 
-          <div className="shrink-0 border-t border-neutral-300 bg-neutral-50 px-6 py-6 md:px-12 xl:px-16">
+          <div className="shrink-0 border-t border-neutral-300 bg-white px-6 py-6 md:px-12 xl:px-16">
             <div className="mx-auto flex max-w-[920px] items-center justify-between gap-4">
               <button
                 type="button"
