@@ -1,29 +1,24 @@
-import type { StoryType } from '../types'
-
-const storyTypes: { value: StoryType; label: string }[] = [
-  { value: 'myth', label: 'Myth / Folklore' },
-  { value: 'historical', label: 'Historical Event' },
-  { value: 'period', label: 'Period Vignette' },
-]
+import type { StoryType, StoryTypeOption } from '../types'
 
 type Props = {
   value: StoryType
+  options: StoryTypeOption[]
   onChange: (value: StoryType) => void
 }
 
-export default function StoryTypeSelector({ value, onChange }: Props) {
+export default function StoryTypeSelector({ value, options, onChange }: Props) {
   return (
     <div className="flex flex-wrap gap-8">
-      {storyTypes.map((type) => {
-        const checked = value === type.value
+      {options.map((type) => {
+        const checked = value === type.code
 
         return (
-          <label key={type.value} className="flex cursor-pointer items-center gap-3">
+          <label key={type.code} className="flex cursor-pointer items-center gap-3">
             <input
               type="radio"
               name="storyType"
               checked={checked}
-              onChange={() => onChange(type.value)}
+              onChange={() => onChange(type.code)}
               className="sr-only"
             />
             <span
