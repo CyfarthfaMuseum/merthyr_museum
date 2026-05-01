@@ -1,5 +1,5 @@
 export type ContentType = 'book' | 'stories' | 'painting' | 'artifacts' | 'bio'
-export type StoryType = 'myth' | 'historical' | 'period'
+export type StoryType = string
 export type EditorMode = 'create' | 'edit'
 
 export type SidebarCounts = {
@@ -82,6 +82,11 @@ export type OverviewDraft = {
   painting: PaintingDraft
   artifact: ArtifactDraft
   bio: BioDraft
+}
+
+export type StoryTypeOption = {
+  code: string
+  label: string
 }
 
 export const initialDraft: OverviewDraft = {
