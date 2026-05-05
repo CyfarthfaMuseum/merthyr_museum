@@ -104,3 +104,43 @@ export async function saveImageMetadataAction(args: SaveImageArgs) {
     mediaAssetId,
   }
 }
+
+
+type SaveLocationArgs = {
+  contentItemId?: string | null
+  address: string
+  latitude: number
+  longitude: number
+}
+
+export async function saveLocationAction(args: SaveLocationArgs) {
+  if (!args.contentItemId) {
+    return { success: false, error: 'Save content before setting a location.' }
+  }
+
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { success: false, error: 'You must be logged in.' }
+  }
+
+  const { error } = await supabase
+    .from('content_items')
+    .update({
+      location_address: args.address,
+      latitude: args.latitude,
+      longitude: args.longitude,
+      updated_by: user.id,
+    })
+    .eq('id', args.contentItemId)
+
+  if (error) {
+    return { success: false, error: error.message }
+  }
+
+  return { success: true }
+}
