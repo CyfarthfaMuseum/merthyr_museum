@@ -282,19 +282,21 @@ export default function OverviewContent({
     startStoryTypeTransition(async () => {
       const result = await createStoryTypeAction({ label })
       if (!result.success) {
-        showToast(result.error, 'error')
+        showToast(result.error ?? 'An error occurred.', 'error')
         return
       }
 
-      setStoryTypes((current) =>
-        current.some((item) => item.code === result.storyType.code)
-          ? current
-          : [...current, result.storyType].sort((a, b) => a.label.localeCompare(b.label))
-      )
-      setDraft((current) => ({
-        ...current,
-        story: { ...current.story, storyType: result.storyType.code },
-      }))
+      if (result.storyType && result.storyType.code && result.storyType.label) {
+        setStoryTypes((current) =>
+          current.some((item) => item.code === result.storyType!.code)
+            ? current
+            : [...current, result.storyType!].sort((a, b) => a.label.localeCompare(b.label))
+        )
+        setDraft((current) => ({
+          ...current,
+          story: { ...current.story, storyType: result.storyType!.code },
+        }))
+      }
       setStoryTypeModalOpen(false)
       setNewStoryTypeLabel('')
       showToast(result.alreadyExisted ? 'Story type already existed.' : 'Story type created.', 'success')
