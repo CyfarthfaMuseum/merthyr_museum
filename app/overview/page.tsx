@@ -343,7 +343,7 @@ async function getEditDraft(
           isbn: book?.isbn ?? '',
           summary: translation?.excerpt ?? itemTranslation?.summary ?? '',
           exposition: itemTranslation?.body ?? '',
-          publicationDate: book?.publication_year ? String(book.publication_year) : '',
+          publicationDate: book?.publication_year ? `${book.publication_year}-01-01` : '',
           pagesCount: '',
           genres,
         },
