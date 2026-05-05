@@ -185,9 +185,7 @@ async function getSidebarBookGroups(
     .sort((a, b) => a.genre.localeCompare(b.genre))
 }
 
-async function getAvailableBookGenres(
-  supabase: Awaited<ReturnType<typeof createClient>>
-): Promise<string[]> {
+async function getAvailableBookGenres(): Promise<string[]> {
   const adminSupabase = createAdminClient()
 
   const { data, error } = await adminSupabase
@@ -203,10 +201,10 @@ async function getAvailableBookGenres(
   return [...new Set((data ?? []).map((row) => row.title).filter(Boolean))]
 }
 
-async function getAvailableStoryTypes(
-  supabase: Awaited<ReturnType<typeof createClient>>
-): Promise<StoryTypeOption[]> {
-  const { data, error } = await supabase
+async function getAvailableStoryTypes(): Promise<StoryTypeOption[]> {
+  const adminSupabase = createAdminClient()
+
+  const { data, error } = await adminSupabase
     .from('story_types')
     .select(
       `
@@ -537,8 +535,8 @@ export default async function OverviewPage({ searchParams }: PageProps) {
   ] = await Promise.all([
     getSidebarCounts(supabase),
     getEditDraft(supabase, resolvedParams.type, resolvedParams.id),
-    getAvailableBookGenres(supabase),
-    getAvailableStoryTypes(supabase),
+    getAvailableBookGenres(),
+    getAvailableStoryTypes(),
     getSidebarBookGroups(supabase),
   ])
 
