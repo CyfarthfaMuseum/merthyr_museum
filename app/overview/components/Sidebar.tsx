@@ -1,9 +1,36 @@
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
 import { useState } from 'react'
 import type { SidebarBookGroup, SidebarCounts } from '../types'
 import { GreenButton } from './ui/Buttons'
+
+type ContentHeaderProps = {
+  label: string
+  count: number
+  expanded?: boolean
+}
+
+function ContentHeader({ label, count, expanded }: ContentHeaderProps) {
+  return (
+    <div className="flex items-center gap-3">      
+      {expanded === undefined ? null : (
+        <Image
+          src={expanded ? '/arrowUp.png' : '/arrowRight.png'}
+          alt=""
+          aria-hidden
+          width={expanded ? 12 : 8}
+          height={expanded ? 8 : 12}
+          className={expanded ? "h-[8px] w-[12px]" : "h-[12px] w-[8px]" }
+        />
+      )}
+      <span className="text-[18px] font-semibold">
+        {label} ({count})
+      </span>
+    </div>
+  )
+}
 
 type Props = {
   userEmail: string
@@ -24,17 +51,18 @@ export default function Sidebar({ userEmail, counts, bookGroups, isOpen, onToggl
       >
         {/* Header (fixed height) */}
         <div className="border-b border-neutral-200 px-8 flex items-center h-[96px]">
-          <img src="/menuLogo.png" 
+          <Image src="/menuLogo.png" 
               alt="Her Stories Content Manager Logo"
-              className="h-24 w-auto object-contain sm:h-48"/>
+              width={240}
+            height={96}
+            className="h-24 w-auto object-contain"
+            priority/>
         </div>
 
         {/* Scrollable/fill content (middle row) */}
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
           <div className="border-b border-neutral-200 px-8 py-8">
-            <div className="mb-6 text-[20px] font-semibold">
-              Content ({counts.totalContent})
-            </div>
+            <div className="mb-6"><ContentHeader label="Content" count={counts.totalContent} /></div>
             <Link href="/overview?new=1">
               <GreenButton className="w-full">ADD NEW</GreenButton>
             </Link>
@@ -46,8 +74,7 @@ export default function Sidebar({ userEmail, counts, bookGroups, isOpen, onToggl
               className="flex w-full items-center justify-between text-left"
               onClick={() => setBooksExpanded((current) => !current)}
             >
-              <span className="text-[18px] font-semibold">Books ({counts.books})</span>
-              <span className="text-[18px] text-neutral-500">{booksExpanded ? '▾' : '▸'}</span>
+              <ContentHeader label="Books" count={counts.books} expanded={booksExpanded} />
             </button>
 
             {booksExpanded ? (
@@ -81,9 +108,7 @@ export default function Sidebar({ userEmail, counts, bookGroups, isOpen, onToggl
 
           {counts.biographies > 0 ? (
             <div className="border-b border-neutral-200 px-8 py-6">
-              <div className="text-[18px] font-semibold">
-                Biographies ({counts.biographies})
-              </div>
+              <ContentHeader label="Biographies" count={counts.biographies} expanded={false} />
             </div>
           ) : null}
 
@@ -92,15 +117,11 @@ export default function Sidebar({ userEmail, counts, bookGroups, isOpen, onToggl
           </div>
 
           <div className="border-b border-neutral-200 px-8 py-6">
-            <div className="text-[18px] font-semibold">
-              Paintings ({counts.paintings})
-            </div>
+            <ContentHeader label="Paintings" count={counts.paintings} />
           </div>
 
           <div className="border-b border-neutral-200 px-8 py-6">
-            <div className="text-[18px] font-semibold">
-              Artefacts ({counts.artifacts})
-            </div>
+            <ContentHeader label="Artefacts" count={counts.artifacts} />
           </div>
         </div>
 

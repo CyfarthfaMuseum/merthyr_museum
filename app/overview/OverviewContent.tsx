@@ -325,7 +325,7 @@ export default function OverviewContent({
             {showEditor ? (
               <>
                 <div className="mb-10 flex items-center gap-3">
-                  <div className="text-emerald-600">▣</div>
+                  <img src="/content-icon.png" alt="" className="h-[24px] w-[24px]" />
                   <h1 className="text-[22px] font-semibold">
                     {mode === 'edit' ? 'Edit Content' : 'New Content'}
                   </h1>

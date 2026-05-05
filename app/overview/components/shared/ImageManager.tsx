@@ -450,7 +450,7 @@ export default function ImageManager({
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isUploading}
-                  className="flex h-32 w-32 shrink-0 items-center justify-center rounded-md bg-white text-white disabled:cursor-not-allowed disabled:opacity-70"
+                  className="flex h-32 w-32 shrink-0 items-center justify-center rounded-md bg-neutral-900 text-white disabled:cursor-not-allowed disabled:opacity-70"
                   title="Add image"
                 >
                   <Plus size={34} />
@@ -493,7 +493,7 @@ export default function ImageManager({
                 {Array.from({ length: Math.max(0, 4 - additionalImages.length) }).map((_, index) => (
                   <div
                     key={`placeholder-${index}`}
-                    className="h-32 w-32 shrink-0 rounded-md bg-white"
+                    className="h-32 w-32 shrink-0 rounded-md bg-neutral-100"
                   />
                 ))}
               </div>
