@@ -39,6 +39,15 @@ type Props = {
   availableBookGenres: string[]
   availableStoryTypes: StoryTypeOption[]
   showEditor: boolean
+  initialImages: {
+    id: string
+    previewUrl: string
+    fileName: string
+    altText: string
+    caption: string
+    credit: string
+    isPrimary: boolean
+  }[]
 }
 
 function slugify(value: string) {
@@ -60,6 +69,7 @@ export default function OverviewContent({
   availableBookGenres,
   availableStoryTypes,
   showEditor,
+  initialImages,
 }: Props) {
   const [draft, setDraft] = useState<OverviewDraft>(initialDraft)
   const [genres, setGenres] = useState<string[]>(availableBookGenres)
@@ -468,10 +478,12 @@ export default function OverviewContent({
                   <Divider />
 
                   <ImageManager
+                    key={savedContentItemId ?? `draft-${draft.contentType}`}
                     contentItemId={savedContentItemId}
                     contentType={draft.contentType}
                     slugValue={draft.slug}
                     onSlugChange={handleSlugManualChange}
+                    initialImages={initialImages}
                     onUploaded={(mediaAssetId) => {
                       setPendingMediaAssetIds((current) =>
                         current.includes(mediaAssetId) ? current : [...current, mediaAssetId]

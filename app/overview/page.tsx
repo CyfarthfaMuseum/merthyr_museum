@@ -514,6 +514,65 @@ async function getEditDraft(
   return { mode: 'create', draft: initialDraft, editId: null, editType: null }
 }
 
+
+async function getInitialImages(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  contentItemId: string | null
+): Promise<{
+  id: string
+  previewUrl: string
+  fileName: string
+  altText: string
+  caption: string
+  credit: string
+  isPrimary: boolean
+}[]> {
+  if (!contentItemId) return []
+
+  const { data, error } = await supabase
+    .from('content_media')
+    .select(
+      `
+      media_asset_id,
+      is_primary,
+      sort_order,
+      media_assets (
+        file_name,
+        storage_path,
+        credit
+      ),
+      media_asset_translations (
+        language_code,
+        alt_text,
+        caption
+      )
+    `
+    )
+    .eq('content_item_id', contentItemId)
+    .order('sort_order', { ascending: true })
+
+  if (error) return []
+
+  return (data ?? []).map((row) => {
+    const asset = Array.isArray(row.media_assets) ? row.media_assets[0] : row.media_assets
+    const translations = Array.isArray(row.media_asset_translations)
+      ? row.media_asset_translations
+      : []
+    const translation =
+      translations.find((item) => item.language_code === 'en') ?? translations[0] ?? null
+
+    return {
+      id: row.media_asset_id as string,
+      previewUrl: (asset?.storage_path as string | null) ?? '',
+      fileName: (asset?.file_name as string | null) ?? 'Image',
+      altText: (translation?.alt_text as string | null) ?? '',
+      caption: (translation?.caption as string | null) ?? '',
+      credit: (asset?.credit as string | null) ?? '',
+      isPrimary: Boolean(row.is_primary),
+    }
+  }).filter((row) => row.previewUrl)
+}
+
 export default async function OverviewPage({ searchParams }: PageProps) {
   const supabase = await createClient()
 
@@ -542,6 +601,8 @@ export default async function OverviewPage({ searchParams }: PageProps) {
     getSidebarBookGroups(supabase),
   ])
 
+  const initialImages = await getInitialImages(supabase, editState.editId)
+
   return (
     <OverviewContent
       userEmail={user.email ?? ''}
@@ -554,6 +615,7 @@ export default async function OverviewPage({ searchParams }: PageProps) {
       availableStoryTypes={availableStoryTypes}
       sidebarBookGroups={sidebarBookGroups}
       showEditor={editState.mode === 'edit' || createSelected}
+      initialImages={initialImages}
     />
   )
 }

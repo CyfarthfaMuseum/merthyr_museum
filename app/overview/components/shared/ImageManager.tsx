@@ -9,12 +9,23 @@ import SectionTitle from '../ui/SectionTitle'
 import { uploadImageToR2 } from '../../upload-image'
 import { saveImageMetadataAction } from '../../image-actions'
 
+type InitialImage = {
+  id: string
+  previewUrl: string
+  fileName: string
+  altText: string
+  caption: string
+  credit: string
+  isPrimary: boolean
+}
+
 type Props = {
   contentItemId?: string | null
   contentType: 'book' | 'stories' | 'painting' | 'artifacts' | 'bio'
   slugValue: string
   onSlugChange: (value: string) => void
   onUploaded?: (mediaAssetId: string) => void
+  initialImages?: InitialImage[]
 }
 
 type ImageItem = {
@@ -60,12 +71,27 @@ declare global {
 
 let leafletLoader: Promise<void> | null = null
 
+function toImageItems(initialImages: InitialImage[]): ImageItem[] {
+  return initialImages.map((image) => ({
+    localId: image.id,
+    mediaAssetId: image.id,
+    previewUrl: image.previewUrl,
+    fileName: image.fileName,
+    altText: image.altText,
+    caption: image.caption,
+    credit: image.credit,
+    isPrimary: image.isPrimary,
+    isUploading: false,
+  }))
+}
+
 export default function ImageManager({
   contentItemId,
   contentType,
   slugValue,
   onSlugChange,
   onUploaded,
+  initialImages = [],
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const previewObjectUrlsRef = useRef<string[]>([])
@@ -74,8 +100,8 @@ export default function ImageManager({
   const markerRef = useRef<LeafletMarker | null>(null)
   const selectedCoordinatesRef = useRef<{ lat: number; lng: number } | null>(null)
 
-  const [images, setImages] = useState<ImageItem[]>([])
-  const [selectedImageId, setSelectedImageId] = useState<string | null>(null)
+  const [images, setImages] = useState<ImageItem[]>(() => toImageItems(initialImages))
+  const [selectedImageId, setSelectedImageId] = useState<string | null>(() => toImageItems(initialImages)[0]?.localId ?? null)
   const [isUploading, setIsUploading] = useState(false)
   const [imageryMessage, setImageryMessage] = useState('')
   const [qrMessage, setQrMessage] = useState('')
