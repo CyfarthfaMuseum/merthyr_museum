@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState, useTransition } from 'react'
-import { createBookGenreAction, saveContentAction } from './actions'
+import { createBookGenreAction, createStoryTypeAction, saveContentAction } from './actions'
 import { validateDraft } from './validation'
 import type {
   ContentType,
@@ -9,6 +9,7 @@ import type {
   OverviewDraft,
   SidebarBookGroup,
   SidebarCounts,
+  StoryTypeOption,
 } from './types'
 import Sidebar from './components/Sidebar'
 import ContentTypeSelector from './components/ContentTypeSelector'
@@ -36,6 +37,7 @@ type Props = {
   editId: string | null
   editType: ContentType | null
   availableBookGenres: string[]
+  availableStoryTypes: StoryTypeOption[]
   showEditor: boolean
 }
 
@@ -56,6 +58,7 @@ export default function OverviewContent({
   mode,
   editId,
   availableBookGenres,
+  availableStoryTypes,
   showEditor,
 }: Props) {
   const [draft, setDraft] = useState<OverviewDraft>(initialDraft)
@@ -74,6 +77,10 @@ export default function OverviewContent({
   const [genreModalOpen, setGenreModalOpen] = useState(false)
   const [newGenreTitle, setNewGenreTitle] = useState('')
   const [isCreatingGenre, startGenreTransition] = useTransition()
+  const [storyTypes, setStoryTypes] = useState<StoryTypeOption[]>(availableStoryTypes)
+  const [storyTypeModalOpen, setStoryTypeModalOpen] = useState(false)
+  const [newStoryTypeLabel, setNewStoryTypeLabel] = useState('')
+  const [isCreatingStoryType, startStoryTypeTransition] = useTransition()
 
   const [toastOpen, setToastOpen] = useState(false)
   const [toastMessage, setToastMessage] = useState('')
@@ -84,12 +91,13 @@ export default function OverviewContent({
   useEffect(() => {
     setDraft(initialDraft)
     setGenres(availableBookGenres)
+    setStoryTypes(availableStoryTypes)
     setSlugEditedManually(mode === 'edit')
     setSeoTitleEditedManually(mode === 'edit')
     setSeoDescriptionEditedManually(mode === 'edit')
     setSavedContentItemId(editId)
     setPendingMediaAssetIds([])
-  }, [initialDraft, availableBookGenres, mode, editId])
+  }, [initialDraft, availableBookGenres, availableStoryTypes, mode, editId])
 
   useEffect(() => {
     if (!toastOpen) return
@@ -267,6 +275,32 @@ export default function OverviewContent({
     })
   }
 
+  function handleCreateStoryType() {
+    const label = newStoryTypeLabel.trim()
+    if (!label) return
+
+    startStoryTypeTransition(async () => {
+      const result = await createStoryTypeAction({ label })
+      if (!result.success) {
+        showToast(result.error, 'error')
+        return
+      }
+
+      setStoryTypes((current) =>
+        current.some((item) => item.code === result.storyType.code)
+          ? current
+          : [...current, result.storyType].sort((a, b) => a.label.localeCompare(b.label))
+      )
+      setDraft((current) => ({
+        ...current,
+        story: { ...current.story, storyType: result.storyType.code },
+      }))
+      setStoryTypeModalOpen(false)
+      setNewStoryTypeLabel('')
+      showToast(result.alreadyExisted ? 'Story type already existed.' : 'Story type created.', 'success')
+    })
+  }
+
   function handleSave() {
     const errors = validateDraft(draft)
 
@@ -362,6 +396,7 @@ export default function OverviewContent({
                         <SectionTitle>Select Story Type</SectionTitle>
                         <StoryTypeSelector
                           value={draft.story.storyType}
+                          options={storyTypes}
                           onChange={(storyType) =>
                             setDraft((current) => ({
                               ...current,
@@ -369,6 +404,13 @@ export default function OverviewContent({
                             }))
                           }
                         />
+                        <button
+                          type="button"
+                          onClick={() => setStoryTypeModalOpen(true)}
+                          className="text-sm font-medium text-emerald-700 underline underline-offset-2"
+                        >
+                          + Add story type
+                        </button>
                       </div>
 
                       <Divider />
@@ -624,6 +666,26 @@ export default function OverviewContent({
             </BlackButton>
             <GreenButton onClick={handleCreateGenre} disabled={isCreatingGenre}>
               {isCreatingGenre ? 'CREATING...' : 'CONFIRM'}
+            </GreenButton>
+          </div>
+        </div>
+      </Modal>
+      <Modal
+        open={storyTypeModalOpen}
+        title="New Story Type"
+        onClose={() => setStoryTypeModalOpen(false)}
+      >
+        <div className="space-y-4">
+          <Input
+            value={newStoryTypeLabel}
+            onChange={(e) => setNewStoryTypeLabel(e.target.value)}
+            placeholder="Story type name"
+          />
+
+          <div className="flex justify-end gap-3">
+            <BlackButton onClick={() => setStoryTypeModalOpen(false)}>CANCEL</BlackButton>
+            <GreenButton onClick={handleCreateStoryType} disabled={isCreatingStoryType}>
+              {isCreatingStoryType ? 'CREATING...' : 'CONFIRM'}
             </GreenButton>
           </div>
         </div>

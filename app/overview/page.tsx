@@ -9,6 +9,7 @@ import {
   type SidebarBookGroup,
   type OverviewDraft,
   type SidebarCounts,
+  type StoryTypeOption,
 } from './types'
 
 type PageProps = {
@@ -202,6 +203,21 @@ async function getAvailableBookGenres(
   return [...new Set((data ?? []).map((row) => row.title).filter(Boolean))]
 }
 
+async function getAvailableStoryTypes(
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<StoryTypeOption[]> {
+  const { data, error } = await supabase
+    .from('story_types')
+    .select('code, title')
+    .order('title', { ascending: true })
+
+  if (error) return []
+
+  return (data ?? [])
+    .filter((row) => row.code && row.title)
+    .map((row) => ({ code: row.code as string, label: row.title as string }))
+}
+
 async function getEditDraft(
   supabase: Awaited<ReturnType<typeof createClient>>,
   type: string | undefined,
@@ -336,8 +352,7 @@ async function getEditDraft(
         seoTitle: itemTranslation?.seo_title ?? '',
         seoDescription: itemTranslation?.seo_description ?? '',
         story: {
-          storyType:
-            storyCode === 'myth' || storyCode === 'period' ? storyCode : 'historical',
+          storyType: storyCode,
           title: itemTranslation?.title ?? '',
           summary: itemTranslation?.summary ?? '',
           exposition: translation?.event_details ?? itemTranslation?.body ?? '',
@@ -495,10 +510,17 @@ export default async function OverviewPage({ searchParams }: PageProps) {
   const resolvedParams = (await searchParams) ?? {}
   const createSelected = resolvedParams.new === '1'
 
-  const [sidebarCounts, editState, availableBookGenres, sidebarBookGroups] = await Promise.all([
+  const [
+    sidebarCounts,
+    editState,
+    availableBookGenres,
+    availableStoryTypes,
+    sidebarBookGroups,
+  ] = await Promise.all([
     getSidebarCounts(supabase),
     getEditDraft(supabase, resolvedParams.type, resolvedParams.id),
     getAvailableBookGenres(supabase),
+    getAvailableStoryTypes(supabase),
     getSidebarBookGroups(supabase),
   ])
 
@@ -511,6 +533,7 @@ export default async function OverviewPage({ searchParams }: PageProps) {
       editId={editState.editId}
       editType={editState.editType}
       availableBookGenres={availableBookGenres}
+      availableStoryTypes={availableStoryTypes}
       sidebarBookGroups={sidebarBookGroups}
       showEditor={editState.mode === 'edit' || createSelected}
     />
