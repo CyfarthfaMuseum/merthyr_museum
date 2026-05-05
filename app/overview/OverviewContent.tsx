@@ -486,7 +486,7 @@ export default function OverviewContent({
                   <Divider />
 
                   <ImageManager
-                    key={savedContentItemId ?? `draft-${draft.contentType}`}
+                    key={editId ?? savedContentItemId ?? `draft-${draft.contentType}`}
                     contentItemId={savedContentItemId}
                     contentType={draft.contentType}
                     slugValue={draft.slug}
