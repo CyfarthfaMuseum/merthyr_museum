@@ -132,8 +132,8 @@ export async function saveLocationAction(args: SaveLocationArgs) {
     .from('content_items')
     .update({
       location_address: args.address,
-      latitude: args.latitude,
-      longitude: args.longitude,
+      lat: args.latitude,
+      lng: args.longitude,
       updated_by: user.id,
     })
     .eq('id', args.contentItemId)
