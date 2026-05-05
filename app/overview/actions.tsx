@@ -35,6 +35,15 @@ function slugify(value: string) {
     .replace(/^-+|-+$/g, '')
 }
 
+function toCode(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/['"]/g, '')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+}
+
 async function getContentTypeId(
   supabase: Awaited<ReturnType<typeof createClient>>,
   code: string
@@ -479,30 +488,60 @@ export async function createStoryTypeAction(args: { label: string }) {
   try {
     await ensureActiveAdminAccess(user.id)
     const adminSupabase: Awaited<ReturnType<typeof createClient>> = createAdminClient()
-    const label = args.label.trim()
-    if (!label) return { success: false, error: 'Story type name is required.' }
-    const code = slugify(label)
+    const title = args.label.trim()
+    if (!title) return { success: false, error: 'Story type name is required.' }
+    const code = toCode(title)
 
-    const { data: existing } = await adminSupabase
+    const { data: existingByCode } = await adminSupabase
       .from('story_types')
-      .select('code, title')
-      .or(`code.eq.${code},title.ilike.${label}`)
+      .select('id, code')
+      .eq('code', code)
       .limit(1)
 
-    const match = existing?.[0]
-    if (match?.code && match?.title) {
-      return { success: true, alreadyExisted: true, storyType: { code: match.code, label: match.title } }
+    const existingStoryType = existingByCode?.[0]
+    if (existingStoryType?.id && existingStoryType?.code) {
+      const { data: translation } = await adminSupabase
+        .from('story_type_translations')
+        .select('label')
+        .eq('story_type_id', existingStoryType.id)
+        .eq('language_code', 'en')
+        .maybeSingle()
+
+      return {
+        success: true,
+        alreadyExisted: true,
+        storyType: {
+          code: existingStoryType.code,
+          label: translation?.label ?? existingStoryType.code,
+        },
+      }
     }
 
-    const { data: inserted, error } = await adminSupabase
+    const { data: inserted, error: storyTypeError } = await adminSupabase
       .from('story_types')
-      .insert({ code, title: label })
-      .select('code, title')
+      .insert({ code, sort_order: 0 })
+      .select('id, code')
       .single()
-    if (error || !inserted) return { success: false, error: error?.message ?? 'Failed to create story type.' }
+
+    if (storyTypeError || !inserted) {
+      return { success: false, error: storyTypeError?.message ?? 'Failed to create story type.' }
+    }
+
+    const { error: translationError } = await adminSupabase.from('story_type_translations').insert({
+      story_type_id: inserted.id,
+      language_code: 'en',
+      label: title,
+    })
+
+    if (translationError) {
+      return {
+        success: false,
+        error: `Story type was created but label could not be saved: ${translationError.message}`,
+      }
+    }
 
     revalidatePath('/overview')
-    return { success: true, alreadyExisted: false, storyType: { code: inserted.code, label: inserted.title } }
+    return { success: true, alreadyExisted: false, storyType: { code: inserted.code, label: title } }
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : 'Failed to create story type.' }
   }
