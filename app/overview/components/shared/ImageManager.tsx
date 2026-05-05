@@ -409,6 +409,9 @@ export default function ImageManager({
       console.error('[Location] Reverse geocoding failed', error)
     }
 
+    setLocationAddress(resolvedAddress)
+    setIsLocationDialogOpen(false)
+
     if (contentItemId) {
       const result = await saveLocationAction({
         contentItemId,
@@ -418,19 +421,17 @@ export default function ImageManager({
       })
 
       if (!result.success) {
-        setLocationMessage(result.error ?? 'Unable to save location.')
+        setLocationMessage(`Location selected, but saving failed: ${result.error ?? 'Unable to save location.'}`)
         return
       }
     }
 
-    setLocationAddress(resolvedAddress)
     console.log('[Location selected]', {
       address: resolvedAddress,
       latitude: lat,
       longitude: lng,
     })
     setLocationMessage('Location confirmed and saved.')
-    setIsLocationDialogOpen(false)
   }
 
   return (
