@@ -7,7 +7,7 @@ import Input from '../ui/Input'
 import { BlackButton } from '../ui/Buttons'
 import SectionTitle from '../ui/SectionTitle'
 import { uploadImageToR2 } from '../../upload-image'
-import { saveImageMetadataAction } from '../../image-actions'
+import { saveImageMetadataAction, saveLocationAction } from '../../image-actions'
 
 type InitialImage = {
   id: string
@@ -123,6 +123,8 @@ export default function ImageManager({
   useEffect(() => {
     selectedCoordinatesRef.current = selectedCoordinates
   }, [selectedCoordinates])
+
+
 
   useEffect(() => {
     const previewObjectUrls = previewObjectUrlsRef.current
@@ -407,13 +409,27 @@ export default function ImageManager({
       console.error('[Location] Reverse geocoding failed', error)
     }
 
+    if (contentItemId) {
+      const result = await saveLocationAction({
+        contentItemId,
+        address: resolvedAddress,
+        latitude: lat,
+        longitude: lng,
+      })
+
+      if (!result.success) {
+        setLocationMessage(result.error ?? 'Unable to save location.')
+        return
+      }
+    }
+
     setLocationAddress(resolvedAddress)
     console.log('[Location selected]', {
       address: resolvedAddress,
       latitude: lat,
       longitude: lng,
     })
-    setLocationMessage('Location confirmed. Address and coordinates were logged in the console.')
+    setLocationMessage('Location confirmed and saved.')
     setIsLocationDialogOpen(false)
   }
 
