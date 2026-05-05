@@ -208,14 +208,32 @@ async function getAvailableStoryTypes(
 ): Promise<StoryTypeOption[]> {
   const { data, error } = await supabase
     .from('story_types')
-    .select('code, title')
-    .order('title', { ascending: true })
+    .select(
+      `
+      code,
+      sort_order,
+      story_type_translations (
+        language_code,
+        label
+      )
+    `
+    )
+    .order('sort_order', { ascending: true })
 
   if (error) return []
 
   return (data ?? [])
-    .filter((row) => row.code && row.title)
-    .map((row) => ({ code: row.code as string, label: row.title as string }))
+    .filter((row) => row.code)
+    .map((row) => {
+      const translations = Array.isArray(row.story_type_translations)
+        ? row.story_type_translations
+        : []
+      const translation =
+        translations.find((item) => item.language_code === 'en') ?? translations[0]
+
+      return { code: row.code as string, label: translation?.label ?? (row.code as string) }
+    })
+    .sort((a, b) => a.label.localeCompare(b.label))
 }
 
 async function getEditDraft(
