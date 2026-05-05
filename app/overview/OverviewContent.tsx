@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState, useTransition } from 'react'
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { createBookGenreAction, createStoryTypeAction, saveContentAction } from './actions'
 import { validateDraft } from './validation'
 import type {
@@ -98,7 +98,13 @@ export default function OverviewContent({
   const [savedContentItemId, setSavedContentItemId] = useState<string | null>(editId)
   const [pendingMediaAssetIds, setPendingMediaAssetIds] = useState<string[]>([])
 
+  const editorIdentityRef = useRef<string | null>(null)
+
   useEffect(() => {
+    const identity = `${mode}:${editId ?? 'new'}`
+    if (editorIdentityRef.current === identity) return
+
+    editorIdentityRef.current = identity
     setDraft(initialDraft)
     setGenres(availableBookGenres)
     setStoryTypes(availableStoryTypes)
