@@ -55,7 +55,7 @@ export default function Sidebar({ userEmail, counts, bookGroups, isOpen, onToggl
               alt="Her Stories Content Manager Logo"
               width={240}
             height={96}
-            className="h-24 w-auto object-contain"
+            className="object-contain"
             priority/>
         </div>
 
