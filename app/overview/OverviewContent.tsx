@@ -48,6 +48,7 @@ type Props = {
     credit: string
     isPrimary: boolean
   }[]
+  initialLocation: { address: string; lat: number; lng: number } | null
 }
 
 function slugify(value: string) {
@@ -70,6 +71,7 @@ export default function OverviewContent({
   availableStoryTypes,
   showEditor,
   initialImages,
+  initialLocation,
 }: Props) {
   const [draft, setDraft] = useState<OverviewDraft>(initialDraft)
   const [genres, setGenres] = useState<string[]>(availableBookGenres)
@@ -490,6 +492,7 @@ export default function OverviewContent({
                     slugValue={draft.slug}
                     onSlugChange={handleSlugManualChange}
                     initialImages={initialImages}
+                    initialLocation={initialLocation}
                     onUploaded={(mediaAssetId) => {
                       setPendingMediaAssetIds((current) =>
                         current.includes(mediaAssetId) ? current : [...current, mediaAssetId]

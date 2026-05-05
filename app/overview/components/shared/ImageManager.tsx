@@ -26,6 +26,7 @@ type Props = {
   onSlugChange: (value: string) => void
   onUploaded?: (mediaAssetId: string) => void
   initialImages?: InitialImage[]
+  initialLocation?: { address: string; lat: number; lng: number } | null
 }
 
 type ImageItem = {
@@ -92,6 +93,7 @@ export default function ImageManager({
   onSlugChange,
   onUploaded,
   initialImages = [],
+  initialLocation = null,
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const previewObjectUrlsRef = useRef<string[]>([])
@@ -113,9 +115,9 @@ export default function ImageManager({
   })
   const [locationMessage, setLocationMessage] = useState('')
   const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false)
-  const [locationAddress, setLocationAddress] = useState('')
+  const [locationAddress, setLocationAddress] = useState(initialLocation?.address ?? '')
   const [selectedCoordinates, setSelectedCoordinates] = useState<{ lat: number; lng: number } | null>(
-    null
+    initialLocation ? { lat: initialLocation.lat, lng: initialLocation.lng } : null
   )
 
   useEffect(() => {

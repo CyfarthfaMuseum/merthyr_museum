@@ -243,14 +243,15 @@ async function getEditDraft(
   draft: OverviewDraft
   editId: string | null
   editType: ContentType | null
+  initialLocation: { address: string; lat: number; lng: number } | null
 }> {
   if (!type || !id) {
-    return { mode: 'create', draft: initialDraft, editId: null, editType: null }
+    return { mode: 'create', draft: initialDraft, editId: null, editType: null, initialLocation: null }
   }
 
   const resolvedType = CONTENT_TYPE_UI_TO_DB[type]
   if (!resolvedType) {
-    return { mode: 'create', draft: initialDraft, editId: null, editType: null }
+    return { mode: 'create', draft: initialDraft, editId: null, editType: null, initialLocation: null }
   }
 
   const { data: itemTranslation } = await supabase
@@ -267,8 +268,24 @@ async function getEditDraft(
     .single()
 
   if (!itemRow) {
-    return { mode: 'create', draft: initialDraft, editId: null, editType: null }
+    return { mode: 'create', draft: initialDraft, editId: null, editType: null, initialLocation: null }
   }
+
+  const rawItem = itemRow as Record<string, unknown>
+  const latValue = rawItem.latitude ?? rawItem.lat
+  const lngValue = rawItem.longitude ?? rawItem.lng
+  const parsedLat = typeof latValue === 'number' ? latValue : Number(latValue)
+  const parsedLng = typeof lngValue === 'number' ? lngValue : Number(lngValue)
+  const locationAddress =
+    typeof rawItem.location_address === 'string'
+      ? rawItem.location_address
+      : typeof rawItem.location_name === 'string'
+        ? rawItem.location_name
+        : ''
+  const initialLocation =
+    Number.isFinite(parsedLat) && Number.isFinite(parsedLng)
+      ? { address: locationAddress, lat: parsedLat, lng: parsedLng }
+      : null
 
   if (resolvedType === 'book') {
     const adminSupabase = createAdminClient()
@@ -305,6 +322,7 @@ async function getEditDraft(
     }
 
     return {
+      initialLocation,
       mode: 'edit',
       editId: id,
       editType: 'book',
@@ -341,7 +359,7 @@ async function getEditDraft(
       .single()
 
     if (!story) {
-      return { mode: 'create', draft: initialDraft, editId: null, editType: null }
+      return { mode: 'create', draft: initialDraft, editId: null, editType: null, initialLocation: null }
     }
 
     const { data: translation } = await supabase
@@ -354,6 +372,7 @@ async function getEditDraft(
     const storyCode = story.story_types?.code ?? 'historical'
 
     return {
+      initialLocation,
       mode: 'edit',
       editId: id,
       editType: 'stories',
@@ -386,7 +405,7 @@ async function getEditDraft(
       .single()
 
     if (!painting) {
-      return { mode: 'create', draft: initialDraft, editId: null, editType: null }
+      return { mode: 'create', draft: initialDraft, editId: null, editType: null, initialLocation: null }
     }
 
     const { data: translation } = await supabase
@@ -397,6 +416,7 @@ async function getEditDraft(
       .maybeSingle()
 
     return {
+      initialLocation,
       mode: 'edit',
       editId: id,
       editType: 'painting',
@@ -430,7 +450,7 @@ async function getEditDraft(
       .single()
 
     if (!artefact) {
-      return { mode: 'create', draft: initialDraft, editId: null, editType: null }
+      return { mode: 'create', draft: initialDraft, editId: null, editType: null, initialLocation: null }
     }
 
     const { data: translation } = await supabase
@@ -441,6 +461,7 @@ async function getEditDraft(
       .maybeSingle()
 
     return {
+      initialLocation,
       mode: 'edit',
       editId: id,
       editType: 'artifacts',
@@ -473,7 +494,7 @@ async function getEditDraft(
       .single()
 
     if (!biography) {
-      return { mode: 'create', draft: initialDraft, editId: null, editType: null }
+      return { mode: 'create', draft: initialDraft, editId: null, editType: null, initialLocation: null }
     }
 
     const { data: translation } = await supabase
@@ -484,6 +505,7 @@ async function getEditDraft(
       .maybeSingle()
 
     return {
+      initialLocation,
       mode: 'edit',
       editId: id,
       editType: 'bio',
@@ -509,7 +531,7 @@ async function getEditDraft(
     }
   }
 
-  return { mode: 'create', draft: initialDraft, editId: null, editType: null }
+  return { mode: 'create', draft: initialDraft, editId: null, editType: null, initialLocation: null }
 }
 
 
@@ -614,6 +636,7 @@ export default async function OverviewPage({ searchParams }: PageProps) {
       sidebarBookGroups={sidebarBookGroups}
       showEditor={editState.mode === 'edit' || createSelected}
       initialImages={initialImages}
+      initialLocation={editState.initialLocation}
     />
   )
 }
