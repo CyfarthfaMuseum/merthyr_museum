@@ -7,7 +7,6 @@ import { createClient } from '@/utils/supabase/client'
 
 export default function LoginPage() {
   const router = useRouter()
-  const supabase = createClient()
 
   const [email, setEmail] = useState(process.env.NEXT_PUBLIC_DEV_EMAIL || '')
   const [password, setPassword] = useState(process.env.NEXT_PUBLIC_DEV_PASSWORD || '')
@@ -18,6 +17,19 @@ export default function LoginPage() {
     e.preventDefault()
     setLoading(true)
     setError('')
+
+    let supabase
+    try {
+      supabase = createClient()
+    } catch (clientError) {
+      setError(
+        clientError instanceof Error
+          ? clientError.message
+          : 'Supabase is not configured. Check NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.'
+      )
+      setLoading(false)
+      return
+    }
 
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email,
