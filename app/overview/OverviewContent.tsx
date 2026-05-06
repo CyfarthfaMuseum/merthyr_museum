@@ -674,10 +674,10 @@ export default function OverviewContent({
 
 
               <Divider />
-{/*
+
       
       
-      HERE BE DRAGONS - AUDIO GUIDE AND CONNECTED CONTENT ARE STILL IN FLUX AND NOT FULLY FUNCTIONAL, SO COMMENTING OUT FOR NOW TO AVOID CONFUSION.
+
 
                   <AudioGuide
                     key={`audio-${editId ?? savedContentItemId ?? `draft-${draft.contentType}`}`}
@@ -699,7 +699,7 @@ export default function OverviewContent({
 
                   <Divider />
 
-                  */}
+                
 
                   <div className="space-y-4">
                     <button
