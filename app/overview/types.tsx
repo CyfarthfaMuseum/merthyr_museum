@@ -22,6 +22,19 @@ export type SidebarBookGroup = {
   books: SidebarBook[]
 }
 
+export type SidebarStory = {
+  id: string
+  title: string
+  storyTypeCode: string
+  storyTypeLabel: string
+}
+
+export type SidebarStoryGroup = {
+  storyTypeCode: string
+  storyTypeLabel: string
+  stories: SidebarStory[]
+}
+
 export type BookDraft = {
   title: string
   author: string
