@@ -63,11 +63,13 @@ export type SidebarPaintingGroup = {
 export type SidebarArtifact = {
   id: string
   title: string
-  material: string
+  categoryCode: string
+  categoryLabel: string
 }
 
 export type SidebarArtifactGroup = {
-  material: string
+  categoryCode: string
+  categoryLabel: string
   artifacts: SidebarArtifact[]
 }
 
@@ -106,6 +108,7 @@ export type PaintingDraft = {
 }
 
 export type ArtifactDraft = {
+  categoryCode: string
   title: string
   material: string
   dimensions: string
@@ -139,6 +142,11 @@ export type OverviewDraft = {
 }
 
 export type StoryTypeOption = {
+  code: string
+  label: string
+}
+
+export type ArtifactCategoryOption = {
   code: string
   label: string
 }
@@ -179,6 +187,7 @@ export const initialDraft: OverviewDraft = {
     yearCreated: '',
   },
   artifact: {
+    categoryCode: '',
     title: '',
     material: '',
     dimensions: '',

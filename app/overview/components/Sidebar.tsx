@@ -51,9 +51,10 @@ type Props = {
   isOpen: boolean
   onToggle: () => void
   adminUserCount?: number
+  selectedId?: string | null
 }
 
-export default function Sidebar({ userEmail, counts, bookGroups, storyGroups, paintingGroups, artifactGroups, bios, isOpen, onToggle, adminUserCount = 0 }: Props) {
+export default function Sidebar({ userEmail, counts, bookGroups, storyGroups, paintingGroups, artifactGroups, bios, isOpen, onToggle, adminUserCount = 0, selectedId }: Props) {
   const [booksExpanded, setBooksExpanded] = useState(false)
   const [storiesExpanded, setStoriesExpanded] = useState(false)
   const [paintingsExpanded, setPaintingsExpanded] = useState(false)
@@ -106,7 +107,7 @@ export default function Sidebar({ userEmail, counts, bookGroups, storyGroups, pa
                           <li key={book.id}>
                             <Link
                               href={`/overview?type=book&id=${book.id}`}
-                              className="text-[14px] text-neutral-600 hover:text-neutral-900"
+                              className={`block text-[14px] hover:text-neutral-900 ${selectedId === book.id ? '-mx-8 border-r-4 border-[#fbb042] bg-neutral-900 px-8 py-1 text-white hover:text-white' : 'text-neutral-600'}`}
                             >
                               {book.title}
                             </Link>
@@ -139,7 +140,7 @@ export default function Sidebar({ userEmail, counts, bookGroups, storyGroups, pa
                       <li key={bio.id}>
                         <Link
                           href={`/overview?type=bio&id=${bio.id}`}
-                          className="text-[14px] text-neutral-600 hover:text-neutral-900"
+                          className={`block text-[14px] hover:text-neutral-900 ${selectedId === bio.id ? '-mx-8 border-r-4 border-[#fbb042] bg-neutral-900 px-8 py-1 text-white hover:text-white' : 'text-neutral-600'}`}
                         >
                           {formatBioName(bio.name)}
                         </Link>
@@ -175,7 +176,7 @@ export default function Sidebar({ userEmail, counts, bookGroups, storyGroups, pa
                           <li key={story.id}>
                             <Link
                               href={`/overview?type=stories&id=${story.id}`}
-                              className="text-[14px] text-neutral-600 hover:text-neutral-900"
+                              className={`block text-[14px] hover:text-neutral-900 ${selectedId === story.id ? '-mx-8 border-r-4 border-[#fbb042] bg-neutral-900 px-8 py-1 text-white hover:text-white' : 'text-neutral-600'}`}
                             >
                               {story.title}
                             </Link>
@@ -213,7 +214,7 @@ export default function Sidebar({ userEmail, counts, bookGroups, storyGroups, pa
                           <li key={painting.id}>
                             <Link
                               href={`/overview?type=painting&id=${painting.id}`}
-                              className="text-[14px] text-neutral-600 hover:text-neutral-900"
+                              className={`block text-[14px] hover:text-neutral-900 ${selectedId === painting.id ? '-mx-8 border-r-4 border-[#fbb042] bg-neutral-900 px-8 py-1 text-white hover:text-white' : 'text-neutral-600'}`}
                             >
                               {painting.title}
                             </Link>
@@ -242,16 +243,16 @@ export default function Sidebar({ userEmail, counts, bookGroups, storyGroups, pa
               <div className="mt-4 space-y-4">
                 {artifactGroups.length > 0 ? (
                   artifactGroups.map((group) => (
-                    <div key={group.material}>
+                    <div key={group.categoryCode}>
                       <div className="text-[15px] font-semibold text-neutral-700">
-                        {group.material} ({group.artifacts.length})
+                        {group.categoryLabel} ({group.artifacts.length})
                       </div>
                       <ul className="mt-2 space-y-1 pl-4">
                         {group.artifacts.map((artifact) => (
                           <li key={artifact.id}>
                             <Link
                               href={`/overview?type=artifacts&id=${artifact.id}`}
-                              className="text-[14px] text-neutral-600 hover:text-neutral-900"
+                              className={`block text-[14px] hover:text-neutral-900 ${selectedId === artifact.id ? '-mx-8 border-r-4 border-[#fbb042] bg-neutral-900 px-8 py-1 text-white hover:text-white' : 'text-neutral-600'}`}
                             >
                               {artifact.title}
                             </Link>

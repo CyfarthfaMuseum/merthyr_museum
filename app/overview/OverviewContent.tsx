@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
-import { createBookGenreAction, createStoryTypeAction, saveContentAction } from './actions'
+import { createBookGenreAction, createStoryTypeAction, createArtifactCategoryAction, saveContentAction, archiveContentAction } from './actions'
 import { validateDraft } from './validation'
 import type {
   AudioItem,
@@ -16,6 +16,7 @@ import type {
   SidebarArtifactGroup,
   SidebarBio,
   StoryTypeOption,
+  ArtifactCategoryOption,
 } from './types'
 import Sidebar from './components/Sidebar'
 import ContentTypeSelector from './components/ContentTypeSelector'
@@ -51,6 +52,7 @@ type Props = {
   availableBookGenres: string[]
   availableStoryTypes: StoryTypeOption[]
   availablePaintingMediums: string[]
+  availableArtifactCategories: ArtifactCategoryOption[]
   showEditor: boolean
   initialImages: {
     id: string
@@ -89,6 +91,7 @@ export default function OverviewContent({
   availableBookGenres,
   availableStoryTypes,
   availablePaintingMediums,
+  availableArtifactCategories,
   showEditor,
   initialImages,
   initialLocation,
@@ -120,9 +123,17 @@ export default function OverviewContent({
   const [mediumModalOpen, setMediumModalOpen] = useState(false)
   const [newMediumLabel, setNewMediumLabel] = useState('')
 
+  const [artifactCategories, setArtifactCategories] = useState<ArtifactCategoryOption[]>(availableArtifactCategories)
+  const [artifactCategoryModalOpen, setArtifactCategoryModalOpen] = useState(false)
+  const [newArtifactCategoryLabel, setNewArtifactCategoryLabel] = useState('')
+  const [isCreatingArtifactCategory, startArtifactCategoryTransition] = useTransition()
+
   const [toastOpen, setToastOpen] = useState(false)
   const [toastMessage, setToastMessage] = useState('')
   const [toastTone, setToastTone] = useState<'success' | 'error'>('success')
+  const [previewModalOpen, setPreviewModalOpen] = useState(false)
+  const [publishModalOpen, setPublishModalOpen] = useState(false)
+  const [archiveModalOpen, setArchiveModalOpen] = useState(false)
   const [savedContentItemId, setSavedContentItemId] = useState<string | null>(editId)
   const [pendingMediaAssetIds, setPendingMediaAssetIds] = useState<string[]>([])
 
@@ -137,12 +148,13 @@ export default function OverviewContent({
     setGenres(availableBookGenres)
     setStoryTypes(availableStoryTypes)
     setPaintingMediums(availablePaintingMediums)
+    setArtifactCategories(availableArtifactCategories)
     setSlugEditedManually(mode === 'edit')
     setSeoTitleEditedManually(mode === 'edit')
     setSeoDescriptionEditedManually(mode === 'edit')
     setSavedContentItemId(editId)
     setPendingMediaAssetIds([])
-  }, [initialDraft, availableBookGenres, availableStoryTypes, availablePaintingMediums, mode, editId])
+  }, [initialDraft, availableBookGenres, availableStoryTypes, availablePaintingMediums, availableArtifactCategories, mode, editId])
 
   useEffect(() => {
     if (!toastOpen) return
@@ -363,6 +375,34 @@ export default function OverviewContent({
     setNewMediumLabel('')
   }
 
+  function handleCreateArtifactCategory() {
+    const label = newArtifactCategoryLabel.trim()
+    if (!label) return
+
+    startArtifactCategoryTransition(async () => {
+      const result = await createArtifactCategoryAction({ label })
+      if (!result.success) {
+        showToast(result.error ?? 'An error occurred.', 'error')
+        return
+      }
+
+      if (result.category && result.category.code && result.category.label) {
+        setArtifactCategories((current) =>
+          current.some((item) => item.code === result.category!.code)
+            ? current
+            : [...current, result.category!].sort((a, b) => a.label.localeCompare(b.label))
+        )
+        setDraft((current) => ({
+          ...current,
+          artifact: { ...current.artifact, categoryCode: result.category!.code },
+        }))
+      }
+      setArtifactCategoryModalOpen(false)
+      setNewArtifactCategoryLabel('')
+      showToast(result.alreadyExisted ? 'Category already existed.' : 'Category created.', 'success')
+    })
+  }
+
   function handleSave() {
     const errors = validateDraft(draft)
 
@@ -388,6 +428,28 @@ export default function OverviewContent({
       setSavedContentItemId(result.id)
       setPendingMediaAssetIds([])
       showToast(mode === 'edit' ? 'Content updated.' : 'Content saved.', 'success')
+    })
+  }
+
+  function handleArchiveClick() {
+    if (!savedContentItemId) {
+      // Unsaved draft — just reset the form
+      window.location.href = '/overview'
+      return
+    }
+    setArchiveModalOpen(true)
+  }
+
+  function handleConfirmArchive() {
+    if (!savedContentItemId) return
+    setArchiveModalOpen(false)
+    startTransition(async () => {
+      const result = await archiveContentAction(savedContentItemId)
+      if (!result.success) {
+        showToast(result.error, 'error')
+        return
+      }
+      window.location.href = '/overview'
     })
   }
 
@@ -419,6 +481,7 @@ export default function OverviewContent({
           bios={sidebarBios}
           isOpen={sidebarOpen}
           onToggle={() => setSidebarOpen((current) => !current)}
+          selectedId={editId}
         />
         <main className="flex min-h-0 min-w-0 flex-1 flex-col">
           <div className="flex-1 min-h-0 overflow-y-auto px-6 py-8 md:px-12 xl:px-16">
@@ -427,7 +490,16 @@ export default function OverviewContent({
                 <div className="mb-10 flex items-center gap-3">
                   <img src="/content-icon.png" alt="" className="h-[24px] w-[24px]" />
                   <h1 className="text-[22px] font-semibold">
-                    {mode === 'edit' ? 'Edit Content' : 'New Content'}
+                    {mode === 'edit'
+                      ? (
+                          draft.contentType === 'book' ? draft.book.title
+                          : draft.contentType === 'stories' ? draft.story.title
+                          : draft.contentType === 'painting' ? draft.painting.title
+                          : draft.contentType === 'artifacts' ? draft.artifact.title
+                          : draft.contentType === 'bio' ? draft.bio.name
+                          : 'Edit Content'
+                        ) || 'Edit Content'
+                      : 'New Content'}
                   </h1>
                 </div>
 
@@ -531,15 +603,40 @@ export default function OverviewContent({
                   )}
 
                   {draft.contentType === 'artifacts' && (
-                    <ArtifactForm
-                      value={draft.artifact}
-                      onChange={(patch) =>
-                        setDraft((current) => ({
-                          ...current,
-                          artifact: { ...current.artifact, ...patch },
-                        }))
-                      }
-                    />
+                    <>
+                      <div className="space-y-4">
+                        <SectionTitle>Select Category</SectionTitle>
+                        <StoryTypeSelector
+                          value={draft.artifact.categoryCode}
+                          options={artifactCategories}
+                          onChange={(categoryCode) =>
+                            setDraft((current) => ({
+                              ...current,
+                              artifact: { ...current.artifact, categoryCode },
+                            }))
+                          }
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setArtifactCategoryModalOpen(true)}
+                          className="text-sm font-medium text-emerald-700 underline underline-offset-2"
+                        >
+                          + Add category
+                        </button>
+                      </div>
+
+                      <Divider />
+
+                      <ArtifactForm
+                        value={draft.artifact}
+                        onChange={(patch) =>
+                          setDraft((current) => ({
+                            ...current,
+                            artifact: { ...current.artifact, ...patch },
+                          }))
+                        }
+                      />
+                    </>
                   )}
 
                   {draft.contentType === 'bio' && (
@@ -575,7 +672,12 @@ export default function OverviewContent({
                     }}
                   />
 
-                  <Divider />
+
+              <Divider />
+{/*
+      
+      
+      HERE BE DRAGONS - AUDIO GUIDE AND CONNECTED CONTENT ARE STILL IN FLUX AND NOT FULLY FUNCTIONAL, SO COMMENTING OUT FOR NOW TO AVOID CONFUSION.
 
                   <AudioGuide
                     key={`audio-${editId ?? savedContentItemId ?? `draft-${draft.contentType}`}`}
@@ -596,6 +698,8 @@ export default function OverviewContent({
                   />
 
                   <Divider />
+
+                  */}
 
                   <div className="space-y-4">
                     <button
@@ -734,8 +838,9 @@ export default function OverviewContent({
             <div className="mx-auto flex max-w-[920px] items-center justify-between gap-4">
               <button
                 type="button"
-                disabled={!showEditor}
-                className="text-[18px] font-medium text-neutral-800 transition hover:text-neutral-600"
+                disabled={!showEditor || isPending}
+                onClick={handleArchiveClick}
+                className="text-[18px] font-medium text-neutral-800 transition hover:text-red-600 disabled:opacity-40"
               >
                 ARCHIVE
               </button>
@@ -748,10 +853,10 @@ export default function OverviewContent({
                 >
                   {isPending ? (mode === 'edit' ? 'UPDATING...' : 'SAVING...') : 'SAVE'}
                 </BlackButton>
-                <BlackButton className="min-w-[140px]" disabled={!showEditor}>
+                <BlackButton className="min-w-[140px]" disabled={!showEditor} onClick={() => setPreviewModalOpen(true)}>
                   PREVIEW
                 </BlackButton>
-                <GreenButton className="min-w-[160px]" disabled={!showEditor}>
+                <GreenButton className="min-w-[160px]" disabled={!showEditor} onClick={() => setPublishModalOpen(true)}>
                   PUBLISH
                 </GreenButton>
               </div>
@@ -761,6 +866,28 @@ export default function OverviewContent({
       </div>
 
       <Toast open={toastOpen} message={toastMessage} tone={toastTone} />
+
+      <Modal open={previewModalOpen} title="Preview" onClose={() => setPreviewModalOpen(false)}>
+        <p className="text-neutral-700">Preview functionality is coming soon.</p>
+        <div className="mt-6 flex justify-end">
+          <BlackButton onClick={() => setPreviewModalOpen(false)}>CLOSE</BlackButton>
+        </div>
+      </Modal>
+
+      <Modal open={publishModalOpen} title="Publish" onClose={() => setPublishModalOpen(false)}>
+        <p className="text-neutral-700">Publish functionality is coming soon.</p>
+        <div className="mt-6 flex justify-end">
+          <BlackButton onClick={() => setPublishModalOpen(false)}>CLOSE</BlackButton>
+        </div>
+      </Modal>
+
+      <Modal open={archiveModalOpen} title="Archive content" onClose={() => setArchiveModalOpen(false)}>
+        <p className="text-neutral-700">Are you sure you want to archive this content item? It will be hidden from the public but can be restored later.</p>
+        <div className="mt-6 flex justify-end gap-3">
+          <BlackButton onClick={() => setArchiveModalOpen(false)}>CANCEL</BlackButton>
+          <BlackButton className="bg-red-600 hover:bg-red-700" onClick={handleConfirmArchive} disabled={isPending}>CONFIRM ARCHIVE</BlackButton>
+        </div>
+      </Modal>
 
       <Modal
         open={genreModalOpen}
@@ -820,6 +947,27 @@ export default function OverviewContent({
           <div className="flex justify-end gap-3">
             <BlackButton onClick={() => setMediumModalOpen(false)}>CANCEL</BlackButton>
             <GreenButton onClick={handleAddMedium}>CONFIRM</GreenButton>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={artifactCategoryModalOpen}
+        title="New Artefact Category"
+        onClose={() => setArtifactCategoryModalOpen(false)}
+      >
+        <div className="space-y-4">
+          <Input
+            value={newArtifactCategoryLabel}
+            onChange={(e) => setNewArtifactCategoryLabel(e.target.value)}
+            placeholder="Category name"
+          />
+
+          <div className="flex justify-end gap-3">
+            <BlackButton onClick={() => setArtifactCategoryModalOpen(false)}>CANCEL</BlackButton>
+            <GreenButton onClick={handleCreateArtifactCategory} disabled={isCreatingArtifactCategory}>
+              {isCreatingArtifactCategory ? 'CREATING...' : 'CONFIRM'}
+            </GreenButton>
           </div>
         </div>
       </Modal>

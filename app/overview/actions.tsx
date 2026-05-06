@@ -95,6 +95,19 @@ async function getStoryTypeId(
   return data.id as number
 }
 
+async function getArtifactCategoryId(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  code: string
+): Promise<string | null> {
+  const { data } = await supabase
+    .from('artefact_categories')
+    .select('id')
+    .eq('code', code)
+    .maybeSingle()
+
+  return (data?.id as string | null) ?? null
+}
+
 async function ensureActiveAdminAccess(userId: string) {
   const adminSupabase = createAdminClient()
 
@@ -233,6 +246,60 @@ async function getUniqueBookThemeSlug(
   }
 
   return `${desiredSlug}-${suffix}`
+}
+
+export async function checkSlugAvailabilityAction(
+  slug: string,
+  excludeContentItemId?: string | null
+): Promise<{ available: boolean }> {
+  const trimmed = slug.trim()
+  if (!trimmed) return { available: false }
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { available: false }
+
+  const adminSupabase = createAdminClient()
+  let query = adminSupabase
+    .from('content_items')
+    .select('id')
+    .eq('slug', trimmed)
+
+  if (excludeContentItemId) {
+    query = query.neq('id', excludeContentItemId)
+  }
+
+  const { data } = await query.maybeSingle()
+  return { available: data === null }
+}
+
+export async function archiveContentAction(
+  contentItemId: string
+): Promise<{ success: true } | { success: false; error: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'You must be logged in.' }
+
+  const adminSupabase = createAdminClient()
+
+  const { data: archivedStatus, error: statusError } = await adminSupabase
+    .from('content_statuses')
+    .select('id')
+    .eq('code', 'archived')
+    .maybeSingle()
+
+  if (statusError) return { success: false, error: statusError.message }
+  if (!archivedStatus) return { success: false, error: 'Archived status not found.' }
+
+  const { error } = await adminSupabase
+    .from('content_items')
+    .update({ content_status_id: archivedStatus.id, updated_by: user.id })
+    .eq('id', contentItemId)
+
+  if (error) return { success: false, error: error.message }
+
+  revalidatePath('/overview')
+  return { success: true }
 }
 
 async function getUniqueContentItemSlug(
@@ -547,6 +614,84 @@ export async function createStoryTypeAction(args: { label: string }) {
   }
 }
 
+export async function createArtifactCategoryAction(args: { label: string }) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'You must be logged in to create an artefact category.' }
+
+  try {
+    await ensureActiveAdminAccess(user.id)
+    const adminSupabase: Awaited<ReturnType<typeof createClient>> = createAdminClient()
+    const title = args.label.trim()
+    if (!title) return { success: false, error: 'Artefact category name is required.' }
+    const code = toCode(title)
+
+    const { data: existingByCode } = await adminSupabase
+      .from('artefact_categories')
+      .select('id, code')
+      .eq('code', code)
+      .limit(1)
+
+    const existing = existingByCode?.[0]
+    if (existing?.id && existing?.code) {
+      const { data: translation } = await adminSupabase
+        .from('artefact_category_translations')
+        .select('label')
+        .eq('artefact_category_id', existing.id)
+        .eq('language_code', 'en')
+        .maybeSingle()
+
+      return {
+        success: true,
+        alreadyExisted: true,
+        category: {
+          code: existing.code as string,
+          label: (translation?.label as string | null) ?? (existing.code as string),
+        },
+      }
+    }
+
+    const { data: inserted, error: categoryError } = await adminSupabase
+      .from('artefact_categories')
+      .insert({ code, sort_order: 0 })
+      .select('id, code')
+      .single()
+
+    if (categoryError || !inserted) {
+      return { success: false, error: categoryError?.message ?? 'Failed to create artefact category.' }
+    }
+
+    const { error: translationError } = await adminSupabase
+      .from('artefact_category_translations')
+      .insert({
+        artefact_category_id: inserted.id,
+        language_code: 'en',
+        label: title,
+      })
+
+    if (translationError) {
+      return {
+        success: false,
+        error: `Category was created but label could not be saved: ${translationError.message}`,
+      }
+    }
+
+    revalidatePath('/overview')
+    return {
+      success: true,
+      alreadyExisted: false,
+      category: { code: inserted.code as string, label: title },
+    }
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to create artefact category.',
+    }
+  }
+}
+
 export async function saveContentAction({
   draft,
   mode,
@@ -775,6 +920,9 @@ export async function saveContentAction({
       const { error: artefactError } = await adminSupabase.from('artefacts').upsert(
         {
           content_item_id: contentItemId,
+          artefact_category_id: draft.artifact.categoryCode
+            ? await getArtifactCategoryId(adminSupabase, draft.artifact.categoryCode)
+            : null,
           maker: null,
           origin_place: null,
           date_created_label: draft.artifact.datePeriod || null,

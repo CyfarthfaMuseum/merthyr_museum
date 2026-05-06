@@ -8,6 +8,7 @@ import OverviewContent from './OverviewContent'
 import {
   initialDraft,
   type AudioItem,
+  type ArtifactCategoryOption,
   type ConnectedItem,
   type ContentType,
   type EditorMode,
@@ -370,6 +371,39 @@ async function getAvailablePaintingMediums(): Promise<string[]> {
   return [...new Set((data ?? []).map((row) => (row.medium as string | null) ?? '').filter(Boolean))].sort()
 }
 
+async function getAvailableArtifactCategories(): Promise<ArtifactCategoryOption[]> {
+  const adminSupabase = createAdminClient()
+
+  const { data, error } = await adminSupabase
+    .from('artefact_categories')
+    .select(
+      `
+      code,
+      sort_order,
+      artefact_category_translations (
+        language_code,
+        label
+      )
+    `
+    )
+    .order('sort_order', { ascending: true })
+
+  if (error) return []
+
+  return (data ?? [])
+    .filter((row) => row.code)
+    .map((row) => {
+      const translations = Array.isArray(row.artefact_category_translations)
+        ? row.artefact_category_translations
+        : []
+      const translation =
+        translations.find((item) => item.language_code === 'en') ?? translations[0]
+
+      return { code: row.code as string, label: translation?.label ?? (row.code as string) }
+    })
+    .sort((a, b) => a.label.localeCompare(b.label))
+}
+
 async function getSidebarPaintingGroups(
   supabase: Awaited<ReturnType<typeof createClient>>
 ): Promise<SidebarPaintingGroup[]> {
@@ -439,7 +473,9 @@ async function getSidebarArtifactGroups(
   const artefactIds = (artefactItems ?? []).map((a) => a.id)
   if (artefactIds.length === 0) return []
 
-  const [{ data: translations }, { data: artefacts }] = await Promise.all([
+  const adminSupabase = createAdminClient()
+
+  const [{ data: translations }, { data: artefacts }, { data: categories }, { data: categoryTranslations }] = await Promise.all([
     supabase
       .from('content_item_translations')
       .select('content_item_id, title')
@@ -447,35 +483,90 @@ async function getSidebarArtifactGroups(
       .in('content_item_id', artefactIds),
     supabase
       .from('artefacts')
-      .select('content_item_id, material')
+      .select('content_item_id, artefact_category_id')
       .in('content_item_id', artefactIds),
+    adminSupabase
+      .from('artefact_categories')
+      .select('id, code, sort_order'),
+    adminSupabase
+      .from('artefact_category_translations')
+      .select('artefact_category_id, label')
+      .eq('language_code', 'en'),
   ])
 
   const titleById = new Map<string, string>(
     (translations ?? []).filter((r) => r.title).map((r) => [r.content_item_id as string, r.title as string])
   )
-  const materialById = new Map<string, string>(
-    (artefacts ?? []).map((r) => [r.content_item_id as string, (r.material as string | null) ?? ''])
+
+  const categoryById = new Map(
+    (categories ?? []).map((row) => [
+      String(row.id),
+      {
+        code: (row.code as string | null) ?? String(row.id),
+        sortOrder: (row.sort_order as number | null) ?? 0,
+      },
+    ])
   )
 
-  const grouped = new Map<string, SidebarArtifactGroup['artifacts']>()
+  const categoryLabelById = new Map<string, string>(
+    (categoryTranslations ?? [])
+      .filter((row) => row.label)
+      .map((row) => [String(row.artefact_category_id), row.label as string])
+  )
+
+  const categoryIdByArtefactId = new Map<string, string>(
+    (artefacts ?? []).map((row) => [row.content_item_id as string, String(row.artefact_category_id)])
+  )
+
+  const grouped = new Map<
+    string,
+    {
+      categoryCode: string
+      categoryLabel: string
+      sortOrder: number
+      artifacts: SidebarArtifactGroup['artifacts']
+    }
+  >()
+
   for (const id of artefactIds) {
-    const material = materialById.get(id) || 'Uncategorised'
-    const title = titleById.get(id) ?? 'Untitled artefact'
-    const current = grouped.get(material) ?? []
-    grouped.set(material, [...current, { id, title, material }])
+    const catId = categoryIdByArtefactId.get(id) ?? ''
+    const cat = categoryById.get(catId)
+    const categoryCode = cat?.code ?? 'uncategorised'
+    const categoryLabel =
+      categoryLabelById.get(catId) ??
+      (categoryCode === 'uncategorised' ? 'Uncategorised' : categoryCode)
+    const current = grouped.get(categoryCode) ?? {
+      categoryCode,
+      categoryLabel,
+      sortOrder: cat?.sortOrder ?? Number.MAX_SAFE_INTEGER,
+      artifacts: [],
+    }
+
+    grouped.set(categoryCode, {
+      ...current,
+      artifacts: [
+        ...current.artifacts,
+        {
+          id,
+          title: titleById.get(id) ?? 'Untitled artefact',
+          categoryCode,
+          categoryLabel,
+        },
+      ],
+    })
   }
 
-  return [...grouped.entries()]
-    .map(([material, artifacts]) => ({
-      material,
-      artifacts: [...artifacts].sort((a, b) => a.title.localeCompare(b.title)),
-    }))
+  return [...grouped.values()]
     .sort((a, b) => {
-      if (a.material === 'Uncategorised') return 1
-      if (b.material === 'Uncategorised') return -1
-      return a.material.localeCompare(b.material)
+      if (a.categoryCode === 'uncategorised') return 1
+      if (b.categoryCode === 'uncategorised') return -1
+      return a.sortOrder - b.sortOrder || a.categoryLabel.localeCompare(b.categoryLabel)
     })
+    .map((group) => ({
+      categoryCode: group.categoryCode,
+      categoryLabel: group.categoryLabel,
+      artifacts: [...group.artifacts].sort((a, b) => a.title.localeCompare(b.title)),
+    }))
 }
 
 function surnameSort(name: string): string {
@@ -846,6 +937,17 @@ async function getEditDraft(
       .eq('language_code', 'en')
       .maybeSingle()
 
+    let categoryCode = ''
+    const rawCategoryId = (artefact as Record<string, unknown>).artefact_category_id
+    if (rawCategoryId) {
+      const { data: category } = await adminSupabase
+        .from('artefact_categories')
+        .select('code')
+        .eq('id', rawCategoryId)
+        .maybeSingle()
+      categoryCode = (category?.code as string | null) ?? ''
+    }
+
     return {
       initialLocation,
       initialAudio,
@@ -864,6 +966,7 @@ async function getEditDraft(
         seoTitle: itemTranslation?.seo_title ?? '',
         seoDescription: itemTranslation?.seo_description ?? '',
         artifact: {
+          categoryCode,
           title: itemTranslation?.title ?? '',
           material: artefact.material ?? '',
           dimensions: artefact.dimensions ?? '',
@@ -960,6 +1063,7 @@ async function getInitialImages(
     `
     )
     .eq('content_item_id', contentItemId)
+    .neq('role', 'audio')
     .order('is_primary', { ascending: false })
     .order('sort_order', { ascending: true })
 
@@ -1023,6 +1127,7 @@ export default async function OverviewPage({ searchParams }: PageProps) {
     availableBookGenres,
     availableStoryTypes,
     availablePaintingMediums,
+    availableArtifactCategories,
     sidebarBookGroups,
     sidebarStoryGroups,
     sidebarPaintingGroups,
@@ -1034,6 +1139,7 @@ export default async function OverviewPage({ searchParams }: PageProps) {
     getAvailableBookGenres(),
     getAvailableStoryTypes(),
     getAvailablePaintingMediums(),
+    getAvailableArtifactCategories(),
     getSidebarBookGroups(adminSupabase),
     getSidebarStoryGroups(adminSupabase),
     getSidebarPaintingGroups(adminSupabase),
@@ -1054,6 +1160,7 @@ export default async function OverviewPage({ searchParams }: PageProps) {
       availableBookGenres={availableBookGenres}
       availableStoryTypes={availableStoryTypes}
       availablePaintingMediums={availablePaintingMediums}
+      availableArtifactCategories={availableArtifactCategories}
       sidebarBookGroups={sidebarBookGroups}
       sidebarStoryGroups={sidebarStoryGroups}
       sidebarPaintingGroups={sidebarPaintingGroups}

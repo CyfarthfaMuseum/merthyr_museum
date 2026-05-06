@@ -8,6 +8,7 @@ import { BlackButton } from '../ui/Buttons'
 import SectionTitle from '../ui/SectionTitle'
 import { uploadImageToR2 } from '../../upload-image'
 import { deleteImageAction, saveImageMetadataAction, saveLocationAction } from '../../image-actions'
+import { checkSlugAvailabilityAction } from '../../actions'
 
 type InitialImage = {
   id: string
@@ -109,6 +110,8 @@ export default function ImageManager({
   const [qrMessage, setQrMessage] = useState('')
   const [qrDataUrl, setQrDataUrl] = useState('')
   const [qrLink, setQrLink] = useState('')
+  const [slugAvailability, setSlugAvailability] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle')
+  const slugCheckTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [uploadState, setUploadState] = useState<UploadState>({
     phase: 'idle',
     details: '',
@@ -123,6 +126,32 @@ export default function ImageManager({
   useEffect(() => {
     selectedCoordinatesRef.current = selectedCoordinates
   }, [selectedCoordinates])
+
+  useEffect(() => {
+    const slug = slugValue.trim()
+
+    if (!slug) {
+      setSlugAvailability('idle')
+      return
+    }
+
+    setSlugAvailability('checking')
+
+    if (slugCheckTimeoutRef.current) {
+      clearTimeout(slugCheckTimeoutRef.current)
+    }
+
+    slugCheckTimeoutRef.current = setTimeout(async () => {
+      const result = await checkSlugAvailabilityAction(slug, contentItemId)
+      setSlugAvailability(result.available ? 'available' : 'taken')
+    }, 500)
+
+    return () => {
+      if (slugCheckTimeoutRef.current) {
+        clearTimeout(slugCheckTimeoutRef.current)
+      }
+    }
+  }, [slugValue, contentItemId])
 
 
 
@@ -388,7 +417,7 @@ export default function ImageManager({
       return
     }
 
-    const qrUrl = `https://merthyrmuseummap.app/location/${contentType}/${contentItemId ?? 'draft'}-${slug}`
+    const qrUrl = `http://merthyr-museum.vercel.app/${slug}`
     const encoded = encodeURIComponent(qrUrl)
     const generatedQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&format=png&data=${encoded}`
 
@@ -644,18 +673,24 @@ export default function ImageManager({
           <BlackButton
             className="min-w-[260px]"
             onClick={handleGenerateQr}
-            disabled={isUploading || !slugValue.trim()}
+            disabled={isUploading || !slugValue.trim() || slugAvailability === 'taken' || slugAvailability === 'checking'}
           >
             GENERATE QR CODE
           </BlackButton>
         </div>
 
+        {slugAvailability === 'checking' && slugValue.trim() ? (
+          <p className="mt-2 text-sm text-neutral-500">Checking slug availability…</p>
+        ) : null}
+
+        {slugAvailability === 'taken' ? (
+          <p className="mt-2 text-sm text-red-600">This slug is already in use. Please choose a different one.</p>
+        ) : null}
+
         {qrDataUrl ? (
           <div className="mt-5 grid gap-4 rounded-xl border border-neutral-400 p-4 md:grid-cols-[220px_1fr_auto]">
             <Image src={qrDataUrl} alt="Generated QR code" width={220} height={220} unoptimized />
             <div className="space-y-2 text-[18px] text-neutral-800">
-              <p className="font-medium">Slug</p>
-              <p>{slugValue}</p>
               <p className="break-all text-neutral-700">{qrLink}</p>
               <BlackButton
                 className="mt-3"
