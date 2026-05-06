@@ -2,6 +2,20 @@ export type ContentType = 'book' | 'stories' | 'painting' | 'artifacts' | 'bio'
 export type StoryType = string
 export type EditorMode = 'create' | 'edit'
 
+export type AudioItem = {
+  mediaAssetId: string
+  fileName: string
+  url: string | null
+}
+
+export type ConnectedItem = {
+  id: string
+  title: string
+  contentTypeCode: string
+  contentTypeLabel: string
+  imageUrl?: string | null
+}
+
 export type SidebarCounts = {
   totalContent: number
   books: number
@@ -33,6 +47,33 @@ export type SidebarStoryGroup = {
   storyTypeCode: string
   storyTypeLabel: string
   stories: SidebarStory[]
+}
+
+export type SidebarPainting = {
+  id: string
+  title: string
+  medium: string
+}
+
+export type SidebarPaintingGroup = {
+  medium: string
+  paintings: SidebarPainting[]
+}
+
+export type SidebarArtifact = {
+  id: string
+  title: string
+  material: string
+}
+
+export type SidebarArtifactGroup = {
+  material: string
+  artifacts: SidebarArtifact[]
+}
+
+export type SidebarBio = {
+  id: string
+  name: string
 }
 
 export type BookDraft = {

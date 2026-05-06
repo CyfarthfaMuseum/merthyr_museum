@@ -7,10 +7,15 @@ import { getR2Client } from '@/lib/r2'
 import OverviewContent from './OverviewContent'
 import {
   initialDraft,
+  type AudioItem,
+  type ConnectedItem,
   type ContentType,
   type EditorMode,
   type SidebarBookGroup,
   type SidebarStoryGroup,
+  type SidebarPaintingGroup,
+  type SidebarArtifactGroup,
+  type SidebarBio,
   type OverviewDraft,
   type SidebarCounts,
   type StoryTypeOption,
@@ -304,15 +309,19 @@ async function getSidebarStoryGroups(
     }
   >()
 
-  for (const story of stories ?? []) {
-    const storyTypeId = String(story.story_type_id)
+  const storyTypeIdByStoryId = new Map<string, string>(
+    (stories ?? []).map((row) => [row.content_item_id as string, String(row.story_type_id)])
+  )
+
+  for (const storyId of storyIds) {
+    const storyTypeId = storyTypeIdByStoryId.get(storyId) ?? ''
     const storyType = storyTypeById.get(storyTypeId)
     const storyTypeCode = storyType?.code ?? 'uncategorised'
-    const storyTypeLabel = storyTypeLabelById.get(storyTypeId) ?? storyTypeCode
+    const storyTypeLabel = storyTypeLabelById.get(storyTypeId) ?? (storyTypeCode === 'uncategorised' ? 'Uncategorised' : storyTypeCode)
     const current = grouped.get(storyTypeCode) ?? {
       storyTypeCode,
       storyTypeLabel,
-      sortOrder: storyType?.sortOrder ?? 0,
+      sortOrder: storyType?.sortOrder ?? Number.MAX_SAFE_INTEGER,
       stories: [],
     }
 
@@ -321,8 +330,8 @@ async function getSidebarStoryGroups(
       stories: [
         ...current.stories,
         {
-          id: story.content_item_id as string,
-          title: titleByStoryId.get(story.content_item_id as string) ?? 'Untitled story',
+          id: storyId,
+          title: titleByStoryId.get(storyId) ?? 'Untitled story',
           storyTypeCode,
           storyTypeLabel,
         },
@@ -353,6 +362,156 @@ async function getAvailableBookGenres(): Promise<string[]> {
   }
 
   return [...new Set((data ?? []).map((row) => row.title).filter(Boolean))]
+}
+
+async function getAvailablePaintingMediums(): Promise<string[]> {
+  const adminSupabase = createAdminClient()
+  const { data } = await adminSupabase.from('paintings').select('medium')
+  return [...new Set((data ?? []).map((row) => (row.medium as string | null) ?? '').filter(Boolean))].sort()
+}
+
+async function getSidebarPaintingGroups(
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<SidebarPaintingGroup[]> {
+  const typeIds = await getContentTypeIds(supabase)
+  const paintingTypeId = typeIds.get('painting')
+  if (!paintingTypeId) return []
+
+  const { data: paintingItems } = await supabase
+    .from('content_items')
+    .select('id')
+    .eq('content_type_id', paintingTypeId)
+
+  const paintingIds = (paintingItems ?? []).map((p) => p.id)
+  if (paintingIds.length === 0) return []
+
+  const [{ data: translations }, { data: paintings }] = await Promise.all([
+    supabase
+      .from('content_item_translations')
+      .select('content_item_id, title')
+      .eq('language_code', 'en')
+      .in('content_item_id', paintingIds),
+    supabase
+      .from('paintings')
+      .select('content_item_id, medium')
+      .in('content_item_id', paintingIds),
+  ])
+
+  const titleById = new Map<string, string>(
+    (translations ?? []).filter((r) => r.title).map((r) => [r.content_item_id as string, r.title as string])
+  )
+  const mediumById = new Map<string, string>(
+    (paintings ?? []).map((r) => [r.content_item_id as string, (r.medium as string | null) ?? ''])
+  )
+
+  const grouped = new Map<string, SidebarPaintingGroup['paintings']>()
+  for (const id of paintingIds) {
+    const medium = mediumById.get(id) || 'Uncategorised'
+    const title = titleById.get(id) ?? 'Untitled painting'
+    const current = grouped.get(medium) ?? []
+    grouped.set(medium, [...current, { id, title, medium }])
+  }
+
+  return [...grouped.entries()]
+    .map(([medium, paintings]) => ({
+      medium,
+      paintings: [...paintings].sort((a, b) => a.title.localeCompare(b.title)),
+    }))
+    .sort((a, b) => {
+      if (a.medium === 'Uncategorised') return 1
+      if (b.medium === 'Uncategorised') return -1
+      return a.medium.localeCompare(b.medium)
+    })
+}
+
+async function getSidebarArtifactGroups(
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<SidebarArtifactGroup[]> {
+  const typeIds = await getContentTypeIds(supabase)
+  const artefactTypeId = typeIds.get('artefact')
+  if (!artefactTypeId) return []
+
+  const { data: artefactItems } = await supabase
+    .from('content_items')
+    .select('id')
+    .eq('content_type_id', artefactTypeId)
+
+  const artefactIds = (artefactItems ?? []).map((a) => a.id)
+  if (artefactIds.length === 0) return []
+
+  const [{ data: translations }, { data: artefacts }] = await Promise.all([
+    supabase
+      .from('content_item_translations')
+      .select('content_item_id, title')
+      .eq('language_code', 'en')
+      .in('content_item_id', artefactIds),
+    supabase
+      .from('artefacts')
+      .select('content_item_id, material')
+      .in('content_item_id', artefactIds),
+  ])
+
+  const titleById = new Map<string, string>(
+    (translations ?? []).filter((r) => r.title).map((r) => [r.content_item_id as string, r.title as string])
+  )
+  const materialById = new Map<string, string>(
+    (artefacts ?? []).map((r) => [r.content_item_id as string, (r.material as string | null) ?? ''])
+  )
+
+  const grouped = new Map<string, SidebarArtifactGroup['artifacts']>()
+  for (const id of artefactIds) {
+    const material = materialById.get(id) || 'Uncategorised'
+    const title = titleById.get(id) ?? 'Untitled artefact'
+    const current = grouped.get(material) ?? []
+    grouped.set(material, [...current, { id, title, material }])
+  }
+
+  return [...grouped.entries()]
+    .map(([material, artifacts]) => ({
+      material,
+      artifacts: [...artifacts].sort((a, b) => a.title.localeCompare(b.title)),
+    }))
+    .sort((a, b) => {
+      if (a.material === 'Uncategorised') return 1
+      if (b.material === 'Uncategorised') return -1
+      return a.material.localeCompare(b.material)
+    })
+}
+
+function surnameSort(name: string): string {
+  const parts = name.trim().split(/\s+/)
+  if (parts.length < 2) return name
+  return parts[parts.length - 1] + ' ' + parts.slice(0, -1).join(' ')
+}
+
+async function getSidebarBios(
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<SidebarBio[]> {
+  const typeIds = await getContentTypeIds(supabase)
+  const biographyTypeId = typeIds.get('biography')
+  if (!biographyTypeId) return []
+
+  const { data: bioItems } = await supabase
+    .from('content_items')
+    .select('id')
+    .eq('content_type_id', biographyTypeId)
+
+  const bioIds = (bioItems ?? []).map((b) => b.id)
+  if (bioIds.length === 0) return []
+
+  const { data: translations } = await supabase
+    .from('content_item_translations')
+    .select('content_item_id, title')
+    .eq('language_code', 'en')
+    .in('content_item_id', bioIds)
+
+  const titleById = new Map<string, string>(
+    (translations ?? []).filter((r) => r.title).map((r) => [r.content_item_id as string, r.title as string])
+  )
+
+  return bioIds
+    .map((id) => ({ id, name: titleById.get(id) ?? 'Untitled biography' }))
+    .sort((a, b) => surnameSort(a.name).localeCompare(surnameSort(b.name)))
 }
 
 async function getAvailableStoryTypes(): Promise<StoryTypeOption[]> {
@@ -398,37 +557,36 @@ async function getEditDraft(
   editId: string | null
   editType: ContentType | null
   initialLocation: { address: string; lat: number; lng: number } | null
+  initialAudio: AudioItem | null
+  initialRelatedContent: ConnectedItem[]
 }> {
-  if (!type || !id) {
-    return { mode: 'create', draft: initialDraft, editId: null, editType: null, initialLocation: null }
-  }
+  const noEdit = { mode: 'create' as const, draft: initialDraft, editId: null, editType: null, initialLocation: null, initialAudio: null, initialRelatedContent: [] }
+  if (!type || !id) return noEdit
 
   const resolvedType = CONTENT_TYPE_UI_TO_DB[type]
-  if (!resolvedType) {
-    return { mode: 'create', draft: initialDraft, editId: null, editType: null, initialLocation: null }
-  }
+  if (!resolvedType) return noEdit
 
-  const { data: itemTranslation } = await supabase
+  const adminSupabase = createAdminClient()
+
+  const { data: itemTranslation } = await adminSupabase
     .from('content_item_translations')
     .select('*')
     .eq('content_item_id', id)
     .eq('language_code', 'en')
     .maybeSingle()
 
-  const { data: itemRow } = await supabase
+  const { data: itemRow } = await adminSupabase
     .from('content_items')
     .select('*')
     .eq('id', id)
     .single()
 
-  if (!itemRow) {
-    return { mode: 'create', draft: initialDraft, editId: null, editType: null, initialLocation: null }
-  }
+  if (!itemRow) return noEdit
 
   const rawItem = itemRow as Record<string, unknown>
 
-  // Fetch location via the content_locations → locations join
-  const { data: locationLink } = await supabase
+  // Fetch location via the content_locations → locations join (admin to bypass RLS)
+  const { data: locationLink } = await adminSupabase
     .from('content_locations')
     .select('location_id')
     .eq('content_item_id', id)
@@ -437,31 +595,92 @@ async function getEditDraft(
 
   let initialLocation: { address: string; lat: number; lng: number } | null = null
   if (locationLink?.location_id) {
-    const { data: loc } = await supabase
+    const { data: loc } = await adminSupabase
       .from('locations')
-      .select('latitude, longitude, address_line_1')
+      .select('latitude, longitude, address_line_1, town, postcode')
       .eq('id', locationLink.location_id)
       .maybeSingle()
     if (loc) {
       const parsedLat = Number(loc.latitude)
       const parsedLng = Number(loc.longitude)
+      const addressParts = [
+        (loc.address_line_1 as string | null) ?? '',
+        (loc.town as string | null) ?? '',
+        (loc.postcode as string | null) ?? '',
+      ].filter(Boolean)
       initialLocation =
         Number.isFinite(parsedLat) && Number.isFinite(parsedLng)
-          ? { address: (loc.address_line_1 as string | null) ?? '', lat: parsedLat, lng: parsedLng }
+          ? { address: addressParts.join(', '), lat: parsedLat, lng: parsedLng }
           : null
     }
   }
 
-  if (resolvedType === 'book') {
-    const adminSupabase = createAdminClient()
+  // Fetch audio guide
+  let initialAudio: AudioItem | null = null
+  const { data: audioMedia } = await adminSupabase
+    .from('content_media')
+    .select('media_asset_id, media_assets(file_name, storage_path)')
+    .eq('content_item_id', id)
+    .eq('role', 'audio')
+    .maybeSingle()
+  if (audioMedia?.media_asset_id) {
+    const asset = (audioMedia.media_assets as unknown as { file_name: string; storage_path: string } | null)
+    initialAudio = {
+      mediaAssetId: audioMedia.media_asset_id as string,
+      fileName: asset?.file_name ?? '',
+      url: asset?.storage_path && isAbsoluteUrl(asset.storage_path) ? asset.storage_path : null,
+    }
+  }
 
-    const { data: book } = await supabase
+  // Fetch related content
+  let initialRelatedContent: ConnectedItem[] = []
+  const { data: relatedLinks } = await adminSupabase
+    .from('related_content')
+    .select('child_content_item_id')
+    .eq('parent_content_item_id', id)
+  const relatedIds = (relatedLinks ?? []).map((r) => r.child_content_item_id as string)
+  if (relatedIds.length > 0) {
+    const [{ data: relatedTranslations }, { data: relatedItems }, { data: typeTranslations }] =
+      await Promise.all([
+        adminSupabase
+          .from('content_item_translations')
+          .select('content_item_id, title')
+          .eq('language_code', 'en')
+          .in('content_item_id', relatedIds),
+        adminSupabase.from('content_items').select('id, content_type_id').in('id', relatedIds),
+        adminSupabase
+          .from('content_type_translations')
+          .select('content_type_id, label')
+          .eq('language_code', 'en'),
+      ])
+    const titleById = new Map(
+      (relatedTranslations ?? []).map((t) => [t.content_item_id as string, t.title as string])
+    )
+    const typeIdByItemId = new Map(
+      (relatedItems ?? []).map((i) => [i.id as string, i.content_type_id as number])
+    )
+    const typeLabelById = new Map(
+      (typeTranslations ?? []).map((t) => [t.content_type_id as number, t.label as string])
+    )
+    initialRelatedContent = relatedIds.map((relatedId) => {
+      const typeId = typeIdByItemId.get(relatedId)
+      return {
+        id: relatedId,
+        title: titleById.get(relatedId) ?? 'Untitled',
+        contentTypeCode: String(typeId ?? ''),
+        contentTypeLabel: typeId ? (typeLabelById.get(typeId) ?? '') : '',
+      }
+    })
+  }
+
+  if (resolvedType === 'book') {
+    const { data: book } = await adminSupabase
       .from('books')
       .select('*')
       .eq('content_item_id', id)
       .maybeSingle()
 
-    const { data: translation } = await supabase
+    const { data: translation } = await adminSupabase
       .from('book_translations')
       .select('*')
       .eq('book_content_item_id', id)
@@ -488,6 +707,8 @@ async function getEditDraft(
 
     return {
       initialLocation,
+      initialAudio,
+      initialRelatedContent,
       mode: 'edit',
       editId: id,
       editType: 'book',
@@ -517,27 +738,25 @@ async function getEditDraft(
   }
 
   if (resolvedType === 'stories') {
-    const { data: story } = await supabase
+    const { data: story } = await adminSupabase
       .from('stories')
       .select('*, story_types(code)')
       .eq('content_item_id', id)
-      .single()
+      .maybeSingle()
 
-    if (!story) {
-      return { mode: 'create', draft: initialDraft, editId: null, editType: null, initialLocation: null }
-    }
-
-    const { data: translation } = await supabase
+    const { data: translation } = await adminSupabase
       .from('story_translations')
       .select('*')
       .eq('story_content_item_id', id)
       .eq('language_code', 'en')
       .maybeSingle()
 
-    const storyCode = story.story_types?.code ?? 'historical'
+    const storyCode = (story?.story_types as { code?: string } | null)?.code ?? 'historical'
 
     return {
       initialLocation,
+      initialAudio,
+      initialRelatedContent,
       mode: 'edit',
       editId: id,
       editType: 'stories',
@@ -563,17 +782,17 @@ async function getEditDraft(
   }
 
   if (resolvedType === 'painting') {
-    const { data: painting } = await supabase
+    const { data: painting } = await adminSupabase
       .from('paintings')
       .select('*')
       .eq('content_item_id', id)
       .single()
 
     if (!painting) {
-      return { mode: 'create', draft: initialDraft, editId: null, editType: null, initialLocation: null }
+      return noEdit
     }
 
-    const { data: translation } = await supabase
+    const { data: translation } = await adminSupabase
       .from('painting_translations')
       .select('*')
       .eq('painting_content_item_id', id)
@@ -582,6 +801,8 @@ async function getEditDraft(
 
     return {
       initialLocation,
+      initialAudio,
+      initialRelatedContent,
       mode: 'edit',
       editId: id,
       editType: 'painting',
@@ -608,17 +829,17 @@ async function getEditDraft(
   }
 
   if (resolvedType === 'artifacts') {
-    const { data: artefact } = await supabase
+    const { data: artefact } = await adminSupabase
       .from('artefacts')
       .select('*')
       .eq('content_item_id', id)
       .single()
 
     if (!artefact) {
-      return { mode: 'create', draft: initialDraft, editId: null, editType: null, initialLocation: null }
+      return noEdit
     }
 
-    const { data: translation } = await supabase
+    const { data: translation } = await adminSupabase
       .from('artefact_translations')
       .select('*')
       .eq('artefact_content_item_id', id)
@@ -627,6 +848,8 @@ async function getEditDraft(
 
     return {
       initialLocation,
+      initialAudio,
+      initialRelatedContent,
       mode: 'edit',
       editId: id,
       editType: 'artifacts',
@@ -652,17 +875,17 @@ async function getEditDraft(
   }
 
   if (resolvedType === 'bio') {
-    const { data: biography } = await supabase
+    const { data: biography } = await adminSupabase
       .from('biographies')
       .select('*')
       .eq('content_item_id', id)
       .single()
 
     if (!biography) {
-      return { mode: 'create', draft: initialDraft, editId: null, editType: null, initialLocation: null }
+      return noEdit
     }
 
-    const { data: translation } = await supabase
+    const { data: translation } = await adminSupabase
       .from('biography_translations')
       .select('*')
       .eq('biography_content_item_id', id)
@@ -671,6 +894,8 @@ async function getEditDraft(
 
     return {
       initialLocation,
+      initialAudio,
+      initialRelatedContent,
       mode: 'edit',
       editId: id,
       editType: 'bio',
@@ -696,7 +921,7 @@ async function getEditDraft(
     }
   }
 
-  return { mode: 'create', draft: initialDraft, editId: null, editType: null, initialLocation: null }
+  return noEdit
 }
 
 
@@ -790,20 +1015,30 @@ export default async function OverviewPage({ searchParams }: PageProps) {
   const resolvedParams = (await searchParams) ?? {}
   const createSelected = resolvedParams.new === '1'
 
+  const adminSupabase = createAdminClient()
+
   const [
     sidebarCounts,
     editState,
     availableBookGenres,
     availableStoryTypes,
+    availablePaintingMediums,
     sidebarBookGroups,
     sidebarStoryGroups,
+    sidebarPaintingGroups,
+    sidebarArtifactGroups,
+    sidebarBios,
   ] = await Promise.all([
-    getSidebarCounts(supabase),
+    getSidebarCounts(adminSupabase),
     getEditDraft(supabase, resolvedParams.type, resolvedParams.id),
     getAvailableBookGenres(),
     getAvailableStoryTypes(),
-    getSidebarBookGroups(supabase),
-    getSidebarStoryGroups(supabase),
+    getAvailablePaintingMediums(),
+    getSidebarBookGroups(adminSupabase),
+    getSidebarStoryGroups(adminSupabase),
+    getSidebarPaintingGroups(adminSupabase),
+    getSidebarArtifactGroups(adminSupabase),
+    getSidebarBios(adminSupabase),
   ])
 
   const initialImages = await getInitialImages(supabase, editState.editId)
@@ -818,11 +1053,19 @@ export default async function OverviewPage({ searchParams }: PageProps) {
       editType={editState.editType}
       availableBookGenres={availableBookGenres}
       availableStoryTypes={availableStoryTypes}
+      availablePaintingMediums={availablePaintingMediums}
       sidebarBookGroups={sidebarBookGroups}
       sidebarStoryGroups={sidebarStoryGroups}
+      sidebarPaintingGroups={sidebarPaintingGroups}
+      sidebarArtifactGroups={sidebarArtifactGroups}
+      sidebarBios={sidebarBios}
       showEditor={editState.mode === 'edit' || createSelected}
       initialImages={initialImages}
       initialLocation={editState.initialLocation}
+      initialAudio={editState.initialAudio}
+      initialRelatedContent={editState.initialRelatedContent}
     />
   )
 }
+
+

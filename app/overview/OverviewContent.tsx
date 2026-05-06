@@ -4,12 +4,17 @@ import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { createBookGenreAction, createStoryTypeAction, saveContentAction } from './actions'
 import { validateDraft } from './validation'
 import type {
+  AudioItem,
+  ConnectedItem,
   ContentType,
   EditorMode,
   OverviewDraft,
   SidebarBookGroup,
   SidebarCounts,
   SidebarStoryGroup,
+  SidebarPaintingGroup,
+  SidebarArtifactGroup,
+  SidebarBio,
   StoryTypeOption,
 } from './types'
 import Sidebar from './components/Sidebar'
@@ -28,18 +33,24 @@ import SectionTitle from './components/ui/SectionTitle'
 import Textarea from './components/ui/Textarea'
 import Toast from './components/ui/Toast'
 import ImageManager from './components/shared/ImageManager'
+import AudioGuide from './components/shared/AudioGuide'
+import ConnectedContent from './components/shared/ConnectedContent'
 
 type Props = {
   userEmail: string
   sidebarCounts: SidebarCounts
   sidebarBookGroups: SidebarBookGroup[]
   sidebarStoryGroups: SidebarStoryGroup[]
+  sidebarPaintingGroups: SidebarPaintingGroup[]
+  sidebarArtifactGroups: SidebarArtifactGroup[]
+  sidebarBios: SidebarBio[]
   initialDraft: OverviewDraft
   mode: EditorMode
   editId: string | null
   editType: ContentType | null
   availableBookGenres: string[]
   availableStoryTypes: StoryTypeOption[]
+  availablePaintingMediums: string[]
   showEditor: boolean
   initialImages: {
     id: string
@@ -51,6 +62,8 @@ type Props = {
     isPrimary: boolean
   }[]
   initialLocation: { address: string; lat: number; lng: number } | null
+  initialAudio: AudioItem | null
+  initialRelatedContent: ConnectedItem[]
 }
 
 function slugify(value: string) {
@@ -67,14 +80,20 @@ export default function OverviewContent({
   sidebarCounts,
   sidebarBookGroups,
   sidebarStoryGroups,
+  sidebarPaintingGroups,
+  sidebarArtifactGroups,
+  sidebarBios,
   initialDraft,
   mode,
   editId,
   availableBookGenres,
   availableStoryTypes,
+  availablePaintingMediums,
   showEditor,
   initialImages,
   initialLocation,
+  initialAudio,
+  initialRelatedContent,
 }: Props) {
   const [draft, setDraft] = useState<OverviewDraft>(initialDraft)
   const [genres, setGenres] = useState<string[]>(availableBookGenres)
@@ -97,6 +116,10 @@ export default function OverviewContent({
   const [newStoryTypeLabel, setNewStoryTypeLabel] = useState('')
   const [isCreatingStoryType, startStoryTypeTransition] = useTransition()
 
+  const [paintingMediums, setPaintingMediums] = useState<string[]>(availablePaintingMediums)
+  const [mediumModalOpen, setMediumModalOpen] = useState(false)
+  const [newMediumLabel, setNewMediumLabel] = useState('')
+
   const [toastOpen, setToastOpen] = useState(false)
   const [toastMessage, setToastMessage] = useState('')
   const [toastTone, setToastTone] = useState<'success' | 'error'>('success')
@@ -113,12 +136,13 @@ export default function OverviewContent({
     setDraft(initialDraft)
     setGenres(availableBookGenres)
     setStoryTypes(availableStoryTypes)
+    setPaintingMediums(availablePaintingMediums)
     setSlugEditedManually(mode === 'edit')
     setSeoTitleEditedManually(mode === 'edit')
     setSeoDescriptionEditedManually(mode === 'edit')
     setSavedContentItemId(editId)
     setPendingMediaAssetIds([])
-  }, [initialDraft, availableBookGenres, availableStoryTypes, mode, editId])
+  }, [initialDraft, availableBookGenres, availableStoryTypes, availablePaintingMediums, mode, editId])
 
   useEffect(() => {
     if (!toastOpen) return
@@ -325,6 +349,20 @@ export default function OverviewContent({
     })
   }
 
+  function handleAddMedium() {
+    const label = newMediumLabel.trim()
+    if (!label) return
+    setPaintingMediums((current) =>
+      current.includes(label) ? current : [...current, label].sort()
+    )
+    setDraft((current) => ({
+      ...current,
+      painting: { ...current.painting, medium: label },
+    }))
+    setMediumModalOpen(false)
+    setNewMediumLabel('')
+  }
+
   function handleSave() {
     const errors = validateDraft(draft)
 
@@ -376,6 +414,9 @@ export default function OverviewContent({
           counts={sidebarCounts}
           bookGroups={sidebarBookGroups}
           storyGroups={sidebarStoryGroups}
+          paintingGroups={sidebarPaintingGroups}
+          artifactGroups={sidebarArtifactGroups}
+          bios={sidebarBios}
           isOpen={sidebarOpen}
           onToggle={() => setSidebarOpen((current) => !current)}
         />
@@ -453,15 +494,40 @@ export default function OverviewContent({
                   )}
 
                   {draft.contentType === 'painting' && (
-                    <PaintingForm
-                      value={draft.painting}
-                      onChange={(patch) =>
-                        setDraft((current) => ({
-                          ...current,
-                          painting: { ...current.painting, ...patch },
-                        }))
-                      }
-                    />
+                    <>
+                      <div className="space-y-4">
+                        <SectionTitle>Select Medium</SectionTitle>
+                        <StoryTypeSelector
+                          value={draft.painting.medium}
+                          options={paintingMediums.map((m) => ({ code: m, label: m }))}
+                          onChange={(medium) =>
+                            setDraft((current) => ({
+                              ...current,
+                              painting: { ...current.painting, medium },
+                            }))
+                          }
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setMediumModalOpen(true)}
+                          className="text-sm font-medium text-emerald-700 underline underline-offset-2"
+                        >
+                          + Add medium
+                        </button>
+                      </div>
+
+                      <Divider />
+
+                      <PaintingForm
+                        value={draft.painting}
+                        onChange={(patch) =>
+                          setDraft((current) => ({
+                            ...current,
+                            painting: { ...current.painting, ...patch },
+                          }))
+                        }
+                      />
+                    </>
                   )}
 
                   {draft.contentType === 'artifacts' && (
@@ -507,6 +573,26 @@ export default function OverviewContent({
                         featuredImageId: mediaAssetId,
                       }))
                     }}
+                  />
+
+                  <Divider />
+
+                  <AudioGuide
+                    key={`audio-${editId ?? savedContentItemId ?? `draft-${draft.contentType}`}`}
+                    contentItemId={savedContentItemId}
+                    contentType={draft.contentType}
+                    initialAudio={initialAudio}
+                    onError={(msg) => showToast(msg, 'error')}
+                  />
+
+                  <Divider />
+
+                  <ConnectedContent
+                    key={`connected-${editId ?? savedContentItemId ?? `draft-${draft.contentType}`}`}
+                    contentItemId={savedContentItemId}
+                    contentType={draft.contentType}
+                    initialConnected={initialRelatedContent}
+                    onError={(msg) => showToast(msg, 'error')}
                   />
 
                   <Divider />
@@ -715,6 +801,25 @@ export default function OverviewContent({
             <GreenButton onClick={handleCreateStoryType} disabled={isCreatingStoryType}>
               {isCreatingStoryType ? 'CREATING...' : 'CONFIRM'}
             </GreenButton>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={mediumModalOpen}
+        title="New Medium"
+        onClose={() => setMediumModalOpen(false)}
+      >
+        <div className="space-y-4">
+          <Input
+            value={newMediumLabel}
+            onChange={(e) => setNewMediumLabel(e.target.value)}
+            placeholder="Medium name"
+          />
+
+          <div className="flex justify-end gap-3">
+            <BlackButton onClick={() => setMediumModalOpen(false)}>CANCEL</BlackButton>
+            <GreenButton onClick={handleAddMedium}>CONFIRM</GreenButton>
           </div>
         </div>
       </Modal>

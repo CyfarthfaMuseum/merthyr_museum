@@ -1,8 +1,10 @@
 'use server'
 
+import { revalidatePath } from 'next/cache'
 import { randomUUID } from 'crypto'
 import { createAdminClient } from '@/utils/supabase/admin'
 import { createClient } from '@/utils/supabase/server'
+import type { ConnectedItem } from './types'
 
 type SaveImageArgs = {
   contentItemId?: string | null
@@ -110,6 +112,9 @@ export async function saveImageMetadataAction(args: SaveImageArgs) {
 type SaveLocationArgs = {
   contentItemId?: string | null
   address: string
+  addressLine1?: string | null
+  town?: string | null
+  postcode?: string | null
   latitude: number
   longitude: number
 }
@@ -154,7 +159,9 @@ export async function saveLocationAction(args: SaveLocationArgs) {
       .update({
         latitude: args.latitude,
         longitude: args.longitude,
-        address_line_1: args.address,
+        address_line_1: args.addressLine1 ?? args.address,
+        town: args.town ?? null,
+        postcode: args.postcode ?? null,
         updated_by: user.id,
       })
       .eq('id', existingLink.location_id)
@@ -172,7 +179,9 @@ export async function saveLocationAction(args: SaveLocationArgs) {
         slug,
         latitude: args.latitude,
         longitude: args.longitude,
-        address_line_1: args.address,
+        address_line_1: args.addressLine1 ?? args.address,
+        town: args.town ?? null,
+        postcode: args.postcode ?? null,
         location_type: 'landmark',
         is_published: true,
         created_by: user.id,
@@ -203,6 +212,7 @@ export async function saveLocationAction(args: SaveLocationArgs) {
   }
 
   console.log('[saveLocationAction] update succeeded')
+  revalidatePath('/overview')
   return { success: true }
 }
 
@@ -253,3 +263,210 @@ export async function deleteImageAction(args: DeleteImageArgs) {
 
   return { success: true }
 }
+
+// ---------------------------------------------------------------------------
+// Audio guide
+// ---------------------------------------------------------------------------
+
+type SaveAudioArgs = {
+  contentItemId: string
+  objectKey: string
+  publicUrl?: string | null
+  fileName: string
+  fileSizeBytes?: number | null
+}
+
+export async function saveAudioAction(
+  args: SaveAudioArgs
+): Promise<{ success: true; mediaAssetId: string } | { success: false; error: string }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'You must be logged in.' }
+
+  const adminSupabase = createAdminClient()
+  const mediaAssetId = randomUUID()
+
+  const { error: assetError } = await adminSupabase.from('media_assets').insert({
+    id: mediaAssetId,
+    storage_path: args.publicUrl ?? args.objectKey,
+    file_name: args.fileName,
+    mime_type: 'audio/mpeg',
+    file_size_bytes: args.fileSizeBytes ?? null,
+    uploaded_by: user.id,
+  })
+
+  if (assetError) return { success: false, error: assetError.message }
+
+  // Remove any existing audio for this content item first
+  await adminSupabase
+    .from('content_media')
+    .delete()
+    .eq('content_item_id', args.contentItemId)
+    .eq('role', 'audio')
+
+  const { error: linkError } = await adminSupabase.from('content_media').insert({
+    content_item_id: args.contentItemId,
+    media_asset_id: mediaAssetId,
+    role: 'audio',
+    sort_order: 0,
+    is_primary: false,
+  })
+
+  if (linkError) return { success: false, error: linkError.message }
+
+  return { success: true, mediaAssetId }
+}
+
+type DeleteAudioArgs = {
+  mediaAssetId: string
+  contentItemId: string
+}
+
+export async function deleteAudioAction(
+  args: DeleteAudioArgs
+): Promise<{ success: true } | { success: false; error: string }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'You must be logged in.' }
+
+  const adminSupabase = createAdminClient()
+
+  await adminSupabase
+    .from('content_media')
+    .delete()
+    .eq('content_item_id', args.contentItemId)
+    .eq('media_asset_id', args.mediaAssetId)
+
+  await adminSupabase.from('media_assets').delete().eq('id', args.mediaAssetId)
+
+  return { success: true }
+}
+
+// ---------------------------------------------------------------------------
+// Connected content
+// ---------------------------------------------------------------------------
+
+export async function searchContentAction(args: {
+  query: string
+  excludeId?: string | null
+}): Promise<{ success: true; results: ConnectedItem[] } | { success: false; error: string }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'You must be logged in.' }
+
+  if (!args.query.trim()) return { success: true, results: [] }
+
+  const adminSupabase = createAdminClient()
+
+  const { data: translations, error } = await adminSupabase
+    .from('content_item_translations')
+    .select('content_item_id, title')
+    .eq('language_code', 'en')
+    .ilike('title', `%${args.query}%`)
+    .limit(50)
+
+  if (error) return { success: false, error: error.message }
+
+  const ids = (translations ?? [])
+    .map((t) => t.content_item_id as string)
+    .filter((id) => id !== args.excludeId)
+
+  if (ids.length === 0) return { success: true, results: [] }
+
+  const [{ data: items }, { data: typeTranslations }, { data: primaryImages }] = await Promise.all([
+    adminSupabase.from('content_items').select('id, content_type_id').in('id', ids),
+    adminSupabase
+      .from('content_type_translations')
+      .select('content_type_id, label')
+      .eq('language_code', 'en'),
+    adminSupabase
+      .from('content_media')
+      .select('content_item_id, media_assets(storage_path)')
+      .in('content_item_id', ids)
+      .eq('is_primary', true),
+  ])
+
+  const typeIdByItemId = new Map(
+    (items ?? []).map((i) => [i.id as string, i.content_type_id as number])
+  )
+  const typeLabelById = new Map(
+    (typeTranslations ?? []).map((t) => [t.content_type_id as number, t.label as string])
+  )
+  const titleById = new Map(
+    (translations ?? []).map((t) => [t.content_item_id as string, t.title as string])
+  )
+  const imageUrlById = new Map(
+    (primaryImages ?? []).map((m) => {
+      const asset = m.media_assets as unknown as { storage_path: string } | null
+      return [m.content_item_id as string, asset?.storage_path ?? null]
+    })
+  )
+
+  const results: ConnectedItem[] = ids.map((id) => {
+    const typeId = typeIdByItemId.get(id)
+    return {
+      id,
+      title: titleById.get(id) ?? 'Untitled',
+      contentTypeCode: String(typeId ?? ''),
+      contentTypeLabel: typeId ? (typeLabelById.get(typeId) ?? '') : '',
+      imageUrl: imageUrlById.get(id) ?? null,
+    }
+  })
+
+  return { success: true, results }
+}
+
+export async function saveRelatedContentAction(args: {
+  parentId: string
+  childId: string
+}): Promise<{ success: true } | { success: false; error: string }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'You must be logged in.' }
+
+  const adminSupabase = createAdminClient()
+
+  const { error } = await adminSupabase.from('related_content').upsert(
+    {
+      parent_content_item_id: args.parentId,
+      child_content_item_id: args.childId,
+      relationship_type: 'related',
+      sort_order: 0,
+    },
+    { onConflict: 'parent_content_item_id,child_content_item_id' }
+  )
+
+  if (error) return { success: false, error: error.message }
+  return { success: true }
+}
+
+export async function removeRelatedContentAction(args: {
+  parentId: string
+  childId: string
+}): Promise<{ success: true } | { success: false; error: string }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'You must be logged in.' }
+
+  const adminSupabase = createAdminClient()
+
+  const { error } = await adminSupabase
+    .from('related_content')
+    .delete()
+    .eq('parent_content_item_id', args.parentId)
+    .eq('child_content_item_id', args.childId)
+
+  if (error) return { success: false, error: error.message }
+  return { success: true }
+}
+

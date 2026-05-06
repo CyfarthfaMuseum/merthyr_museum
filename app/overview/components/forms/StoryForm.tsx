@@ -19,12 +19,6 @@ export default function StoryForm({ value, onChange }: Props) {
         placeholder="Story Title"
       />
 
-      <Input
-        value={value.sortOrder}
-        onChange={(e) => onChange({ sortOrder: e.target.value })}
-        placeholder="Story Sort Order"
-      />
-
       <Textarea
         rows={4}
         value={value.summary}
@@ -38,6 +32,15 @@ export default function StoryForm({ value, onChange }: Props) {
         onChange={(e) => onChange({ exposition: e.target.value })}
         placeholder="Story Content"
       />
+
+      <div className="space-y-1">
+        <label className="block text-[14px] font-medium text-neutral-700">Sort Order</label>
+        <Input
+          value={value.sortOrder}
+          onChange={(e) => onChange({ sortOrder: e.target.value })}
+          placeholder="0"
+        />
+      </div>
     </div>
   )
 }

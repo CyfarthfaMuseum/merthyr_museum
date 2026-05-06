@@ -3,8 +3,16 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { useState } from 'react'
-import type { SidebarBookGroup, SidebarCounts, SidebarStoryGroup } from '../types'
+import type { SidebarBookGroup, SidebarCounts, SidebarStoryGroup, SidebarPaintingGroup, SidebarArtifactGroup, SidebarBio } from '../types'
 import { GreenButton } from './ui/Buttons'
+
+function formatBioName(name: string): string {
+  const parts = name.trim().split(/\s+/)
+  if (parts.length < 2) return name
+  const surname = parts[parts.length - 1]
+  const forenames = parts.slice(0, -1).join(' ')
+  return `${surname}, ${forenames}`
+}
 
 type ContentHeaderProps = {
   label: string
@@ -37,14 +45,20 @@ type Props = {
   counts: SidebarCounts
   bookGroups: SidebarBookGroup[]
   storyGroups: SidebarStoryGroup[]
+  paintingGroups: SidebarPaintingGroup[]
+  artifactGroups: SidebarArtifactGroup[]
+  bios: SidebarBio[]
   isOpen: boolean
   onToggle: () => void
-  adminUserCount?: number // optional for now
+  adminUserCount?: number
 }
 
-export default function Sidebar({ userEmail, counts, bookGroups, storyGroups, isOpen, onToggle, adminUserCount = 0 }: Props) {
+export default function Sidebar({ userEmail, counts, bookGroups, storyGroups, paintingGroups, artifactGroups, bios, isOpen, onToggle, adminUserCount = 0 }: Props) {
   const [booksExpanded, setBooksExpanded] = useState(false)
   const [storiesExpanded, setStoriesExpanded] = useState(false)
+  const [paintingsExpanded, setPaintingsExpanded] = useState(false)
+  const [artefactsExpanded, setArtefactsExpanded] = useState(false)
+  const [biographiesExpanded, setBiographiesExpanded] = useState(false)
 
   return (
     <>
@@ -108,11 +122,36 @@ export default function Sidebar({ userEmail, counts, bookGroups, storyGroups, is
             ) : null}
           </div>
 
-          {counts.biographies > 0 ? (
-            <div className="border-b border-neutral-200 px-8 py-6">
-              <ContentHeader label="Biographies" count={counts.biographies} expanded={false} />
-            </div>
-          ) : null}
+          <div className="border-b border-neutral-200 px-8 py-6">
+            <button
+              type="button"
+              className="flex w-full items-center justify-between text-left"
+              onClick={() => setBiographiesExpanded((current) => !current)}
+            >
+              <ContentHeader label="Biographies" count={counts.biographies} expanded={biographiesExpanded} />
+            </button>
+
+            {biographiesExpanded ? (
+              <div className="mt-4">
+                {bios.length > 0 ? (
+                  <ul className="space-y-1">
+                    {bios.map((bio) => (
+                      <li key={bio.id}>
+                        <Link
+                          href={`/overview?type=bio&id=${bio.id}`}
+                          className="text-[14px] text-neutral-600 hover:text-neutral-900"
+                        >
+                          {formatBioName(bio.name)}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="text-[14px] text-neutral-600">No biographies available.</div>
+                )}
+              </div>
+            ) : null}
+          </div>
 
           <div className="border-b border-neutral-200 px-8 py-6">
             <button
@@ -153,11 +192,79 @@ export default function Sidebar({ userEmail, counts, bookGroups, storyGroups, is
           </div>
 
           <div className="border-b border-neutral-200 px-8 py-6">
-            <ContentHeader label="Paintings" count={counts.paintings} />
+            <button
+              type="button"
+              className="flex w-full items-center justify-between text-left"
+              onClick={() => setPaintingsExpanded((current) => !current)}
+            >
+              <ContentHeader label="Paintings" count={counts.paintings} expanded={paintingsExpanded} />
+            </button>
+
+            {paintingsExpanded ? (
+              <div className="mt-4 space-y-4">
+                {paintingGroups.length > 0 ? (
+                  paintingGroups.map((group) => (
+                    <div key={group.medium}>
+                      <div className="text-[15px] font-semibold text-neutral-700">
+                        {group.medium} ({group.paintings.length})
+                      </div>
+                      <ul className="mt-2 space-y-1 pl-4">
+                        {group.paintings.map((painting) => (
+                          <li key={painting.id}>
+                            <Link
+                              href={`/overview?type=painting&id=${painting.id}`}
+                              className="text-[14px] text-neutral-600 hover:text-neutral-900"
+                            >
+                              {painting.title}
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-[14px] text-neutral-600">No paintings available.</div>
+                )}
+              </div>
+            ) : null}
           </div>
 
           <div className="border-b border-neutral-200 px-8 py-6">
-            <ContentHeader label="Artefacts" count={counts.artifacts} />
+            <button
+              type="button"
+              className="flex w-full items-center justify-between text-left"
+              onClick={() => setArtefactsExpanded((current) => !current)}
+            >
+              <ContentHeader label="Artefacts" count={counts.artifacts} expanded={artefactsExpanded} />
+            </button>
+
+            {artefactsExpanded ? (
+              <div className="mt-4 space-y-4">
+                {artifactGroups.length > 0 ? (
+                  artifactGroups.map((group) => (
+                    <div key={group.material}>
+                      <div className="text-[15px] font-semibold text-neutral-700">
+                        {group.material} ({group.artifacts.length})
+                      </div>
+                      <ul className="mt-2 space-y-1 pl-4">
+                        {group.artifacts.map((artifact) => (
+                          <li key={artifact.id}>
+                            <Link
+                              href={`/overview?type=artifacts&id=${artifact.id}`}
+                              className="text-[14px] text-neutral-600 hover:text-neutral-900"
+                            >
+                              {artifact.title}
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-[14px] text-neutral-600">No artefacts available.</div>
+                )}
+              </div>
+            ) : null}
           </div>
         </div>
 

@@ -27,11 +27,6 @@ export default function PaintingForm({ value, onChange }: Props) {
 
       <div className="grid gap-4 md:grid-cols-2">
         <Input
-          value={value.medium}
-          onChange={(e) => onChange({ medium: e.target.value })}
-          placeholder="Medium"
-        />
-        <Input
           value={value.yearCreated}
           onChange={(e) => onChange({ yearCreated: e.target.value })}
           type="number"

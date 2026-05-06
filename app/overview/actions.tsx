@@ -567,18 +567,20 @@ export async function saveContentAction({
   try {
     await ensureActiveAdminAccess(user.id)
 
+    const adminSupabase = createAdminClient()
+
     const contentTypeId = await getContentTypeId(
-      supabase,
+      adminSupabase,
       CONTENT_TYPE_CODE_MAP[draft.contentType]
     )
     const contentStatusId = await getContentStatusId(
-      supabase,
+      adminSupabase,
       draft.isPublished ? 'published' : 'draft'
     )
 
     let contentItemId = editId ?? null
     const uniqueSlug = await getUniqueContentItemSlug(
-      supabase,
+      adminSupabase,
       draft.slug,
       mode === 'edit' ? contentItemId : null
     )
@@ -586,7 +588,7 @@ export async function saveContentAction({
     if (mode === 'create') {
       const newContentItemId = randomUUID()
 
-      const { error } = await supabase
+      const { error } = await adminSupabase
         .from('content_items')
         .insert({
           id: newContentItemId,
@@ -613,7 +615,7 @@ export async function saveContentAction({
         return { success: false, error: 'Missing content item id for edit.' }
       }
 
-      const { error } = await supabase
+      const { error } = await adminSupabase
         .from('content_items')
         .update({
           content_type_id: contentTypeId,
@@ -635,14 +637,14 @@ export async function saveContentAction({
       return { success: false, error: 'Content item id was not created.' }
     }
 
-    await linkMediaAssetsToContentItem(supabase, contentItemId, pendingMediaAssetIds)
+    await linkMediaAssetsToContentItem(adminSupabase, contentItemId, pendingMediaAssetIds)
 
     if (draft.contentType === 'book') {
       const publicationYear = draft.book.publicationDate
         ? Number(String(draft.book.publicationDate).slice(0, 4))
         : null
 
-      const { error: bookError } = await supabase.from('books').upsert(
+      const { error: bookError } = await adminSupabase.from('books').upsert(
         {
           content_item_id: contentItemId,
           publication_year: Number.isFinite(publicationYear) ? publicationYear : null,
@@ -656,7 +658,7 @@ export async function saveContentAction({
         return { success: false, error: bookError.message }
       }
 
-      const { error: translationError } = await supabase
+      const { error: translationError } = await adminSupabase
         .from('book_translations')
         .upsert(
           {
@@ -672,7 +674,7 @@ export async function saveContentAction({
         return { success: false, error: translationError.message }
       }
 
-      await upsertContentItemTranslation(supabase, contentItemId, languageCode, {
+      await upsertContentItemTranslation(adminSupabase, contentItemId, languageCode, {
         title: draft.book.title,
         summary: draft.book.summary || null,
         body: draft.book.exposition || null,
@@ -680,14 +682,13 @@ export async function saveContentAction({
         seoDescription: draft.seoDescription || draft.book.summary || null,
       })
 
-      const adminSupabase: Awaited<ReturnType<typeof createClient>> = createAdminClient()
       await syncBookGenres(adminSupabase, contentItemId, draft.book.genres, languageCode)
     }
 
     if (draft.contentType === 'stories') {
-      const storyTypeId = await getStoryTypeId(supabase, draft.story.storyType)
+      const storyTypeId = await getStoryTypeId(adminSupabase, draft.story.storyType)
 
-      const { error: storyError } = await supabase.from('stories').upsert(
+      const { error: storyError } = await adminSupabase.from('stories').upsert(
         {
           content_item_id: contentItemId,
           story_type_id: storyTypeId,
@@ -700,7 +701,7 @@ export async function saveContentAction({
         return { success: false, error: storyError.message }
       }
 
-      const { error: translationError } = await supabase
+      const { error: translationError } = await adminSupabase
         .from('story_translations')
         .upsert(
           {
@@ -715,7 +716,7 @@ export async function saveContentAction({
         return { success: false, error: translationError.message }
       }
 
-      await upsertContentItemTranslation(supabase, contentItemId, languageCode, {
+      await upsertContentItemTranslation(adminSupabase, contentItemId, languageCode, {
         title: draft.story.title,
         summary: draft.story.summary || null,
         body: draft.story.exposition || null,
@@ -729,7 +730,7 @@ export async function saveContentAction({
         ? Number(draft.painting.yearCreated)
         : null
 
-      const { error: paintingError } = await supabase.from('paintings').upsert(
+      const { error: paintingError } = await adminSupabase.from('paintings').upsert(
         {
           content_item_id: contentItemId,
           artist_name: draft.painting.artist || null,
@@ -746,7 +747,7 @@ export async function saveContentAction({
         return { success: false, error: paintingError.message }
       }
 
-      const { error: translationError } = await supabase
+      const { error: translationError } = await adminSupabase
         .from('painting_translations')
         .upsert(
           {
@@ -761,7 +762,7 @@ export async function saveContentAction({
         return { success: false, error: translationError.message }
       }
 
-      await upsertContentItemTranslation(supabase, contentItemId, languageCode, {
+      await upsertContentItemTranslation(adminSupabase, contentItemId, languageCode, {
         title: draft.painting.title,
         summary: draft.painting.description || null,
         body: draft.painting.description || null,
@@ -771,7 +772,7 @@ export async function saveContentAction({
     }
 
     if (draft.contentType === 'artifacts') {
-      const { error: artefactError } = await supabase.from('artefacts').upsert(
+      const { error: artefactError } = await adminSupabase.from('artefacts').upsert(
         {
           content_item_id: contentItemId,
           maker: null,
@@ -789,7 +790,7 @@ export async function saveContentAction({
         return { success: false, error: artefactError.message }
       }
 
-      const { error: translationError } = await supabase
+      const { error: translationError } = await adminSupabase
         .from('artefact_translations')
         .upsert(
           {
@@ -804,7 +805,7 @@ export async function saveContentAction({
         return { success: false, error: translationError.message }
       }
 
-      await upsertContentItemTranslation(supabase, contentItemId, languageCode, {
+      await upsertContentItemTranslation(adminSupabase, contentItemId, languageCode, {
         title: draft.artifact.title,
         summary: draft.artifact.description || null,
         body: draft.artifact.description || null,
@@ -821,7 +822,7 @@ export async function saveContentAction({
         ? Number(String(draft.bio.deathDate).slice(0, 4))
         : null
 
-      const { error: biographyError } = await supabase.from('biographies').upsert(
+      const { error: biographyError } = await adminSupabase.from('biographies').upsert(
         {
           content_item_id: contentItemId,
           person_name: draft.bio.name,
@@ -836,7 +837,7 @@ export async function saveContentAction({
         return { success: false, error: biographyError.message }
       }
 
-      const { error: translationError } = await supabase
+      const { error: translationError } = await adminSupabase
         .from('biography_translations')
         .upsert(
           {
@@ -852,7 +853,7 @@ export async function saveContentAction({
         return { success: false, error: translationError.message }
       }
 
-      await upsertContentItemTranslation(supabase, contentItemId, languageCode, {
+      await upsertContentItemTranslation(adminSupabase, contentItemId, languageCode, {
         title: draft.bio.name,
         summary: draft.bio.summary || null,
         body: draft.bio.content || null,

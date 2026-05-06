@@ -406,13 +406,23 @@ export default function ImageManager({
     const { lat, lng } = selectedCoordinates
     let resolvedAddress = 'Address not found'
 
+    let addressLine1: string | null = null
+    let town: string | null = null
+    let postcode: string | null = null
+
     try {
       const response = await fetch(
         `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`
       )
       if (response.ok) {
         const result = await response.json()
-        resolvedAddress = result.display_name || resolvedAddress
+        const addr = result.address ?? {}
+        const parts = [addr.house_number, addr.road].filter(Boolean)
+        addressLine1 = parts.length > 0 ? parts.join(' ') : null
+        town = addr.city ?? addr.town ?? addr.village ?? addr.municipality ?? null
+        postcode = addr.postcode ?? null
+        const displayParts = [addressLine1, town, postcode].filter(Boolean)
+        resolvedAddress = displayParts.length > 0 ? displayParts.join(', ') : (result.display_name || resolvedAddress)
       }
     } catch (error) {
       console.error('[Location] Reverse geocoding failed', error)
@@ -428,6 +438,9 @@ export default function ImageManager({
       const result = await saveLocationAction({
         contentItemId,
         address: resolvedAddress,
+        addressLine1,
+        town,
+        postcode,
         latitude: lat,
         longitude: lng,
       })

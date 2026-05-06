@@ -3,10 +3,6 @@ import type { OverviewDraft } from './types'
 export function validateDraft(draft: OverviewDraft): string[] {
   const errors: string[] = []
 
-  if (!draft.slug.trim()) {
-    errors.push('Slug is required.')
-  }
-
   if (draft.contentType === 'book') {
     if (!draft.book.title.trim()) errors.push('Book title is required.')
     if (!draft.book.summary.trim()) errors.push('Book summary is required.')
@@ -27,6 +23,10 @@ export function validateDraft(draft: OverviewDraft): string[] {
 
   if (draft.contentType === 'bio') {
     if (!draft.bio.name.trim()) errors.push('Biography name is required.')
+  }
+
+  if (!draft.slug.trim()) {
+    errors.push('Slug is required.')
   }
 
   return errors
