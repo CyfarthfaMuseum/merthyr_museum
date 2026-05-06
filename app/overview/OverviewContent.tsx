@@ -9,6 +9,7 @@ import type {
   OverviewDraft,
   SidebarBookGroup,
   SidebarCounts,
+  SidebarStoryGroup,
   StoryTypeOption,
 } from './types'
 import Sidebar from './components/Sidebar'
@@ -32,6 +33,7 @@ type Props = {
   userEmail: string
   sidebarCounts: SidebarCounts
   sidebarBookGroups: SidebarBookGroup[]
+  sidebarStoryGroups: SidebarStoryGroup[]
   initialDraft: OverviewDraft
   mode: EditorMode
   editId: string | null
@@ -64,6 +66,7 @@ export default function OverviewContent({
   userEmail,
   sidebarCounts,
   sidebarBookGroups,
+  sidebarStoryGroups,
   initialDraft,
   mode,
   editId,
@@ -166,6 +169,7 @@ export default function OverviewContent({
   }, [draft])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- keeps existing generated draft metadata in sync with form fields.
     setDraft((current) => {
       const next = { ...current }
 
@@ -371,6 +375,7 @@ export default function OverviewContent({
           userEmail={userEmail}
           counts={sidebarCounts}
           bookGroups={sidebarBookGroups}
+          storyGroups={sidebarStoryGroups}
           isOpen={sidebarOpen}
           onToggle={() => setSidebarOpen((current) => !current)}
         />
