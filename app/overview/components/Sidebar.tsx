@@ -3,7 +3,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { useState } from 'react'
-import type { SidebarBookGroup, SidebarCounts } from '../types'
+import type { SidebarBookGroup, SidebarCounts, SidebarStoryGroup } from '../types'
 import { GreenButton } from './ui/Buttons'
 
 type ContentHeaderProps = {
@@ -36,13 +36,15 @@ type Props = {
   userEmail: string
   counts: SidebarCounts
   bookGroups: SidebarBookGroup[]
+  storyGroups: SidebarStoryGroup[]
   isOpen: boolean
   onToggle: () => void
   adminUserCount?: number // optional for now
 }
 
-export default function Sidebar({ userEmail, counts, bookGroups, isOpen, onToggle, adminUserCount = 0 }: Props) {
+export default function Sidebar({ userEmail, counts, bookGroups, storyGroups, isOpen, onToggle, adminUserCount = 0 }: Props) {
   const [booksExpanded, setBooksExpanded] = useState(false)
+  const [storiesExpanded, setStoriesExpanded] = useState(false)
 
   return (
     <>
@@ -113,7 +115,41 @@ export default function Sidebar({ userEmail, counts, bookGroups, isOpen, onToggl
           ) : null}
 
           <div className="border-b border-neutral-200 px-8 py-6">
-            <div className="text-[18px] font-semibold">Stories ({counts.stories})</div>
+            <button
+              type="button"
+              className="flex w-full items-center justify-between text-left"
+              onClick={() => setStoriesExpanded((current) => !current)}
+            >
+              <ContentHeader label="Stories" count={counts.stories} expanded={storiesExpanded} />
+            </button>
+
+            {storiesExpanded ? (
+              <div className="mt-4 space-y-4">
+                {storyGroups.length > 0 ? (
+                  storyGroups.map((group) => (
+                    <div key={group.storyTypeCode}>
+                      <div className="text-[15px] font-semibold text-neutral-700">
+                        {group.storyTypeLabel} ({group.stories.length})
+                      </div>
+                      <ul className="mt-2 space-y-1 pl-4">
+                        {group.stories.map((story) => (
+                          <li key={story.id}>
+                            <Link
+                              href={`/overview?type=stories&id=${story.id}`}
+                              className="text-[14px] text-neutral-600 hover:text-neutral-900"
+                            >
+                              {story.title}
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-[14px] text-neutral-600">No stories available.</div>
+                )}
+              </div>
+            ) : null}
           </div>
 
           <div className="border-b border-neutral-200 px-8 py-6">

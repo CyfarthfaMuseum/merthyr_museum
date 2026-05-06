@@ -7,6 +7,7 @@ import {
   type ContentType,
   type EditorMode,
   type SidebarBookGroup,
+  type SidebarStoryGroup,
   type OverviewDraft,
   type SidebarCounts,
   type StoryTypeOption,
@@ -46,6 +47,7 @@ async function getContentTypeIds(supabase: Awaited<ReturnType<typeof createClien
 async function getSidebarCounts(
   supabase: Awaited<ReturnType<typeof createClient>>
 ): Promise<SidebarCounts> {
+  const emptyCountResult = { count: 0 }
   const typeIds = await getContentTypeIds(supabase)
 
   const bookTypeId = typeIds.get('book')
@@ -66,31 +68,31 @@ async function getSidebarCounts(
           .from('content_items')
           .select('*', { count: 'exact', head: true })
           .eq('content_type_id', bookTypeId)
-      : Promise.resolve({ count: 0 } as any),
+      : Promise.resolve(emptyCountResult),
     storyTypeId
       ? supabase
           .from('content_items')
           .select('*', { count: 'exact', head: true })
           .eq('content_type_id', storyTypeId)
-      : Promise.resolve({ count: 0 } as any),
+      : Promise.resolve(emptyCountResult),
     paintingTypeId
       ? supabase
           .from('content_items')
           .select('*', { count: 'exact', head: true })
           .eq('content_type_id', paintingTypeId)
-      : Promise.resolve({ count: 0 } as any),
+      : Promise.resolve(emptyCountResult),
     artefactTypeId
       ? supabase
           .from('content_items')
           .select('*', { count: 'exact', head: true })
           .eq('content_type_id', artefactTypeId)
-      : Promise.resolve({ count: 0 } as any),
+      : Promise.resolve(emptyCountResult),
     biographyTypeId
       ? supabase
           .from('content_items')
           .select('*', { count: 'exact', head: true })
           .eq('content_type_id', biographyTypeId)
-      : Promise.resolve({ count: 0 } as any),
+      : Promise.resolve(emptyCountResult),
   ])
 
   const books = booksResult.count ?? 0
@@ -183,6 +185,115 @@ async function getSidebarBookGroups(
       books: [...books].sort((a, b) => a.title.localeCompare(b.title)),
     }))
     .sort((a, b) => a.genre.localeCompare(b.genre))
+}
+
+
+async function getSidebarStoryGroups(
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<SidebarStoryGroup[]> {
+  const adminSupabase = createAdminClient()
+  const typeIds = await getContentTypeIds(supabase)
+  const storyContentTypeId = typeIds.get('story')
+
+  if (!storyContentTypeId) return []
+
+  const { data: storyItems } = await supabase
+    .from('content_items')
+    .select('id')
+    .eq('content_type_id', storyContentTypeId)
+
+  const storyIds = (storyItems ?? []).map((story) => story.id)
+  if (storyIds.length === 0) return []
+
+  const [
+    { data: translations },
+    { data: stories },
+    { data: storyTypes },
+    { data: storyTypeTranslations },
+  ] = await Promise.all([
+    supabase
+      .from('content_item_translations')
+      .select('content_item_id, title')
+      .eq('language_code', 'en')
+      .in('content_item_id', storyIds),
+    supabase
+      .from('stories')
+      .select('content_item_id, story_type_id')
+      .in('content_item_id', storyIds),
+    adminSupabase
+      .from('story_types')
+      .select('id, code, sort_order'),
+    adminSupabase
+      .from('story_type_translations')
+      .select('story_type_id, label')
+      .eq('language_code', 'en'),
+  ])
+
+  const titleByStoryId = new Map<string, string>(
+    (translations ?? [])
+      .filter((row) => row.title)
+      .map((row) => [row.content_item_id as string, row.title as string])
+  )
+
+  const storyTypeById = new Map(
+    (storyTypes ?? []).map((row) => [
+      String(row.id),
+      {
+        code: (row.code as string | null) ?? String(row.id),
+        sortOrder: (row.sort_order as number | null) ?? 0,
+      },
+    ])
+  )
+
+  const storyTypeLabelById = new Map<string, string>(
+    (storyTypeTranslations ?? [])
+      .filter((row) => row.label)
+      .map((row) => [String(row.story_type_id), row.label as string])
+  )
+
+  const grouped = new Map<
+    string,
+    {
+      storyTypeCode: string
+      storyTypeLabel: string
+      sortOrder: number
+      stories: SidebarStoryGroup['stories']
+    }
+  >()
+
+  for (const story of stories ?? []) {
+    const storyTypeId = String(story.story_type_id)
+    const storyType = storyTypeById.get(storyTypeId)
+    const storyTypeCode = storyType?.code ?? 'uncategorised'
+    const storyTypeLabel = storyTypeLabelById.get(storyTypeId) ?? storyTypeCode
+    const current = grouped.get(storyTypeCode) ?? {
+      storyTypeCode,
+      storyTypeLabel,
+      sortOrder: storyType?.sortOrder ?? 0,
+      stories: [],
+    }
+
+    grouped.set(storyTypeCode, {
+      ...current,
+      stories: [
+        ...current.stories,
+        {
+          id: story.content_item_id as string,
+          title: titleByStoryId.get(story.content_item_id as string) ?? 'Untitled story',
+          storyTypeCode,
+          storyTypeLabel,
+        },
+      ],
+    })
+  }
+
+  return [...grouped.values()]
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.storyTypeLabel.localeCompare(b.storyTypeLabel))
+    .map((group) => ({
+      storyTypeCode: group.storyTypeCode,
+      storyTypeLabel: group.storyTypeLabel,
+      stories: [...group.stories].sort((a, b) => a.title.localeCompare(b.title)),
+    }))
 }
 
 async function getAvailableBookGenres(): Promise<string[]> {
@@ -613,12 +724,14 @@ export default async function OverviewPage({ searchParams }: PageProps) {
     availableBookGenres,
     availableStoryTypes,
     sidebarBookGroups,
+    sidebarStoryGroups,
   ] = await Promise.all([
     getSidebarCounts(supabase),
     getEditDraft(supabase, resolvedParams.type, resolvedParams.id),
     getAvailableBookGenres(),
     getAvailableStoryTypes(),
     getSidebarBookGroups(supabase),
+    getSidebarStoryGroups(supabase),
   ])
 
   const initialImages = await getInitialImages(supabase, editState.editId)
@@ -634,6 +747,7 @@ export default async function OverviewPage({ searchParams }: PageProps) {
       availableBookGenres={availableBookGenres}
       availableStoryTypes={availableStoryTypes}
       sidebarBookGroups={sidebarBookGroups}
+      sidebarStoryGroups={sidebarStoryGroups}
       showEditor={editState.mode === 'edit' || createSelected}
       initialImages={initialImages}
       initialLocation={editState.initialLocation}
