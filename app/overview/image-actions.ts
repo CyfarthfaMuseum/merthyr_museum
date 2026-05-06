@@ -144,7 +144,7 @@ export async function saveLocationAction(args: SaveLocationArgs) {
     .from('content_locations')
     .select('location_id')
     .eq('content_item_id', args.contentItemId)
-    .eq('relationship_type', 'location')
+    .eq('relationship_type', 'primary')
     .maybeSingle()
 
   if (existingLink?.location_id) {
@@ -173,7 +173,7 @@ export async function saveLocationAction(args: SaveLocationArgs) {
         latitude: args.latitude,
         longitude: args.longitude,
         address_line_1: args.address,
-        location_type: 'point_of_interest',
+        location_type: 'landmark',
         is_published: true,
         created_by: user.id,
         updated_by: user.id,
@@ -192,7 +192,7 @@ export async function saveLocationAction(args: SaveLocationArgs) {
       .insert({
         content_item_id: args.contentItemId,
         location_id: newLocation.id,
-        relationship_type: 'location',
+        relationship_type: 'primary',
         sort_order: 0,
       })
 

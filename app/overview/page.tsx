@@ -432,7 +432,7 @@ async function getEditDraft(
     .from('content_locations')
     .select('location_id')
     .eq('content_item_id', id)
-    .eq('relationship_type', 'location')
+    .eq('relationship_type', 'primary')
     .maybeSingle()
 
   let initialLocation: { address: string; lat: number; lng: number } | null = null
