@@ -1,6 +1,7 @@
 'use server'
 
 import { randomUUID } from 'crypto'
+import { createAdminClient } from '@/utils/supabase/admin'
 import { createClient } from '@/utils/supabase/server'
 
 type SaveImageArgs = {
@@ -128,18 +129,126 @@ export async function saveLocationAction(args: SaveLocationArgs) {
     return { success: false, error: 'You must be logged in.' }
   }
 
-  const { error } = await supabase
-    .from('content_items')
-    .update({
-      location_address: args.address,
-      lat: args.latitude,
-      lng: args.longitude,
-      updated_by: user.id,
-    })
-    .eq('id', args.contentItemId)
+  const adminSupabase = createAdminClient()
 
-  if (error) {
-    return { success: false, error: error.message }
+  console.log('[saveLocationAction] attempting update', {
+    contentItemId: args.contentItemId,
+    address: args.address,
+    lat: args.latitude,
+    lng: args.longitude,
+    updatedBy: user.id,
+  })
+
+  // Check if this content item already has a linked location
+  const { data: existingLink } = await adminSupabase
+    .from('content_locations')
+    .select('location_id')
+    .eq('content_item_id', args.contentItemId)
+    .eq('relationship_type', 'location')
+    .maybeSingle()
+
+  if (existingLink?.location_id) {
+    // Update the existing location record
+    const { error } = await adminSupabase
+      .from('locations')
+      .update({
+        latitude: args.latitude,
+        longitude: args.longitude,
+        address_line_1: args.address,
+        updated_by: user.id,
+      })
+      .eq('id', existingLink.location_id)
+
+    if (error) {
+      console.error('[saveLocationAction] update failed:', JSON.stringify(error, null, 2))
+      return { success: false, error: error.message }
+    }
+  } else {
+    // Create a new location record
+    const slug = `location-${args.contentItemId}`
+    const { data: newLocation, error: insertError } = await adminSupabase
+      .from('locations')
+      .insert({
+        slug,
+        latitude: args.latitude,
+        longitude: args.longitude,
+        address_line_1: args.address,
+        location_type: 'point_of_interest',
+        is_published: true,
+        created_by: user.id,
+        updated_by: user.id,
+      })
+      .select('id')
+      .single()
+
+    if (insertError) {
+      console.error('[saveLocationAction] insert failed:', JSON.stringify(insertError, null, 2))
+      return { success: false, error: insertError.message }
+    }
+
+    // Link the new location to the content item
+    const { error: linkError } = await adminSupabase
+      .from('content_locations')
+      .insert({
+        content_item_id: args.contentItemId,
+        location_id: newLocation.id,
+        relationship_type: 'location',
+        sort_order: 0,
+      })
+
+    if (linkError) {
+      console.error('[saveLocationAction] link failed:', JSON.stringify(linkError, null, 2))
+      return { success: false, error: linkError.message }
+    }
+  }
+
+  console.log('[saveLocationAction] update succeeded')
+  return { success: true }
+}
+
+type DeleteImageArgs = {
+  mediaAssetId: string
+  contentItemId: string
+}
+
+export async function deleteImageAction(args: DeleteImageArgs) {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { success: false, error: 'You must be logged in.' }
+  }
+
+  const adminSupabase = createAdminClient()
+
+  const { error: linkError } = await adminSupabase
+    .from('content_media')
+    .delete()
+    .eq('content_item_id', args.contentItemId)
+    .eq('media_asset_id', args.mediaAssetId)
+
+  if (linkError) {
+    return { success: false, error: linkError.message }
+  }
+
+  const { data: remainingLinks } = await adminSupabase
+    .from('content_media')
+    .select('media_asset_id')
+    .eq('media_asset_id', args.mediaAssetId)
+
+  if (!remainingLinks || remainingLinks.length === 0) {
+    await adminSupabase
+      .from('media_asset_translations')
+      .delete()
+      .eq('media_asset_id', args.mediaAssetId)
+
+    await adminSupabase
+      .from('media_assets')
+      .delete()
+      .eq('id', args.mediaAssetId)
   }
 
   return { success: true }

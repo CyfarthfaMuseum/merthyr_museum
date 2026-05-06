@@ -1,6 +1,9 @@
 import { redirect } from 'next/navigation'
+import { GetObjectCommand } from '@aws-sdk/client-s3'
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { createAdminClient } from '@/utils/supabase/admin'
 import { createClient } from '@/utils/supabase/server'
+import { getR2Client } from '@/lib/r2'
 import OverviewContent from './OverviewContent'
 import {
   initialDraft,
@@ -26,6 +29,46 @@ const CONTENT_TYPE_UI_TO_DB: Record<string, ContentType> = {
   painting: 'painting',
   artifacts: 'artifacts',
   bio: 'bio',
+}
+
+function isAbsoluteUrl(value: string) {
+  return /^https?:\/\//i.test(value)
+}
+
+async function resolvePreviewUrl(storagePath: string | null | undefined): Promise<string> {
+  const rawValue = (storagePath ?? '').trim()
+  if (!rawValue) {
+    return ''
+  }
+
+  if (isAbsoluteUrl(rawValue)) {
+    return rawValue
+  }
+
+  const normalizedPath = rawValue.replace(/^\/+/, '')
+  if (!normalizedPath) {
+    return ''
+  }
+
+  const publicBaseUrl = process.env.R2_PUBLIC_BASE_URL?.replace(/\/$/, '')
+  if (publicBaseUrl) {
+    return `${publicBaseUrl}/${normalizedPath}`
+  }
+
+  const bucket = process.env.R2_BUCKET_NAME
+  if (!bucket) {
+    return ''
+  }
+
+  try {
+    const command = new GetObjectCommand({
+      Bucket: bucket,
+      Key: normalizedPath,
+    })
+    return await getSignedUrl(getR2Client(), command, { expiresIn: 60 * 15 })
+  } catch {
+    return ''
+  }
 }
 
 async function getContentTypeIds(supabase: Awaited<ReturnType<typeof createClient>>) {
@@ -272,20 +315,31 @@ async function getEditDraft(
   }
 
   const rawItem = itemRow as Record<string, unknown>
-  const latValue = rawItem.latitude ?? rawItem.lat
-  const lngValue = rawItem.longitude ?? rawItem.lng
-  const parsedLat = typeof latValue === 'number' ? latValue : Number(latValue)
-  const parsedLng = typeof lngValue === 'number' ? lngValue : Number(lngValue)
-  const locationAddress =
-    typeof rawItem.location_address === 'string'
-      ? rawItem.location_address
-      : typeof rawItem.location_name === 'string'
-        ? rawItem.location_name
-        : ''
-  const initialLocation =
-    Number.isFinite(parsedLat) && Number.isFinite(parsedLng)
-      ? { address: locationAddress, lat: parsedLat, lng: parsedLng }
-      : null
+
+  // Fetch location via the content_locations → locations join
+  const { data: locationLink } = await supabase
+    .from('content_locations')
+    .select('location_id')
+    .eq('content_item_id', id)
+    .eq('relationship_type', 'location')
+    .maybeSingle()
+
+  let initialLocation: { address: string; lat: number; lng: number } | null = null
+  if (locationLink?.location_id) {
+    const { data: loc } = await supabase
+      .from('locations')
+      .select('latitude, longitude, address_line_1')
+      .eq('id', locationLink.location_id)
+      .maybeSingle()
+    if (loc) {
+      const parsedLat = Number(loc.latitude)
+      const parsedLng = Number(loc.longitude)
+      initialLocation =
+        Number.isFinite(parsedLat) && Number.isFinite(parsedLng)
+          ? { address: (loc.address_line_1 as string | null) ?? '', lat: parsedLat, lng: parsedLng }
+          : null
+    }
+  }
 
   if (resolvedType === 'book') {
     const adminSupabase = createAdminClient()
@@ -536,7 +590,7 @@ async function getEditDraft(
 
 
 async function getInitialImages(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  _supabase: Awaited<ReturnType<typeof createClient>>,
   contentItemId: string | null
 ): Promise<{
   id: string
@@ -549,7 +603,8 @@ async function getInitialImages(
 }[]> {
   if (!contentItemId) return []
 
-  const { data, error } = await supabase
+  const adminSupabase = createAdminClient()
+  const { data, error } = await adminSupabase
     .from('content_media')
     .select(
       `
@@ -559,38 +614,55 @@ async function getInitialImages(
       media_assets (
         file_name,
         storage_path,
-        credit
-      ),
-      media_asset_translations (
-        language_code,
-        alt_text,
-        caption
+        credit,
+        media_asset_translations (
+          language_code,
+          alt_text,
+          caption
+        )
       )
     `
     )
     .eq('content_item_id', contentItemId)
+    .order('is_primary', { ascending: false })
     .order('sort_order', { ascending: true })
 
-  if (error) return []
+  if (error) {
+    console.error('[getInitialImages] Supabase query failed:', JSON.stringify(error, null, 2))
+    return []
+  }
 
-  return (data ?? []).map((row) => {
+  const rows = await Promise.all((data ?? []).map(async (row) => {
     const asset = Array.isArray(row.media_assets) ? row.media_assets[0] : row.media_assets
-    const translations = Array.isArray(row.media_asset_translations)
-      ? row.media_asset_translations
+    const storagePath = (asset?.storage_path as string | null) ?? ''
+    const previewUrl = await resolvePreviewUrl(storagePath)
+
+    const translations = Array.isArray((asset as any)?.media_asset_translations)
+      ? (asset as any).media_asset_translations
       : []
     const translation =
-      translations.find((item) => item.language_code === 'en') ?? translations[0] ?? null
+      translations.find((item: any) => item.language_code === 'en') ?? translations[0] ?? null
 
     return {
       id: row.media_asset_id as string,
-      previewUrl: (asset?.storage_path as string | null) ?? '',
+      previewUrl,
       fileName: (asset?.file_name as string | null) ?? 'Image',
       altText: (translation?.alt_text as string | null) ?? '',
       caption: (translation?.caption as string | null) ?? '',
       credit: (asset?.credit as string | null) ?? '',
       isPrimary: Boolean(row.is_primary),
     }
-  }).filter((row) => row.previewUrl)
+  }))
+
+  const deduped = new Map<string, (typeof rows)[number]>()
+  for (const row of rows) {
+    if (!row.previewUrl) continue
+    if (!deduped.has(row.id)) {
+      deduped.set(row.id, row)
+    }
+  }
+
+  return Array.from(deduped.values())
 }
 
 export default async function OverviewPage({ searchParams }: PageProps) {

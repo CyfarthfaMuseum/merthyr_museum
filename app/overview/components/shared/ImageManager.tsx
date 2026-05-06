@@ -7,7 +7,7 @@ import Input from '../ui/Input'
 import { BlackButton } from '../ui/Buttons'
 import SectionTitle from '../ui/SectionTitle'
 import { uploadImageToR2 } from '../../upload-image'
-import { saveImageMetadataAction, saveLocationAction } from '../../image-actions'
+import { deleteImageAction, saveImageMetadataAction, saveLocationAction } from '../../image-actions'
 
 type InitialImage = {
   id: string
@@ -235,6 +235,8 @@ export default function ImageManager({
   }
 
   function removeImage(localId: string) {
+    const imageToRemove = images.find((image) => image.localId === localId)
+
     setImages((current) => {
       const nextImages = current.filter((image) => image.localId !== localId)
 
@@ -248,6 +250,13 @@ export default function ImageManager({
 
       return nextImages
     })
+
+    if (imageToRemove?.mediaAssetId && contentItemId) {
+      void deleteImageAction({
+        mediaAssetId: imageToRemove.mediaAssetId,
+        contentItemId,
+      })
+    }
   }
 
   async function handleUpload(selectedFile: File) {
@@ -412,7 +421,10 @@ export default function ImageManager({
     setLocationAddress(resolvedAddress)
     setIsLocationDialogOpen(false)
 
+    console.log('[handleConfirmLocation] contentItemId:', contentItemId, '| address:', resolvedAddress, '| lat:', lat, '| lng:', lng)
+
     if (contentItemId) {
+      console.log('[handleConfirmLocation] calling saveLocationAction...')
       const result = await saveLocationAction({
         contentItemId,
         address: resolvedAddress,
@@ -420,17 +432,16 @@ export default function ImageManager({
         longitude: lng,
       })
 
+      console.log('[handleConfirmLocation] saveLocationAction result:', result)
+
       if (!result.success) {
         setLocationMessage(`Location selected, but saving failed: ${result.error ?? 'Unable to save location.'}`)
         return
       }
+    } else {
+      console.warn('[handleConfirmLocation] no contentItemId — location will not be persisted')
     }
 
-    console.log('[Location selected]', {
-      address: resolvedAddress,
-      latitude: lat,
-      longitude: lng,
-    })
     setLocationMessage('Location confirmed and saved.')
   }
 
