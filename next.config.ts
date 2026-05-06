@@ -1,7 +1,15 @@
 import type { NextConfig } from "next";
 
-const r2PublicUrl = process.env.R2_PUBLIC_BASE_URL ?? ''
-const r2Hostname = r2PublicUrl ? new URL(r2PublicUrl).hostname : ''
+function getR2Hostname(): string {
+  const raw = (process.env.R2_PUBLIC_BASE_URL ?? '').trim().replace(/^=+/, '')
+  try {
+    return raw ? new URL(raw).hostname : ''
+  } catch {
+    return ''
+  }
+}
+
+const r2Hostname = getR2Hostname()
 
 const nextConfig: NextConfig = {
   images: {
