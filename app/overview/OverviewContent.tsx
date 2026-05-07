@@ -36,9 +36,12 @@ import Toast from './components/ui/Toast'
 import ImageManager from './components/shared/ImageManager'
 import AudioGuide from './components/shared/AudioGuide'
 import ConnectedContent from './components/shared/ConnectedContent'
+import AdminUsersPanel from './components/AdminUsersPanel'
+import type { AdminUser } from './admin-users-actions'
 
 type Props = {
   userEmail: string
+  userId: string
   sidebarCounts: SidebarCounts
   sidebarBookGroups: SidebarBookGroup[]
   sidebarStoryGroups: SidebarStoryGroup[]
@@ -54,6 +57,8 @@ type Props = {
   availablePaintingMediums: string[]
   availableArtifactCategories: ArtifactCategoryOption[]
   showEditor: boolean
+  adminUsers: AdminUser[]
+  viewAdminUsers: boolean
   initialImages: {
     id: string
     previewUrl: string
@@ -79,6 +84,7 @@ function slugify(value: string) {
 
 export default function OverviewContent({
   userEmail,
+  userId,
   sidebarCounts,
   sidebarBookGroups,
   sidebarStoryGroups,
@@ -97,6 +103,8 @@ export default function OverviewContent({
   initialLocation,
   initialAudio,
   initialRelatedContent,
+  adminUsers,
+  viewAdminUsers,
 }: Props) {
   const [draft, setDraft] = useState<OverviewDraft>(initialDraft)
   const [genres, setGenres] = useState<string[]>(availableBookGenres)
@@ -482,10 +490,17 @@ export default function OverviewContent({
           isOpen={sidebarOpen}
           onToggle={() => setSidebarOpen((current) => !current)}
           selectedId={editId}
+          adminUserCount={adminUsers.length}
+          adminUsersActive={viewAdminUsers}
         />
         <main className="flex min-h-0 min-w-0 flex-1 flex-col">
           <div className="flex-1 min-h-0 overflow-y-auto px-6 py-8 md:px-12 xl:px-16">
-            {showEditor ? (
+            {viewAdminUsers ? (
+              <AdminUsersPanel
+                initialUsers={adminUsers}
+                currentUserId={userId}
+              />
+            ) : showEditor ? (
               <>
                 <div className="mb-10 flex items-center gap-3">
                   <img src="/content-icon.png" alt="" className="h-[24px] w-[24px]" />
@@ -833,7 +848,7 @@ export default function OverviewContent({
               </div>
             )}
           </div>
-
+          {!viewAdminUsers && (
           <div className="shrink-0 border-t border-neutral-300 bg-white px-6 py-6 md:px-12 xl:px-16">
             <div className="mx-auto flex max-w-[920px] items-center justify-between gap-4">
               <button
@@ -862,6 +877,7 @@ export default function OverviewContent({
               </div>
             </div>
           </div>
+          )}
         </main>
       </div>
 

@@ -51,10 +51,11 @@ type Props = {
   isOpen: boolean
   onToggle: () => void
   adminUserCount?: number
+  adminUsersActive?: boolean
   selectedId?: string | null
 }
 
-export default function Sidebar({ userEmail, counts, bookGroups, storyGroups, paintingGroups, artifactGroups, bios, isOpen, onToggle, adminUserCount = 0, selectedId }: Props) {
+export default function Sidebar({ userEmail, counts, bookGroups, storyGroups, paintingGroups, artifactGroups, bios, isOpen, onToggle, adminUserCount = 0, adminUsersActive = false, selectedId }: Props) {
   const [booksExpanded, setBooksExpanded] = useState(false)
   const [storiesExpanded, setStoriesExpanded] = useState(false)
   const [paintingsExpanded, setPaintingsExpanded] = useState(false)
@@ -271,8 +272,14 @@ export default function Sidebar({ userEmail, counts, bookGroups, storyGroups, pa
 
         {/* Footer (fixed height) */}
         <div className="shrink-0">
-          <div className="border-t border-neutral-200 px-8 py-3 bg-white">
-            <div className="text-[16px] font-semibold">Admin Users ({adminUserCount})</div>
+          <div className={`border-t border-neutral-200 bg-white ${adminUsersActive ? 'bg-neutral-900 border-l-4 border-l-[#fbb042]' : ''}`}>
+            <Link
+              href="/overview?view=admin-users"
+              className={`flex items-center gap-3 px-8 py-3 transition ${adminUsersActive ? 'bg-neutral-900 text-white hover:text-white' : 'hover:bg-neutral-50 text-neutral-900'}`}
+            >
+              <img src="/admin-users-icon.png" alt="" aria-hidden width={18} height={18} className="opacity-70" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+              <span className="text-[16px] font-semibold">Admin Users ({adminUserCount})</span>
+            </Link>
           </div>
           <div className="border-t-0 border-neutral-300 bg-white px-8 py-3">
             <div className="text-[18px] font-semibold">LOG OUT</div>

@@ -21,12 +21,14 @@ import {
   type SidebarCounts,
   type StoryTypeOption,
 } from './types'
+import type { AdminUser } from './admin-users-actions'
 
 type PageProps = {
   searchParams?: Promise<{
     type?: string
     id?: string
     new?: string
+    view?: string
   }>
 }
 
@@ -1105,6 +1107,24 @@ async function getInitialImages(
   return Array.from(deduped.values())
 }
 
+async function getAdminUsers(): Promise<AdminUser[]> {
+  const adminSupabase = createAdminClient()
+  const { data, error } = await adminSupabase
+    .from('admin_users')
+    .select('id, email, role, status, created_at')
+    .order('created_at', { ascending: true })
+
+  if (error) return []
+
+  return (data ?? []).map((row) => ({
+    id: row.id as string,
+    email: row.email as string,
+    role: row.role as string,
+    status: row.status as string,
+    createdAt: row.created_at as string,
+  }))
+}
+
 export default async function OverviewPage({ searchParams }: PageProps) {
   const supabase = await createClient()
 
@@ -1118,6 +1138,7 @@ export default async function OverviewPage({ searchParams }: PageProps) {
 
   const resolvedParams = (await searchParams) ?? {}
   const createSelected = resolvedParams.new === '1'
+  const viewAdminUsers = resolvedParams.view === 'admin-users'
 
   const adminSupabase = createAdminClient()
 
@@ -1133,6 +1154,7 @@ export default async function OverviewPage({ searchParams }: PageProps) {
     sidebarPaintingGroups,
     sidebarArtifactGroups,
     sidebarBios,
+    adminUsers,
   ] = await Promise.all([
     getSidebarCounts(adminSupabase),
     getEditDraft(supabase, resolvedParams.type, resolvedParams.id),
@@ -1145,6 +1167,7 @@ export default async function OverviewPage({ searchParams }: PageProps) {
     getSidebarPaintingGroups(adminSupabase),
     getSidebarArtifactGroups(adminSupabase),
     getSidebarBios(adminSupabase),
+    getAdminUsers(),
   ])
 
   const initialImages = await getInitialImages(supabase, editState.editId)
@@ -1152,6 +1175,7 @@ export default async function OverviewPage({ searchParams }: PageProps) {
   return (
     <OverviewContent
       userEmail={user.email ?? ''}
+      userId={user.id}
       sidebarCounts={sidebarCounts}
       initialDraft={editState.draft}
       mode={editState.mode}
@@ -1171,8 +1195,8 @@ export default async function OverviewPage({ searchParams }: PageProps) {
       initialLocation={editState.initialLocation}
       initialAudio={editState.initialAudio}
       initialRelatedContent={editState.initialRelatedContent}
+      adminUsers={adminUsers}
+      viewAdminUsers={viewAdminUsers}
     />
   )
 }
-
-

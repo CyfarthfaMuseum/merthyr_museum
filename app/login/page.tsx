@@ -12,6 +12,9 @@ export default function LoginPage() {
   const [password, setPassword] = useState(process.env.NEXT_PUBLIC_DEV_PASSWORD || '')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [resetSent, setResetSent] = useState(false)
+  const [resetLoading, setResetLoading] = useState(false)
+  const [resetError, setResetError] = useState('')
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -58,6 +61,26 @@ export default function LoginPage() {
 
     router.replace('/overview')
     router.refresh()
+  }
+
+  async function handleForgotPassword() {
+    const trimmed = email.trim()
+    if (!trimmed) {
+      setResetError('Please enter your email address above first.')
+      return
+    }
+    setResetLoading(true)
+    setResetError('')
+    const supabase = createClient()
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(trimmed, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    })
+    setResetLoading(false)
+    if (resetError) {
+      setResetError(resetError.message)
+      return
+    }
+    setResetSent(true)
   }
 
   return (
@@ -114,6 +137,24 @@ export default function LoginPage() {
                 <span>{loading ? 'Signing In...' : 'Sign In'}</span>
                 <ArrowRight className="h-8 w-8" strokeWidth={1.75} />
               </button>
+
+              <div className="pt-2 text-center">
+                {resetSent ? (
+                  <p className="text-sm text-emerald-700">Password reset email sent — check your inbox.</p>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      disabled={resetLoading}
+                      onClick={handleForgotPassword}
+                      className="text-sm text-neutral-500 underline underline-offset-2 transition hover:text-neutral-800 disabled:opacity-50"
+                    >
+                      {resetLoading ? 'Sending...' : 'Forgotten Password?'}
+                    </button>
+                    {resetError ? <p className="mt-2 text-sm text-red-700">{resetError}</p> : null}
+                  </>
+                )}
+              </div>
             </form>
           </div>
         </section>
