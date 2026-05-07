@@ -687,12 +687,7 @@ export default function OverviewContent({
                     }}
                   />
 
-
-              <Divider />
-
-      
-      
-
+                  <Divider />
 
                   <AudioGuide
                     key={`audio-${editId ?? savedContentItemId ?? `draft-${draft.contentType}`}`}
@@ -713,8 +708,6 @@ export default function OverviewContent({
                   />
 
                   <Divider />
-
-                
 
                   <div className="space-y-4">
                     <button
