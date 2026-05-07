@@ -12,7 +12,8 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient()
     const { error } = await supabase.auth.verifyOtp({ type, token_hash })
     if (!error) {
-      return NextResponse.redirect(new URL(next, origin))
+      const destination = type === 'invite' ? '/accept-invite' : next
+      return NextResponse.redirect(new URL(destination, origin))
     }
   }
 
