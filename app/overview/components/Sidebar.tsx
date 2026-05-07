@@ -272,12 +272,12 @@ export default function Sidebar({ userEmail, counts, bookGroups, storyGroups, pa
 
         {/* Footer (fixed height) */}
         <div className="shrink-0">
-          <div className={`border-t border-neutral-200 bg-white ${adminUsersActive ? 'bg-neutral-900 border-l-4 border-l-[#fbb042]' : ''}`}>
+          <div className={`border-t border-neutral-200 bg-white ${adminUsersActive ? 'bg-neutral-900 border-r-4 border-r-[#fbb042]' : ''}`}>
             <Link
               href="/overview?view=admin-users"
               className={`flex items-center gap-3 px-8 py-3 transition ${adminUsersActive ? 'bg-neutral-900 text-white hover:text-white' : 'hover:bg-neutral-50 text-neutral-900'}`}
             >
-              <img src="/admin-users-icon.png" alt="" aria-hidden width={18} height={18} className="opacity-70" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+              <img src="/user-icon.svg" alt="" aria-hidden width={32} height={32} className="opacity-70" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
               <span className="text-[16px] font-semibold">Admin Users ({adminUserCount})</span>
             </Link>
           </div>
