@@ -1,17 +1,22 @@
 'use client'
 
 import React, { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowRight } from 'lucide-react'
 import { createClient } from '@/utils/supabase/client'
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   const [email, setEmail] = useState(process.env.NEXT_PUBLIC_DEV_EMAIL || '')
   const [password, setPassword] = useState(process.env.NEXT_PUBLIC_DEV_PASSWORD || '')
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [error, setError] = useState(
+    searchParams.get('error') === 'invalid_link'
+      ? 'This password reset link is invalid or has expired. Please request a new one.'
+      : ''
+  )
   const [resetSent, setResetSent] = useState(false)
   const [resetLoading, setResetLoading] = useState(false)
   const [resetError, setResetError] = useState('')
