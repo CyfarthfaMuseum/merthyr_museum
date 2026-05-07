@@ -15,6 +15,7 @@ import type {
   SidebarPaintingGroup,
   SidebarArtifactGroup,
   SidebarBio,
+  SidebarLocation,
   StoryTypeOption,
   ArtifactCategoryOption,
 } from './types'
@@ -37,6 +38,7 @@ import ImageManager from './components/shared/ImageManager'
 import AudioGuide from './components/shared/AudioGuide'
 import ConnectedContent from './components/shared/ConnectedContent'
 import AdminUsersPanel from './components/AdminUsersPanel'
+import LocationsPanel from './components/LocationsPanel'
 import type { AdminUser } from './admin-users-actions'
 
 type Props = {
@@ -48,6 +50,7 @@ type Props = {
   sidebarPaintingGroups: SidebarPaintingGroup[]
   sidebarArtifactGroups: SidebarArtifactGroup[]
   sidebarBios: SidebarBio[]
+  sidebarLocations: SidebarLocation[]
   initialDraft: OverviewDraft
   mode: EditorMode
   editId: string | null
@@ -59,6 +62,7 @@ type Props = {
   showEditor: boolean
   adminUsers: AdminUser[]
   viewAdminUsers: boolean
+  viewLocations: boolean
   initialImages: {
     id: string
     previewUrl: string
@@ -91,6 +95,7 @@ export default function OverviewContent({
   sidebarPaintingGroups,
   sidebarArtifactGroups,
   sidebarBios,
+  sidebarLocations,
   initialDraft,
   mode,
   editId,
@@ -105,12 +110,14 @@ export default function OverviewContent({
   initialRelatedContent,
   adminUsers,
   viewAdminUsers,
+  viewLocations,
 }: Props) {
   const [draft, setDraft] = useState<OverviewDraft>(initialDraft)
   const [genres, setGenres] = useState<string[]>(availableBookGenres)
   const [selectedBookGenre, setSelectedBookGenre] = useState('')
   const [isPending, startTransition] = useTransition()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [locations, setLocations] = useState(sidebarLocations)
 
   const [publishingSettingsOpen, setPublishingSettingsOpen] = useState(false)
   const [seoOpen, setSeoOpen] = useState(false)
@@ -487,15 +494,22 @@ export default function OverviewContent({
           paintingGroups={sidebarPaintingGroups}
           artifactGroups={sidebarArtifactGroups}
           bios={sidebarBios}
+          sidebarLocations={locations}
           isOpen={sidebarOpen}
           onToggle={() => setSidebarOpen((current) => !current)}
           selectedId={editId}
           adminUserCount={adminUsers.length}
           adminUsersActive={viewAdminUsers}
+          locationsActive={viewLocations}
         />
         <main className="flex min-h-0 min-w-0 flex-1 flex-col">
           <div className="flex-1 min-h-0 overflow-y-auto px-6 py-8 md:px-12 xl:px-16">
-            {viewAdminUsers ? (
+            {viewLocations ? (
+              <LocationsPanel
+                initialLocations={locations}
+                onLocationDeleted={(id) => setLocations((current) => current.filter((l) => l.id !== id))}
+              />
+            ) : viewAdminUsers ? (
               <AdminUsersPanel
                 initialUsers={adminUsers}
                 currentUserId={userId}
@@ -676,6 +690,15 @@ export default function OverviewContent({
                     onSlugChange={handleSlugManualChange}
                     initialImages={initialImages}
                     initialLocation={initialLocation}
+                    sidebarLocations={locations}
+                    onLocationSaved={(newLoc) => {
+                      setLocations((current) => {
+                        const exists = current.some((l) => l.id === newLoc.id)
+                        return exists
+                          ? current.map((l) => l.id === newLoc.id ? { ...l, ...newLoc, isAssigned: true } : l)
+                          : [...current, { ...newLoc, isAssigned: true }]
+                      })
+                    }}
                     onUploaded={(mediaAssetId) => {
                       setPendingMediaAssetIds((current) =>
                         current.includes(mediaAssetId) ? current : [...current, mediaAssetId]
@@ -841,7 +864,7 @@ export default function OverviewContent({
               </div>
             )}
           </div>
-          {!viewAdminUsers && (
+          {!viewAdminUsers && !viewLocations && (
           <div className="shrink-0 border-t border-neutral-300 bg-white px-6 py-6 md:px-12 xl:px-16">
             <div className="mx-auto flex max-w-[920px] items-center justify-between gap-4">
               <button

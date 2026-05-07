@@ -78,6 +78,14 @@ export type SidebarBio = {
   name: string
 }
 
+export type SidebarLocation = {
+  id: string
+  address: string
+  lat: number
+  lng: number
+  isAssigned: boolean
+}
+
 export type BookDraft = {
   title: string
   author: string

@@ -117,6 +117,7 @@ type SaveLocationArgs = {
   postcode?: string | null
   latitude: number
   longitude: number
+  forceCreate?: boolean
 }
 
 export async function saveLocationAction(args: SaveLocationArgs) {
@@ -152,7 +153,7 @@ export async function saveLocationAction(args: SaveLocationArgs) {
     .eq('relationship_type', 'primary')
     .maybeSingle()
 
-  if (existingLink?.location_id) {
+  if (existingLink?.location_id && !args.forceCreate) {
     // Update the existing location record
     const { error } = await adminSupabase
       .from('locations')
@@ -170,9 +171,13 @@ export async function saveLocationAction(args: SaveLocationArgs) {
       console.error('[saveLocationAction] update failed:', JSON.stringify(error, null, 2))
       return { success: false, error: error.message }
     }
+
+    console.log('[saveLocationAction] update succeeded')
+    revalidatePath('/overview')
+    return { success: true as const, locationId: existingLink.location_id }
   } else {
-    // Create a new location record
-    const slug = `location-${args.contentItemId}`
+    // Create a new location record — use a UUID-based slug to avoid conflicts
+    const slug = `location-${randomUUID()}`
     const { data: newLocation, error: insertError } = await adminSupabase
       .from('locations')
       .insert({
@@ -209,9 +214,45 @@ export async function saveLocationAction(args: SaveLocationArgs) {
       console.error('[saveLocationAction] link failed:', JSON.stringify(linkError, null, 2))
       return { success: false, error: linkError.message }
     }
+
+    console.log('[saveLocationAction] insert succeeded')
+    revalidatePath('/overview')
+    return { success: true as const, locationId: newLocation.id }
+  }
+}
+
+export async function linkLocationAction(args: { contentItemId: string; locationId: string }) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'You must be logged in.' }
+
+  const adminSupabase = createAdminClient()
+
+  // Remove any existing primary link for this content item
+  const { error: deleteError } = await adminSupabase
+    .from('content_locations')
+    .delete()
+    .eq('content_item_id', args.contentItemId)
+    .eq('relationship_type', 'primary')
+
+  if (deleteError) {
+    return { success: false, error: deleteError.message }
   }
 
-  console.log('[saveLocationAction] update succeeded')
+  // Link the selected location
+  const { error: insertError } = await adminSupabase
+    .from('content_locations')
+    .insert({
+      content_item_id: args.contentItemId,
+      location_id: args.locationId,
+      relationship_type: 'primary',
+      sort_order: 0,
+    })
+
+  if (insertError) {
+    return { success: false, error: insertError.message }
+  }
+
   revalidatePath('/overview')
   return { success: true }
 }
@@ -463,10 +504,26 @@ export async function removeRelatedContentAction(args: {
   const { error } = await adminSupabase
     .from('related_content')
     .delete()
-    .eq('parent_content_item_id', args.parentId)
-    .eq('child_content_item_id', args.childId)
-
   if (error) return { success: false, error: error.message }
   return { success: true }
 }
 
+export async function deleteLocationAction(args: {
+  locationId: string
+}): Promise<{ success: true } | { success: false; error: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'You must be logged in.' }
+
+  const adminSupabase = createAdminClient()
+
+  const { error } = await adminSupabase
+    .from('locations')
+    .delete()
+    .eq('id', args.locationId)
+
+  if (error) return { success: false, error: error.message }
+
+  revalidatePath('/overview')
+  return { success: true }
+}

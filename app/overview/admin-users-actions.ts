@@ -54,7 +54,7 @@ export async function inviteAdminUserAction(
     email,
     {
       data: { role },
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? ''}/login`,
+      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? ''}/auth/confirm`,
     }
   )
 

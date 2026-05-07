@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { Pencil, Trash2 } from 'lucide-react'
 import type { AdminUser } from '../admin-users-actions'
 import {
@@ -8,6 +9,7 @@ import {
   updateAdminUserRoleAction,
   deleteAdminUserAction,
 } from '../admin-users-actions'
+import { createClient } from '@/utils/supabase/client'
 import Input from './ui/Input'
 import { BlackButton } from './ui/Buttons'
 import Modal from './ui/Modal'
@@ -28,10 +30,12 @@ type Props = {
 }
 
 export default function AdminUsersPanel({ initialUsers, currentUserId }: Props) {
+  const router = useRouter()
   const [users, setUsers] = useState<AdminUser[]>(initialUsers)
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState('admin')
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
+  const [lastUserModalOpen, setLastUserModalOpen] = useState(false)
   const [toastOpen, setToastOpen] = useState(false)
   const [toastMessage, setToastMessage] = useState('')
   const [toastTone, setToastTone] = useState<'success' | 'error'>('success')
@@ -80,18 +84,29 @@ export default function AdminUsersPanel({ initialUsers, currentUserId }: Props) 
   }
 
   function handleDeleteClick(userId: string) {
+    if (users.length <= 1) {
+      setLastUserModalOpen(true)
+      return
+    }
     setDeleteTargetId(userId)
   }
 
   function handleConfirmDelete() {
     if (!deleteTargetId) return
     const idToDelete = deleteTargetId
+    const isSelf = idToDelete === currentUserId
     setDeleteTargetId(null)
 
     startDeleteTransition(async () => {
       const result = await deleteAdminUserAction(idToDelete)
       if (!result.success) {
         showToast(result.error ?? 'Failed to delete user.', 'error')
+        return
+      }
+      if (isSelf) {
+        const supabase = createClient()
+        await supabase.auth.signOut()
+        router.replace('/login')
         return
       }
       setUsers((current) => current.filter((u) => u.id !== idToDelete))
@@ -184,7 +199,7 @@ export default function AdminUsersPanel({ initialUsers, currentUserId }: Props) 
                 <button
                   type="button"
                   aria-label={`Delete ${user.email}`}
-                  disabled={user.id === currentUserId || isDeleting}
+                  disabled={isDeleting}
                   onClick={() => handleDeleteClick(user.id)}
                   className="shrink-0 text-neutral-400 transition hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-30"
                 >
@@ -205,8 +220,10 @@ export default function AdminUsersPanel({ initialUsers, currentUserId }: Props) 
       >
         <p className="text-neutral-700">
           Are you sure you want to remove{' '}
-          <span className="font-semibold">{deleteTarget?.email}</span>? This action cannot be
-          undone.
+          <span className="font-semibold">{deleteTarget?.email}</span>?{' '}
+          {deleteTarget?.id === currentUserId
+            ? 'This will remove your own account and sign you out immediately.'
+            : 'This action cannot be undone.'}
         </p>
         <div className="mt-6 flex justify-end gap-3">
           <BlackButton onClick={() => setDeleteTargetId(null)}>CANCEL</BlackButton>
@@ -217,6 +234,19 @@ export default function AdminUsersPanel({ initialUsers, currentUserId }: Props) 
           >
             {isDeleting ? 'REMOVING...' : 'CONFIRM REMOVE'}
           </BlackButton>
+        </div>
+      </Modal>
+
+      <Modal
+        open={lastUserModalOpen}
+        title="Cannot remove user"
+        onClose={() => setLastUserModalOpen(false)}
+      >
+        <p className="text-neutral-700">
+          There must be at least one admin user on the platform. Add another user before removing this one.
+        </p>
+        <div className="mt-6 flex justify-end">
+          <BlackButton onClick={() => setLastUserModalOpen(false)}>OK</BlackButton>
         </div>
       </Modal>
     </div>

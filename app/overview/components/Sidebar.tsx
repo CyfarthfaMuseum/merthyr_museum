@@ -3,7 +3,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { useState } from 'react'
-import type { SidebarBookGroup, SidebarCounts, SidebarStoryGroup, SidebarPaintingGroup, SidebarArtifactGroup, SidebarBio } from '../types'
+import type { SidebarBookGroup, SidebarCounts, SidebarStoryGroup, SidebarPaintingGroup, SidebarArtifactGroup, SidebarBio, SidebarLocation } from '../types'
 import { GreenButton } from './ui/Buttons'
 
 function formatBioName(name: string): string {
@@ -48,14 +48,17 @@ type Props = {
   paintingGroups: SidebarPaintingGroup[]
   artifactGroups: SidebarArtifactGroup[]
   bios: SidebarBio[]
+  sidebarLocations?: SidebarLocation[]
+  onLocationDeleted?: (locationId: string) => void
   isOpen: boolean
   onToggle: () => void
   adminUserCount?: number
   adminUsersActive?: boolean
+  locationsActive?: boolean
   selectedId?: string | null
 }
 
-export default function Sidebar({ userEmail, counts, bookGroups, storyGroups, paintingGroups, artifactGroups, bios, isOpen, onToggle, adminUserCount = 0, adminUsersActive = false, selectedId }: Props) {
+export default function Sidebar({ userEmail, counts, bookGroups, storyGroups, paintingGroups, artifactGroups, bios, sidebarLocations = [], isOpen, onToggle, adminUserCount = 0, adminUsersActive = false, locationsActive = false, selectedId }: Props) {
   const [booksExpanded, setBooksExpanded] = useState(false)
   const [storiesExpanded, setStoriesExpanded] = useState(false)
   const [paintingsExpanded, setPaintingsExpanded] = useState(false)
@@ -272,6 +275,15 @@ export default function Sidebar({ userEmail, counts, bookGroups, storyGroups, pa
 
         {/* Footer (fixed height) */}
         <div className="shrink-0">
+          <div className={`border-t border-neutral-200 bg-white ${locationsActive ? 'bg-neutral-900 border-r-4 border-r-[#fbb042]' : ''}`}>
+            <Link
+              href="/overview?view=locations"
+              className={`flex items-center gap-3 px-8 py-3 transition ${locationsActive ? 'bg-neutral-900 text-white hover:text-white' : 'hover:bg-neutral-50 text-neutral-900'}`}
+            >
+              <img src="/location-icon.svg" alt="" aria-hidden width={32} height={32} className="opacity-70" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+              <span className="text-[16px] font-semibold">Locations ({sidebarLocations.length})</span>
+            </Link>
+          </div>
           <div className={`border-t border-neutral-200 bg-white ${adminUsersActive ? 'bg-neutral-900 border-r-4 border-r-[#fbb042]' : ''}`}>
             <Link
               href="/overview?view=admin-users"

@@ -7,7 +7,7 @@ import Input from '../ui/Input'
 import { BlackButton } from '../ui/Buttons'
 import SectionTitle from '../ui/SectionTitle'
 import { uploadImageToR2 } from '../../upload-image'
-import { deleteImageAction, saveImageMetadataAction, saveLocationAction } from '../../image-actions'
+import { deleteImageAction, saveImageMetadataAction, saveLocationAction, linkLocationAction } from '../../image-actions'
 import { checkSlugAvailabilityAction } from '../../actions'
 
 type InitialImage = {
@@ -20,6 +20,8 @@ type InitialImage = {
   isPrimary: boolean
 }
 
+type SidebarLocation = { id: string; address: string; lat: number; lng: number }
+
 type Props = {
   contentItemId?: string | null
   contentType: 'book' | 'stories' | 'painting' | 'artifacts' | 'bio'
@@ -28,6 +30,8 @@ type Props = {
   onUploaded?: (mediaAssetId: string) => void
   initialImages?: InitialImage[]
   initialLocation?: { address: string; lat: number; lng: number } | null
+  sidebarLocations?: SidebarLocation[]
+  onLocationSaved?: (location: { id: string; address: string; lat: number; lng: number }) => void
 }
 
 type ImageItem = {
@@ -95,6 +99,8 @@ export default function ImageManager({
   onUploaded,
   initialImages = [],
   initialLocation = null,
+  sidebarLocations = [],
+  onLocationSaved,
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const previewObjectUrlsRef = useRef<string[]>([])
@@ -118,6 +124,8 @@ export default function ImageManager({
   })
   const [locationMessage, setLocationMessage] = useState('')
   const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false)
+  const [selectedLocationId, setSelectedLocationId] = useState('')
+  const [localLocations, setLocalLocations] = useState(sidebarLocations)
   const [locationAddress, setLocationAddress] = useState(initialLocation?.address ?? '')
   const [selectedCoordinates, setSelectedCoordinates] = useState<{ lat: number; lng: number } | null>(
     initialLocation ? { lat: initialLocation.lat, lng: initialLocation.lng } : null
@@ -126,6 +134,7 @@ export default function ImageManager({
   useEffect(() => {
     selectedCoordinatesRef.current = selectedCoordinates
   }, [selectedCoordinates])
+
 
   useEffect(() => {
     const slug = slugValue.trim()
@@ -426,7 +435,7 @@ export default function ImageManager({
     setQrMessage('QR code generated.')
   }
 
-  async function handleConfirmLocation() {
+  async function handleConfirmLocation(forceCreate = false) {
     if (!selectedCoordinates) {
       setLocationMessage('Please drop a pin before confirming location.')
       return
@@ -472,6 +481,7 @@ export default function ImageManager({
         postcode,
         latitude: lat,
         longitude: lng,
+        forceCreate,
       })
 
       console.log('[handleConfirmLocation] saveLocationAction result:', result)
@@ -480,6 +490,16 @@ export default function ImageManager({
         setLocationMessage(`Location selected, but saving failed: ${result.error ?? 'Unable to save location.'}`)
         return
       }
+
+      const savedLoc = { id: result.locationId, address: resolvedAddress, lat, lng }
+      setLocalLocations((current) => {
+        const exists = current.some((l) => l.id === result.locationId)
+        return exists
+          ? current.map((l) => l.id === result.locationId ? savedLoc : l)
+          : [...current, savedLoc]
+      })
+      setSelectedLocationId(result.locationId)
+      onLocationSaved?.(savedLoc)
     } else {
       console.warn('[handleConfirmLocation] no contentItemId — location will not be persisted')
     }
@@ -635,12 +655,40 @@ export default function ImageManager({
       <div className="border-t border-neutral-300 pt-8">
         <SectionTitle>Location</SectionTitle>
         <div className="mt-4 grid gap-3 md:grid-cols-[1fr_auto]">
-          <Input
-            value={locationAddress}
-            readOnly
-            placeholder="Select from Locations"
-            aria-label="Selected location"
-          />
+          <select
+            className="h-12 w-full rounded-xl border border-neutral-300 bg-white px-4 text-[16px] text-neutral-800 outline-none transition focus:border-neutral-500"
+            value={selectedLocationId}
+            onChange={(e) => {
+              const id = e.target.value
+              setSelectedLocationId(id)
+              if (!id) return
+              const loc = localLocations.find((l) => l.id === id)
+              if (!loc) return
+              setLocationAddress(loc.address)
+              setSelectedCoordinates({ lat: loc.lat, lng: loc.lng })
+              if (contentItemId) {
+                void linkLocationAction({
+                  contentItemId,
+                  locationId: id,
+                }).then((result) => {
+                  setLocationMessage(
+                    result.success
+                      ? 'Location saved.'
+                      : `Failed to save location: ${result.error ?? 'Unknown error.'}`
+                  )
+                })
+              } else {
+                setLocationMessage('Location selected. Save the content item first to persist it.')
+              }
+            }}
+          >
+            <option value="">Select from Locations</option>
+            {localLocations.map((loc) => (
+              <option key={loc.id} value={loc.id}>
+                {loc.address}
+              </option>
+            ))}
+          </select>
           <BlackButton className="min-w-[260px]" onClick={() => setIsLocationDialogOpen(true)}>
             SET LOCATION
           </BlackButton>
@@ -757,10 +805,16 @@ export default function ImageManager({
               >
                 CANCEL
               </BlackButton>
-              <BlackButton onClick={() => void handleConfirmLocation()} disabled={!selectedCoordinates}>
+              <BlackButton onClick={() => void handleConfirmLocation(false)} disabled={!selectedCoordinates}>
                 <span className="inline-flex items-center gap-2">
                   <MapPin size={18} />
-                  CONFIRM LOCATION
+                  UPDATE LOCATION
+                </span>
+              </BlackButton>
+              <BlackButton onClick={() => void handleConfirmLocation(true)} disabled={!selectedCoordinates}>
+                <span className="inline-flex items-center gap-2">
+                  <MapPin size={18} />
+                  ADD LOCATION
                 </span>
               </BlackButton>
             </div>

@@ -17,6 +17,7 @@ import {
   type SidebarPaintingGroup,
   type SidebarArtifactGroup,
   type SidebarBio,
+  type SidebarLocation,
   type OverviewDraft,
   type SidebarCounts,
   type StoryTypeOption,
@@ -607,6 +608,36 @@ async function getSidebarBios(
     .sort((a, b) => surnameSort(a.name).localeCompare(surnameSort(b.name)))
 }
 
+async function getSidebarLocations(): Promise<SidebarLocation[]> {
+  const adminSupabase = createAdminClient()
+  const [{ data: locs }, { data: links }] = await Promise.all([
+    adminSupabase
+      .from('locations')
+      .select('id, address_line_1, town, postcode, latitude, longitude, location_translations(language_code, title)')
+      .order('address_line_1', { ascending: true }),
+    adminSupabase
+      .from('content_locations')
+      .select('location_id'),
+  ])
+
+  const assignedIds = new Set((links ?? []).map((l) => l.location_id as string))
+
+  return (locs ?? []).map((loc) => {
+    const translations = Array.isArray(loc.location_translations) ? loc.location_translations : []
+    const translation = translations.find((t) => t.language_code === 'en') ?? translations[0]
+    const address = translation?.title
+      || [loc.address_line_1, loc.town, loc.postcode].filter(Boolean).join(', ')
+      || 'Unknown location'
+    return {
+      id: loc.id as string,
+      address,
+      lat: Number(loc.latitude),
+      lng: Number(loc.longitude),
+      isAssigned: assignedIds.has(loc.id as string),
+    }
+  })
+}
+
 async function getAvailableStoryTypes(): Promise<StoryTypeOption[]> {
   const adminSupabase = createAdminClient()
 
@@ -1139,6 +1170,7 @@ export default async function OverviewPage({ searchParams }: PageProps) {
   const resolvedParams = (await searchParams) ?? {}
   const createSelected = resolvedParams.new === '1'
   const viewAdminUsers = resolvedParams.view === 'admin-users'
+  const viewLocations = resolvedParams.view === 'locations'
 
   const adminSupabase = createAdminClient()
 
@@ -1155,6 +1187,7 @@ export default async function OverviewPage({ searchParams }: PageProps) {
     sidebarArtifactGroups,
     sidebarBios,
     adminUsers,
+    sidebarLocations,
   ] = await Promise.all([
     getSidebarCounts(adminSupabase),
     getEditDraft(supabase, resolvedParams.type, resolvedParams.id),
@@ -1168,6 +1201,7 @@ export default async function OverviewPage({ searchParams }: PageProps) {
     getSidebarArtifactGroups(adminSupabase),
     getSidebarBios(adminSupabase),
     getAdminUsers(),
+    getSidebarLocations(),
   ])
 
   const initialImages = await getInitialImages(supabase, editState.editId)
@@ -1190,6 +1224,7 @@ export default async function OverviewPage({ searchParams }: PageProps) {
       sidebarPaintingGroups={sidebarPaintingGroups}
       sidebarArtifactGroups={sidebarArtifactGroups}
       sidebarBios={sidebarBios}
+      sidebarLocations={sidebarLocations}
       showEditor={editState.mode === 'edit' || createSelected}
       initialImages={initialImages}
       initialLocation={editState.initialLocation}
@@ -1197,6 +1232,7 @@ export default async function OverviewPage({ searchParams }: PageProps) {
       initialRelatedContent={editState.initialRelatedContent}
       adminUsers={adminUsers}
       viewAdminUsers={viewAdminUsers}
+      viewLocations={viewLocations}
     />
   )
 }
