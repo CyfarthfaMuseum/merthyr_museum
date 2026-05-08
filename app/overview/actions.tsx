@@ -396,6 +396,7 @@ async function linkMediaAssetsToContentItem(
 
 export async function createBookGenreAction(args: {
   title: string
+  titleCy?: string
   languageCode?: string
 }) {
   const supabase = await createClient()
@@ -529,6 +530,25 @@ export async function createBookGenreAction(args: {
       return { success: false, error: `Step 5 failed: ${translationError.message}` }
     }
 
+    // Step 6: create Welsh translation row if provided
+    const titleCy = args.titleCy?.trim()
+    if (titleCy && languageCode !== 'cy') {
+      const { error: translationCyError } = await adminSupabase
+        .from('book_theme_translations')
+        .insert({
+          book_theme_id: bookThemeId,
+          language_code: 'cy',
+          title: titleCy,
+          summary: null,
+          body: null,
+        })
+
+      if (translationCyError) {
+        console.error('Step 6 failed', translationCyError)
+        return { success: false, error: `Step 6 failed: ${translationCyError.message}` }
+      }
+    }
+
     revalidatePath('/overview')
 
     return {
@@ -544,7 +564,7 @@ export async function createBookGenreAction(args: {
   }
 }
 
-export async function createStoryTypeAction(args: { label: string }) {
+export async function createStoryTypeAction(args: { label: string; labelCy?: string }) {
   const supabase = await createClient()
   const {
     data: { user },
@@ -606,6 +626,22 @@ export async function createStoryTypeAction(args: { label: string }) {
       }
     }
 
+    const labelCy = args.labelCy?.trim()
+    if (labelCy) {
+      const { error: translationCyError } = await adminSupabase.from('story_type_translations').insert({
+        story_type_id: inserted.id,
+        language_code: 'cy',
+        label: labelCy,
+      })
+
+      if (translationCyError) {
+        return {
+          success: false,
+          error: `Story type was created but Welsh label could not be saved: ${translationCyError.message}`,
+        }
+      }
+    }
+
     revalidatePath('/overview')
     return { success: true, alreadyExisted: false, storyType: { code: inserted.code, label: title } }
   } catch (error) {
@@ -613,7 +649,7 @@ export async function createStoryTypeAction(args: { label: string }) {
   }
 }
 
-export async function createArtifactCategoryAction(args: { label: string }) {
+export async function createArtifactCategoryAction(args: { label: string; labelCy?: string }) {
   const supabase = await createClient()
   const {
     data: { user },
@@ -677,6 +713,24 @@ export async function createArtifactCategoryAction(args: { label: string }) {
       }
     }
 
+    const labelCy = args.labelCy?.trim()
+    if (labelCy) {
+      const { error: translationCyError } = await adminSupabase
+        .from('artefact_category_translations')
+        .insert({
+          artefact_category_id: inserted.id,
+          language_code: 'cy',
+          label: labelCy,
+        })
+
+      if (translationCyError) {
+        return {
+          success: false,
+          error: `Category was created but Welsh label could not be saved: ${translationCyError.message}`,
+        }
+      }
+    }
+
     revalidatePath('/overview')
     return {
       success: true,
@@ -688,6 +742,126 @@ export async function createArtifactCategoryAction(args: { label: string }) {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to create artefact category.',
     }
+  }
+}
+
+export async function createHistoricalPeriodAction(args: { name: string; nameCy?: string }) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'You must be logged in.' }
+
+  try {
+    await ensureActiveAdminAccess(user.id)
+    const adminSupabase: Awaited<ReturnType<typeof createClient>> = createAdminClient()
+    const name = args.name.trim()
+    if (!name) return { success: false, error: 'Period name is required.' }
+
+    const { data: existing } = await adminSupabase
+      .from('historical_period_translations')
+      .select('historical_period_id')
+      .eq('language_code', 'en')
+      .ilike('name', name)
+      .limit(1)
+
+    if (existing?.[0]) {
+      return {
+        success: true,
+        alreadyExisted: true,
+        period: { id: existing[0].historical_period_id as string, name },
+      }
+    }
+
+    const { data: inserted, error: insertError } = await adminSupabase
+      .from('historical_periods')
+      .insert({})
+      .select('id')
+      .single()
+
+    if (insertError || !inserted) {
+      return { success: false, error: insertError?.message ?? 'Failed to create period.' }
+    }
+
+    const { error: translationError } = await adminSupabase
+      .from('historical_period_translations')
+      .insert({ historical_period_id: inserted.id, language_code: 'en', name })
+
+    if (translationError) {
+      return { success: false, error: translationError.message }
+    }
+
+    const nameCy = args.nameCy?.trim()
+    if (nameCy) {
+      await adminSupabase
+        .from('historical_period_translations')
+        .insert({ historical_period_id: inserted.id, language_code: 'cy', name: nameCy })
+    }
+
+    revalidatePath('/overview')
+    return { success: true, alreadyExisted: false, period: { id: inserted.id as string, name } }
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to create period.' }
+  }
+}
+
+export async function createHistoricalEraAction(args: { name: string; nameCy?: string }) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'You must be logged in.' }
+
+  try {
+    await ensureActiveAdminAccess(user.id)
+    const adminSupabase: Awaited<ReturnType<typeof createClient>> = createAdminClient()
+    const name = args.name.trim()
+    if (!name) return { success: false, error: 'Era name is required.' }
+
+    const { data: existing } = await adminSupabase
+      .from('historical_era_translations')
+      .select('historical_era_id')
+      .eq('language_code', 'en')
+      .ilike('name', name)
+      .limit(1)
+
+    if (existing?.[0]) {
+      return {
+        success: true,
+        alreadyExisted: true,
+        era: { id: existing[0].historical_era_id as string, name },
+      }
+    }
+
+    const { data: inserted, error: insertError } = await adminSupabase
+      .from('historical_eras')
+      .insert({})
+      .select('id')
+      .single()
+
+    if (insertError || !inserted) {
+      return { success: false, error: insertError?.message ?? 'Failed to create era.' }
+    }
+
+    const { error: translationError } = await adminSupabase
+      .from('historical_era_translations')
+      .insert({ historical_era_id: inserted.id, language_code: 'en', name })
+
+    if (translationError) {
+      return { success: false, error: translationError.message }
+    }
+
+    const nameCy = args.nameCy?.trim()
+    if (nameCy) {
+      await adminSupabase
+        .from('historical_era_translations')
+        .insert({ historical_era_id: inserted.id, language_code: 'cy', name: nameCy })
+    }
+
+    revalidatePath('/overview')
+    return { success: true, alreadyExisted: false, era: { id: inserted.id as string, name } }
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to create era.' }
   }
 }
 
@@ -826,15 +1000,15 @@ export async function saveContentAction({
         seoDescription: draft.seoDescription || draft.book.summary || null,
       })
 
-      // Welsh (CY) translation — only saved when a Welsh title is present
-      if (draft.bookCy.title.trim()) {
+      // Welsh (CY) translation — only saved when a Welsh summary or body is present
+      if (draft.bookCy.summary.trim() || draft.bookCy.exposition.trim()) {
         const { error: translationCyError } = await adminSupabase
           .from('book_translations')
           .upsert(
             {
               book_content_item_id: contentItemId,
               language_code: 'cy',
-              author: draft.bookCy.author || null,
+              author: draft.book.author || null,
               excerpt: draft.bookCy.summary || null,
             },
             { onConflict: 'book_content_item_id,language_code' }
@@ -845,10 +1019,10 @@ export async function saveContentAction({
         }
 
         await upsertContentItemTranslation(adminSupabase, contentItemId, 'cy', {
-          title: draft.bookCy.title,
+          title: draft.book.title,
           summary: draft.bookCy.summary || null,
           body: draft.bookCy.exposition || null,
-          seoTitle: draft.seoTitleCy || draft.bookCy.title,
+          seoTitle: draft.seoTitleCy || draft.book.title,
           seoDescription: draft.seoDescriptionCy || draft.bookCy.summary || null,
         })
       }
@@ -934,7 +1108,9 @@ export async function saveContentAction({
           artist_name: draft.painting.artist || null,
           year_created: Number.isFinite(yearCreated) ? yearCreated : null,
           medium: draft.painting.medium || null,
-          dimensions: draft.painting.dimensions || null,
+          dimensions: (draft.painting.dimensionsH || draft.painting.dimensionsW)
+            ? JSON.stringify({ h: draft.painting.dimensionsH || null, w: draft.painting.dimensionsW || null })
+            : null,
           current_collection: null,
           image_credit: null,
         },
@@ -969,8 +1145,8 @@ export async function saveContentAction({
         seoDescription: draft.seoDescription || draft.painting.description || null,
       })
 
-      // Welsh (CY) translation
-      if (draft.paintingCy.title.trim()) {
+      // Welsh (CY) translation — only saved when a Welsh description is present
+      if (draft.paintingCy.description.trim()) {
         const { error: translationCyError } = await adminSupabase
           .from('painting_translations')
           .upsert(
@@ -987,10 +1163,10 @@ export async function saveContentAction({
         }
 
         await upsertContentItemTranslation(adminSupabase, contentItemId, 'cy', {
-          title: draft.paintingCy.title,
+          title: draft.painting.title,
           summary: draft.paintingCy.description || null,
           body: draft.paintingCy.description || null,
-          seoTitle: draft.seoTitleCy || draft.paintingCy.title,
+          seoTitle: draft.seoTitleCy || draft.painting.title,
           seoDescription: draft.seoDescriptionCy || draft.paintingCy.description || null,
         })
       }
@@ -1003,19 +1179,49 @@ export async function saveContentAction({
           artefact_category_id: draft.artifact.categoryCode
             ? await getArtifactCategoryId(adminSupabase, draft.artifact.categoryCode)
             : null,
-          maker: null,
+          maker: draft.artifact.maker || null,
           origin_place: null,
-          date_created_label: draft.artifact.datePeriod || null,
+          date_created_label: null,
           material: draft.artifact.material || null,
-          dimensions: draft.artifact.dimensions || null,
+          dimensions: (draft.artifact.dimensionsH || draft.artifact.dimensionsW || draft.artifact.dimensionsD)
+            ? JSON.stringify({ h: draft.artifact.dimensionsH || null, w: draft.artifact.dimensionsW || null, d: draft.artifact.dimensionsD || null })
+            : null,
           collection_holder: null,
-          catalogue_reference: null,
+          catalogue_reference: draft.artifact.itemId || null,
         },
         { onConflict: 'content_item_id' }
       )
 
       if (artefactError) {
         return { success: false, error: artefactError.message }
+      }
+
+      // Save date / period fields on content_items
+      const startYear = draft.artifact.startYear ? Number(draft.artifact.startYear) : null
+      const startMonth = draft.artifact.startMonth ? Number(draft.artifact.startMonth) : null
+      const startDay = draft.artifact.startDay ? Number(draft.artifact.startDay) : null
+      const endYear = draft.artifact.endYear ? Number(draft.artifact.endYear) : null
+      const endMonth = draft.artifact.endMonth ? Number(draft.artifact.endMonth) : null
+      const endDay = draft.artifact.endDay ? Number(draft.artifact.endDay) : null
+
+      const { error: dateUpdateError } = await adminSupabase
+        .from('content_items')
+        .update({
+          start_date_year: Number.isFinite(startYear) ? startYear : null,
+          start_date_month: Number.isFinite(startMonth) ? startMonth : null,
+          start_date_day: Number.isFinite(startDay) ? startDay : null,
+          start_date_era: draft.artifact.startEra || 'AD',
+          end_date_year: Number.isFinite(endYear) ? endYear : null,
+          end_date_month: Number.isFinite(endMonth) ? endMonth : null,
+          end_date_day: Number.isFinite(endDay) ? endDay : null,
+          end_date_era: draft.artifact.endEra || 'AD',
+          historical_period_id: draft.artifact.periodId || null,
+          historical_era_id: draft.artifact.eraId || null,
+        })
+        .eq('id', contentItemId)
+
+      if (dateUpdateError) {
+        return { success: false, error: dateUpdateError.message }
       }
 
       // English translation
@@ -1038,6 +1244,7 @@ export async function saveContentAction({
         title: draft.artifact.title,
         summary: draft.artifact.description || null,
         body: draft.artifact.description || null,
+        customPeriodLabel: draft.artifact.customPeriod || null,
         seoTitle: draft.seoTitle || draft.artifact.title,
         seoDescription: draft.seoDescription || draft.artifact.description || null,
       })
@@ -1063,6 +1270,7 @@ export async function saveContentAction({
           title: draft.artifactCy.title,
           summary: draft.artifactCy.description || null,
           body: draft.artifactCy.description || null,
+          customPeriodLabel: draft.artifact.customPeriod || null,
           seoTitle: draft.seoTitleCy || draft.artifactCy.title,
           seoDescription: draft.seoDescriptionCy || draft.artifactCy.description || null,
         })

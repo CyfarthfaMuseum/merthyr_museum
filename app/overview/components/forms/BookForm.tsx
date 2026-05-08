@@ -79,18 +79,18 @@ export default function BookForm({
         <SectionTitle>{t.bookDetails}</SectionTitle>
 
         <Input
-          value={isCy ? cyValue.title : value.title}
-          onChange={(e) => isCy ? onCyChange({ title: e.target.value }) : onChange({ title: e.target.value })}
-          placeholder={withSuffix(t.bookTitle)}
+          value={value.title}
+          onChange={(e) => onChange({ title: e.target.value })}
+          placeholder={t.bookTitle}
         />
 
         <Input
-          value={isCy ? cyValue.author : value.author}
-          onChange={(e) => isCy ? onCyChange({ author: e.target.value }) : onChange({ author: e.target.value })}
-          placeholder={withSuffix(t.author)}
+          value={value.author}
+          onChange={(e) => onChange({ author: e.target.value })}
+          placeholder={t.author}
         />
 
-        <div className={`grid gap-4 md:grid-cols-2 ${isCy ? 'opacity-50 pointer-events-none select-none' : ''}`}>
+        <div className="grid gap-4 md:grid-cols-2">
           <Input
             value={value.publisher}
             onChange={(e) => onChange({ publisher: e.target.value })}
@@ -103,7 +103,7 @@ export default function BookForm({
           />
         </div>
 
-        <div className={`grid gap-4 md:grid-cols-2 ${isCy ? 'opacity-50 pointer-events-none select-none' : ''}`}>
+        <div className="grid gap-4 md:grid-cols-2">
           <Input
             value={value.publicationDate}
             onChange={(e) => onChange({ publicationDate: e.target.value })}

@@ -110,18 +110,35 @@ export type PaintingDraft = {
   title: string
   artist: string
   medium: string
-  dimensions: string
+  dimensionsH: string
+  dimensionsW: string
   description: string
   yearCreated: string
+  itemId: string
 }
 
 export type ArtifactDraft = {
   categoryCode: string
   title: string
+  maker: string
   material: string
-  dimensions: string
+  dimensionsH: string
+  dimensionsW: string
+  dimensionsD: string
   description: string
-  datePeriod: string
+  itemId: string
+  // Date/Time Period
+  startDay: string
+  startMonth: string
+  startYear: string
+  startEra: 'AD' | 'BC'
+  endDay: string
+  endMonth: string
+  endYear: string
+  endEra: 'AD' | 'BC'
+  periodId: string
+  eraId: string
+  customPeriod: string
 }
 
 export type BioDraft = {
@@ -130,14 +147,18 @@ export type BioDraft = {
   summary: string
   content: string
   birthDate: string
+  birthDay: string
+  birthMonth: string
+  birthEra: 'AD' | 'BC'
   deathDate: string
+  deathDay: string
+  deathMonth: string
+  deathEra: 'AD' | 'BC'
 }
 
 // Welsh (CY) translatable fields per content type
 
 export type BookCyDraft = {
-  title: string
-  author: string
   summary: string
   exposition: string
 }
@@ -149,7 +170,6 @@ export type StoryCyDraft = {
 }
 
 export type PaintingCyDraft = {
-  title: string
   description: string
 }
 
@@ -197,6 +217,16 @@ export type ArtifactCategoryOption = {
   label: string
 }
 
+export type HistoricalPeriodOption = {
+  id: string
+  name: string
+}
+
+export type HistoricalEraOption = {
+  id: string
+  name: string
+}
+
 export const initialDraft: OverviewDraft = {
   contentType: 'book',
   slug: '',
@@ -230,17 +260,33 @@ export const initialDraft: OverviewDraft = {
     title: '',
     artist: '',
     medium: '',
-    dimensions: '',
+    dimensionsH: '',
+    dimensionsW: '',
     description: '',
     yearCreated: '',
+    itemId: '',
   },
   artifact: {
     categoryCode: '',
     title: '',
+    maker: '',
     material: '',
-    dimensions: '',
+    dimensionsH: '',
+    dimensionsW: '',
+    dimensionsD: '',
     description: '',
-    datePeriod: '',
+    itemId: '',
+    startDay: '',
+    startMonth: '',
+    startYear: '',
+    startEra: 'AD',
+    endDay: '',
+    endMonth: '',
+    endYear: '',
+    endEra: 'AD',
+    periodId: '',
+    eraId: '',
+    customPeriod: '',
   },
   bio: {
     name: '',
@@ -248,11 +294,15 @@ export const initialDraft: OverviewDraft = {
     summary: '',
     content: '',
     birthDate: '',
+    birthDay: '',
+    birthMonth: '',
+    birthEra: 'AD',
     deathDate: '',
+    deathDay: '',
+    deathMonth: '',
+    deathEra: 'AD',
   },
   bookCy: {
-    title: '',
-    author: '',
     summary: '',
     exposition: '',
   },
@@ -262,7 +312,6 @@ export const initialDraft: OverviewDraft = {
     exposition: '',
   },
   paintingCy: {
-    title: '',
     description: '',
   },
   artifactCy: {

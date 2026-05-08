@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
-import { createBookGenreAction, createStoryTypeAction, createArtifactCategoryAction, saveContentAction, archiveContentAction } from './actions'
+import { createBookGenreAction, createStoryTypeAction, createArtifactCategoryAction, createHistoricalPeriodAction, createHistoricalEraAction, saveContentAction, archiveContentAction } from './actions'
 import { validateDraft } from './validation'
 import { uiStrings, type UiLang } from './ui-strings'
 import type {
@@ -19,6 +19,8 @@ import type {
   SidebarLocation,
   StoryTypeOption,
   ArtifactCategoryOption,
+  HistoricalPeriodOption,
+  HistoricalEraOption,
   BookCyDraft,
   StoryCyDraft,
   PaintingCyDraft,
@@ -65,6 +67,8 @@ type Props = {
   availableStoryTypes: StoryTypeOption[]
   availablePaintingMediums: string[]
   availableArtifactCategories: ArtifactCategoryOption[]
+  availableHistoricalPeriods: HistoricalPeriodOption[]
+  availableHistoricalEras: HistoricalEraOption[]
   showEditor: boolean
   adminUsers: AdminUser[]
   viewAdminUsers: boolean
@@ -110,6 +114,8 @@ export default function OverviewContent({
   availableStoryTypes,
   availablePaintingMediums,
   availableArtifactCategories,
+  availableHistoricalPeriods,
+  availableHistoricalEras,
   showEditor,
   initialImages,
   initialLocation,
@@ -138,20 +144,35 @@ export default function OverviewContent({
 
   const [genreModalOpen, setGenreModalOpen] = useState(false)
   const [newGenreTitle, setNewGenreTitle] = useState('')
+  const [newGenreTitleCy, setNewGenreTitleCy] = useState('')
   const [isCreatingGenre, startGenreTransition] = useTransition()
   const [storyTypes, setStoryTypes] = useState<StoryTypeOption[]>(availableStoryTypes)
   const [storyTypeModalOpen, setStoryTypeModalOpen] = useState(false)
   const [newStoryTypeLabel, setNewStoryTypeLabel] = useState('')
+  const [newStoryTypeLabelCy, setNewStoryTypeLabelCy] = useState('')
   const [isCreatingStoryType, startStoryTypeTransition] = useTransition()
 
   const [paintingMediums, setPaintingMediums] = useState<string[]>(availablePaintingMediums)
   const [mediumModalOpen, setMediumModalOpen] = useState(false)
   const [newMediumLabel, setNewMediumLabel] = useState('')
+  const [newMediumLabelCy, setNewMediumLabelCy] = useState('')
 
   const [artifactCategories, setArtifactCategories] = useState<ArtifactCategoryOption[]>(availableArtifactCategories)
   const [artifactCategoryModalOpen, setArtifactCategoryModalOpen] = useState(false)
   const [newArtifactCategoryLabel, setNewArtifactCategoryLabel] = useState('')
+  const [newArtifactCategoryLabelCy, setNewArtifactCategoryLabelCy] = useState('')
   const [isCreatingArtifactCategory, startArtifactCategoryTransition] = useTransition()
+
+  const [historicalPeriods, setHistoricalPeriods] = useState<HistoricalPeriodOption[]>(availableHistoricalPeriods)
+  const [historicalEras, setHistoricalEras] = useState<HistoricalEraOption[]>(availableHistoricalEras)
+  const [periodModalOpen, setPeriodModalOpen] = useState(false)
+  const [newPeriodName, setNewPeriodName] = useState('')
+  const [newPeriodNameCy, setNewPeriodNameCy] = useState('')
+  const [isCreatingPeriod, startPeriodTransition] = useTransition()
+  const [eraModalOpen, setEraModalOpen] = useState(false)
+  const [newEraName, setNewEraName] = useState('')
+  const [newEraNameCy, setNewEraNameCy] = useState('')
+  const [isCreatingEra, startEraTransition] = useTransition()
 
   const [toastOpen, setToastOpen] = useState(false)
   const [toastMessage, setToastMessage] = useState('')
@@ -177,12 +198,14 @@ export default function OverviewContent({
     setStoryTypes(availableStoryTypes)
     setPaintingMediums(availablePaintingMediums)
     setArtifactCategories(availableArtifactCategories)
+    setHistoricalPeriods(availableHistoricalPeriods)
+    setHistoricalEras(availableHistoricalEras)
     setSlugEditedManually(mode === 'edit')
     setSeoTitleEditedManually(mode === 'edit')
     setSeoDescriptionEditedManually(mode === 'edit')
     setSavedContentItemId(editId)
     setPendingMediaAssetIds([])
-  }, [initialDraft, availableBookGenres, availableStoryTypes, availablePaintingMediums, availableArtifactCategories, mode, editId])
+  }, [initialDraft, availableBookGenres, availableStoryTypes, availablePaintingMediums, availableArtifactCategories, availableHistoricalPeriods, availableHistoricalEras, mode, editId])
 
   useEffect(() => {
     if (!toastOpen) return
@@ -309,6 +332,7 @@ export default function OverviewContent({
 
   function handleOpenNewGenre() {
     setNewGenreTitle('')
+    setNewGenreTitleCy('')
     setGenreModalOpen(true)
   }
 
@@ -323,6 +347,7 @@ export default function OverviewContent({
     startGenreTransition(async () => {
       const result = await createBookGenreAction({
         title: trimmed,
+        titleCy: newGenreTitleCy.trim() || undefined,
         languageCode: 'en',
       })
 
@@ -366,7 +391,7 @@ export default function OverviewContent({
     if (!label) return
 
     startStoryTypeTransition(async () => {
-      const result = await createStoryTypeAction({ label })
+      const result = await createStoryTypeAction({ label, labelCy: newStoryTypeLabelCy.trim() || undefined })
       if (!result.success) {
         showToast(result.error ?? 'An error occurred.', 'error')
         return
@@ -385,6 +410,7 @@ export default function OverviewContent({
       }
       setStoryTypeModalOpen(false)
       setNewStoryTypeLabel('')
+      setNewStoryTypeLabelCy('')
       showToast(result.alreadyExisted ? 'Story type already existed.' : 'Story type created.', 'success')
     })
   }
@@ -392,15 +418,18 @@ export default function OverviewContent({
   function handleAddMedium() {
     const label = newMediumLabel.trim()
     if (!label) return
-    setPaintingMediums((current) =>
-      current.includes(label) ? current : [...current, label].sort()
-    )
+    const labelCy = newMediumLabelCy.trim()
+    setPaintingMediums((current) => {
+      const toAdd = [label, ...(labelCy ? [labelCy] : [])].filter((v) => !current.includes(v))
+      return toAdd.length === 0 ? current : [...current, ...toAdd].sort()
+    })
     setDraft((current) => ({
       ...current,
-      painting: { ...current.painting, medium: label },
+      painting: { ...current.painting, medium: uiLang === 'cy' && labelCy ? labelCy : label },
     }))
     setMediumModalOpen(false)
     setNewMediumLabel('')
+    setNewMediumLabelCy('')
   }
 
   function handleCreateArtifactCategory() {
@@ -408,7 +437,7 @@ export default function OverviewContent({
     if (!label) return
 
     startArtifactCategoryTransition(async () => {
-      const result = await createArtifactCategoryAction({ label })
+      const result = await createArtifactCategoryAction({ label, labelCy: newArtifactCategoryLabelCy.trim() || undefined })
       if (!result.success) {
         showToast(result.error ?? 'An error occurred.', 'error')
         return
@@ -427,7 +456,66 @@ export default function OverviewContent({
       }
       setArtifactCategoryModalOpen(false)
       setNewArtifactCategoryLabel('')
+      setNewArtifactCategoryLabelCy('')
       showToast(result.alreadyExisted ? 'Category already existed.' : 'Category created.', 'success')
+    })
+  }
+
+  function handleCreatePeriod() {
+    const name = newPeriodName.trim()
+    if (!name) return
+
+    startPeriodTransition(async () => {
+      const result = await createHistoricalPeriodAction({ name, nameCy: newPeriodNameCy.trim() || undefined })
+      if (!result.success) {
+        showToast(result.error ?? 'An error occurred.', 'error')
+        return
+      }
+
+      if (result.period) {
+        setHistoricalPeriods((current) =>
+          current.some((p) => p.id === result.period!.id)
+            ? current
+            : [...current, result.period!].sort((a, b) => a.name.localeCompare(b.name))
+        )
+        setDraft((current) => ({
+          ...current,
+          artifact: { ...current.artifact, periodId: result.period!.id },
+        }))
+      }
+      setPeriodModalOpen(false)
+      setNewPeriodName('')
+      setNewPeriodNameCy('')
+      showToast(result.alreadyExisted ? 'Period already existed.' : 'Period created.', 'success')
+    })
+  }
+
+  function handleCreateEra() {
+    const name = newEraName.trim()
+    if (!name) return
+
+    startEraTransition(async () => {
+      const result = await createHistoricalEraAction({ name, nameCy: newEraNameCy.trim() || undefined })
+      if (!result.success) {
+        showToast(result.error ?? 'An error occurred.', 'error')
+        return
+      }
+
+      if (result.era) {
+        setHistoricalEras((current) =>
+          current.some((e) => e.id === result.era!.id)
+            ? current
+            : [...current, result.era!].sort((a, b) => a.name.localeCompare(b.name))
+        )
+        setDraft((current) => ({
+          ...current,
+          artifact: { ...current.artifact, eraId: result.era!.id },
+        }))
+      }
+      setEraModalOpen(false)
+      setNewEraName('')
+      setNewEraNameCy('')
+      showToast(result.alreadyExisted ? 'Era already existed.' : 'Era created.', 'success')
     })
   }
 
@@ -733,6 +821,10 @@ export default function OverviewContent({
                           }))
                         }
                         uiLang={uiLang}
+                        availableHistoricalPeriods={historicalPeriods}
+                        availableHistoricalEras={historicalEras}
+                        onAddPeriod={() => setPeriodModalOpen(true)}
+                        onAddEra={() => setEraModalOpen(true)}
                       />
                     </>
                   )}
@@ -1019,17 +1111,39 @@ export default function OverviewContent({
       <Modal
         open={genreModalOpen}
         title={t.newGenreTitle}
-        onClose={() => setGenreModalOpen(false)}
+        onClose={() => { setGenreModalOpen(false); setNewGenreTitle(''); setNewGenreTitleCy('') }}
       >
         <div className="space-y-4">
-          <Input
-            value={newGenreTitle}
-            onChange={(e) => setNewGenreTitle(e.target.value)}
-            placeholder={t.genrePlaceholder}
-          />
+          {uiLang === 'cy' ? (
+            <>
+              <Input
+                value={newGenreTitleCy}
+                onChange={(e) => setNewGenreTitleCy(e.target.value)}
+                placeholder={t.genrePlaceholderCy}
+              />
+              <Input
+                value={newGenreTitle}
+                onChange={(e) => setNewGenreTitle(e.target.value)}
+                placeholder={t.genrePlaceholderEn}
+              />
+            </>
+          ) : (
+            <>
+              <Input
+                value={newGenreTitle}
+                onChange={(e) => setNewGenreTitle(e.target.value)}
+                placeholder={t.genrePlaceholderEn}
+              />
+              <Input
+                value={newGenreTitleCy}
+                onChange={(e) => setNewGenreTitleCy(e.target.value)}
+                placeholder={t.genrePlaceholderCy}
+              />
+            </>
+          )}
 
           <div className="flex justify-end gap-3">
-            <BlackButton onClick={() => setGenreModalOpen(false)}>
+            <BlackButton onClick={() => { setGenreModalOpen(false); setNewGenreTitle(''); setNewGenreTitleCy('') }}>
               {t.cancel}
             </BlackButton>
             <GreenButton onClick={handleCreateGenre} disabled={isCreatingGenre}>
@@ -1041,17 +1155,39 @@ export default function OverviewContent({
       <Modal
         open={storyTypeModalOpen}
         title={t.newStoryTypeTitle}
-        onClose={() => setStoryTypeModalOpen(false)}
+        onClose={() => { setStoryTypeModalOpen(false); setNewStoryTypeLabel(''); setNewStoryTypeLabelCy('') }}
       >
         <div className="space-y-4">
-          <Input
-            value={newStoryTypeLabel}
-            onChange={(e) => setNewStoryTypeLabel(e.target.value)}
-            placeholder={t.storyTypePlaceholder}
-          />
+          {uiLang === 'cy' ? (
+            <>
+              <Input
+                value={newStoryTypeLabelCy}
+                onChange={(e) => setNewStoryTypeLabelCy(e.target.value)}
+                placeholder={t.storyTypePlaceholderCy}
+              />
+              <Input
+                value={newStoryTypeLabel}
+                onChange={(e) => setNewStoryTypeLabel(e.target.value)}
+                placeholder={t.storyTypePlaceholderEn}
+              />
+            </>
+          ) : (
+            <>
+              <Input
+                value={newStoryTypeLabel}
+                onChange={(e) => setNewStoryTypeLabel(e.target.value)}
+                placeholder={t.storyTypePlaceholderEn}
+              />
+              <Input
+                value={newStoryTypeLabelCy}
+                onChange={(e) => setNewStoryTypeLabelCy(e.target.value)}
+                placeholder={t.storyTypePlaceholderCy}
+              />
+            </>
+          )}
 
           <div className="flex justify-end gap-3">
-            <BlackButton onClick={() => setStoryTypeModalOpen(false)}>{t.cancel}</BlackButton>
+            <BlackButton onClick={() => { setStoryTypeModalOpen(false); setNewStoryTypeLabel(''); setNewStoryTypeLabelCy('') }}>{t.cancel}</BlackButton>
             <GreenButton onClick={handleCreateStoryType} disabled={isCreatingStoryType}>
               {isCreatingStoryType ? t.creating : t.confirm}
             </GreenButton>
@@ -1062,17 +1198,39 @@ export default function OverviewContent({
       <Modal
         open={mediumModalOpen}
         title={t.newMediumTitle}
-        onClose={() => setMediumModalOpen(false)}
+        onClose={() => { setMediumModalOpen(false); setNewMediumLabel(''); setNewMediumLabelCy('') }}
       >
         <div className="space-y-4">
-          <Input
-            value={newMediumLabel}
-            onChange={(e) => setNewMediumLabel(e.target.value)}
-            placeholder={t.mediumPlaceholder}
-          />
+          {uiLang === 'cy' ? (
+            <>
+              <Input
+                value={newMediumLabelCy}
+                onChange={(e) => setNewMediumLabelCy(e.target.value)}
+                placeholder={t.mediumPlaceholderCy}
+              />
+              <Input
+                value={newMediumLabel}
+                onChange={(e) => setNewMediumLabel(e.target.value)}
+                placeholder={t.mediumPlaceholderEn}
+              />
+            </>
+          ) : (
+            <>
+              <Input
+                value={newMediumLabel}
+                onChange={(e) => setNewMediumLabel(e.target.value)}
+                placeholder={t.mediumPlaceholderEn}
+              />
+              <Input
+                value={newMediumLabelCy}
+                onChange={(e) => setNewMediumLabelCy(e.target.value)}
+                placeholder={t.mediumPlaceholderCy}
+              />
+            </>
+          )}
 
           <div className="flex justify-end gap-3">
-            <BlackButton onClick={() => setMediumModalOpen(false)}>{t.cancel}</BlackButton>
+            <BlackButton onClick={() => { setMediumModalOpen(false); setNewMediumLabel(''); setNewMediumLabelCy('') }}>{t.cancel}</BlackButton>
             <GreenButton onClick={handleAddMedium}>{t.confirm}</GreenButton>
           </div>
         </div>
@@ -1081,19 +1239,93 @@ export default function OverviewContent({
       <Modal
         open={artifactCategoryModalOpen}
         title={t.newCategoryTitle}
-        onClose={() => setArtifactCategoryModalOpen(false)}
+        onClose={() => { setArtifactCategoryModalOpen(false); setNewArtifactCategoryLabel(''); setNewArtifactCategoryLabelCy('') }}
       >
         <div className="space-y-4">
-          <Input
-            value={newArtifactCategoryLabel}
-            onChange={(e) => setNewArtifactCategoryLabel(e.target.value)}
-            placeholder={t.categoryPlaceholder}
-          />
+          {uiLang === 'cy' ? (
+            <>
+              <Input
+                value={newArtifactCategoryLabelCy}
+                onChange={(e) => setNewArtifactCategoryLabelCy(e.target.value)}
+                placeholder={t.categoryPlaceholderCy}
+              />
+              <Input
+                value={newArtifactCategoryLabel}
+                onChange={(e) => setNewArtifactCategoryLabel(e.target.value)}
+                placeholder={t.categoryPlaceholderEn}
+              />
+            </>
+          ) : (
+            <>
+              <Input
+                value={newArtifactCategoryLabel}
+                onChange={(e) => setNewArtifactCategoryLabel(e.target.value)}
+                placeholder={t.categoryPlaceholderEn}
+              />
+              <Input
+                value={newArtifactCategoryLabelCy}
+                onChange={(e) => setNewArtifactCategoryLabelCy(e.target.value)}
+                placeholder={t.categoryPlaceholderCy}
+              />
+            </>
+          )}
 
           <div className="flex justify-end gap-3">
-            <BlackButton onClick={() => setArtifactCategoryModalOpen(false)}>{t.cancel}</BlackButton>
+            <BlackButton onClick={() => { setArtifactCategoryModalOpen(false); setNewArtifactCategoryLabel(''); setNewArtifactCategoryLabelCy('') }}>{t.cancel}</BlackButton>
             <GreenButton onClick={handleCreateArtifactCategory} disabled={isCreatingArtifactCategory}>
               {isCreatingArtifactCategory ? t.creating : t.confirm}
+            </GreenButton>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={periodModalOpen}
+        title={t.newPeriodTitle}
+        onClose={() => { setPeriodModalOpen(false); setNewPeriodName(''); setNewPeriodNameCy('') }}
+      >
+        <div className="space-y-4">
+          {uiLang === 'cy' ? (
+            <>
+              <Input value={newPeriodNameCy} onChange={(e) => setNewPeriodNameCy(e.target.value)} placeholder={t.periodNamePlaceholder} />
+              <Input value={newPeriodName} onChange={(e) => setNewPeriodName(e.target.value)} placeholder={`${t.periodNamePlaceholder} (English)`} />
+            </>
+          ) : (
+            <>
+              <Input value={newPeriodName} onChange={(e) => setNewPeriodName(e.target.value)} placeholder={`${t.periodNamePlaceholder} (English)`} />
+              <Input value={newPeriodNameCy} onChange={(e) => setNewPeriodNameCy(e.target.value)} placeholder={`${t.periodNamePlaceholder} (Welsh)`} />
+            </>
+          )}
+          <div className="flex justify-end gap-3">
+            <BlackButton onClick={() => { setPeriodModalOpen(false); setNewPeriodName(''); setNewPeriodNameCy('') }}>{t.cancel}</BlackButton>
+            <GreenButton onClick={handleCreatePeriod} disabled={isCreatingPeriod}>
+              {isCreatingPeriod ? t.creating : t.confirm}
+            </GreenButton>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={eraModalOpen}
+        title={t.newEraTitle}
+        onClose={() => { setEraModalOpen(false); setNewEraName(''); setNewEraNameCy('') }}
+      >
+        <div className="space-y-4">
+          {uiLang === 'cy' ? (
+            <>
+              <Input value={newEraNameCy} onChange={(e) => setNewEraNameCy(e.target.value)} placeholder={t.eraNamePlaceholder} />
+              <Input value={newEraName} onChange={(e) => setNewEraName(e.target.value)} placeholder={`${t.eraNamePlaceholder} (English)`} />
+            </>
+          ) : (
+            <>
+              <Input value={newEraName} onChange={(e) => setNewEraName(e.target.value)} placeholder={`${t.eraNamePlaceholder} (English)`} />
+              <Input value={newEraNameCy} onChange={(e) => setNewEraNameCy(e.target.value)} placeholder={`${t.eraNamePlaceholder} (Welsh)`} />
+            </>
+          )}
+          <div className="flex justify-end gap-3">
+            <BlackButton onClick={() => { setEraModalOpen(false); setNewEraName(''); setNewEraNameCy('') }}>{t.cancel}</BlackButton>
+            <GreenButton onClick={handleCreateEra} disabled={isCreatingEra}>
+              {isCreatingEra ? t.creating : t.confirm}
             </GreenButton>
           </div>
         </div>

@@ -3,7 +3,7 @@ import { GetObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { createAdminClient } from '@/utils/supabase/admin'
 import { createClient } from '@/utils/supabase/server'
-import { getR2Client } from '@/lib/r2'
+import { getStorageClient } from '@/lib/r2'
 import OverviewContent from './OverviewContent'
 import {
   initialDraft,
@@ -12,6 +12,8 @@ import {
   type ConnectedItem,
   type ContentType,
   type EditorMode,
+  type HistoricalPeriodOption,
+  type HistoricalEraOption,
   type SidebarBookGroup,
   type SidebarStoryGroup,
   type SidebarPaintingGroup,
@@ -61,12 +63,7 @@ async function resolvePreviewUrl(storagePath: string | null | undefined): Promis
     return ''
   }
 
-  const publicBaseUrl = process.env.R2_PUBLIC_BASE_URL?.replace(/\/$/, '')
-  if (publicBaseUrl) {
-    return `${publicBaseUrl}/${normalizedPath}`
-  }
-
-  const bucket = process.env.R2_BUCKET_NAME
+  const bucket = process.env.STORAGE_BUCKET_NAME
   if (!bucket) {
     return ''
   }
@@ -76,7 +73,7 @@ async function resolvePreviewUrl(storagePath: string | null | undefined): Promis
       Bucket: bucket,
       Key: normalizedPath,
     })
-    return await getSignedUrl(getR2Client(), command, { expiresIn: 60 * 15 })
+    return await getSignedUrl(getStorageClient(), command, { expiresIn: 60 * 15 })
   } catch {
     return ''
   }
@@ -406,6 +403,66 @@ async function getAvailableArtifactCategories(): Promise<ArtifactCategoryOption[
       return { code: row.code as string, label: translation?.label ?? (row.code as string) }
     })
     .sort((a, b) => a.label.localeCompare(b.label))
+}
+
+async function getAvailableHistoricalPeriods(): Promise<HistoricalPeriodOption[]> {
+  const adminSupabase = createAdminClient()
+
+  const { data, error } = await adminSupabase
+    .from('historical_periods')
+    .select(
+      `
+      id,
+      historical_period_translations (
+        language_code,
+        name
+      )
+    `
+    )
+
+  if (error) return []
+
+  return (data ?? [])
+    .map((row) => {
+      const translations = Array.isArray(row.historical_period_translations)
+        ? row.historical_period_translations
+        : []
+      const translation =
+        translations.find((t) => t.language_code === 'en') ?? translations[0]
+      return { id: row.id as string, name: (translation?.name as string | null) ?? '' }
+    })
+    .filter((p) => p.name)
+    .sort((a, b) => a.name.localeCompare(b.name))
+}
+
+async function getAvailableHistoricalEras(): Promise<HistoricalEraOption[]> {
+  const adminSupabase = createAdminClient()
+
+  const { data, error } = await adminSupabase
+    .from('historical_eras')
+    .select(
+      `
+      id,
+      historical_era_translations (
+        language_code,
+        name
+      )
+    `
+    )
+
+  if (error) return []
+
+  return (data ?? [])
+    .map((row) => {
+      const translations = Array.isArray(row.historical_era_translations)
+        ? row.historical_era_translations
+        : []
+      const translation =
+        translations.find((t) => t.language_code === 'en') ?? translations[0]
+      return { id: row.id as string, name: (translation?.name as string | null) ?? '' }
+    })
+    .filter((e) => e.name)
+    .sort((a, b) => a.name.localeCompare(b.name))
 }
 
 async function getSidebarPaintingGroups(
@@ -875,8 +932,6 @@ async function getEditDraft(
           genres,
         },
         bookCy: {
-          title: itemTranslationCy?.title ?? '',
-          author: translationCy?.author ?? '',
           summary: translationCy?.excerpt ?? itemTranslationCy?.summary ?? '',
           exposition: itemTranslationCy?.body ?? '',
         },
@@ -1004,12 +1059,20 @@ async function getEditDraft(
           title: itemTranslation?.title ?? '',
           artist: painting.artist_name ?? '',
           medium: painting.medium ?? '',
-          dimensions: painting.dimensions ?? '',
+          ...(() => {
+            let dimensionsH = '', dimensionsW = ''
+            try {
+              const dims = JSON.parse((painting.dimensions as string | null) ?? '{}')
+              dimensionsH = dims.h != null ? String(dims.h) : ''
+              dimensionsW = dims.w != null ? String(dims.w) : ''
+            } catch { /* ignore */ }
+            return { dimensionsH, dimensionsW }
+          })(),
           description: translation?.detail_notes ?? itemTranslation?.body ?? '',
           yearCreated: painting.year_created ? String(painting.year_created) : '',
+          itemId: '',
         },
         paintingCy: {
-          title: itemTranslationCy?.title ?? '',
           description: translationCy?.detail_notes ?? itemTranslationCy?.body ?? '',
         },
       },
@@ -1027,7 +1090,7 @@ async function getEditDraft(
       return noEdit
     }
 
-    const [{ data: translation }, { data: translationCy }, { data: itemTranslationCy }] = await Promise.all([
+    const [{ data: translation }, { data: translationCy }, { data: itemTranslationCy }, { data: itemTranslationEn }] = await Promise.all([
       adminSupabase
         .from('artefact_translations')
         .select('*')
@@ -1045,6 +1108,12 @@ async function getEditDraft(
         .select('*')
         .eq('content_item_id', id)
         .eq('language_code', 'cy')
+        .maybeSingle(),
+      adminSupabase
+        .from('content_item_translations')
+        .select('*')
+        .eq('content_item_id', id)
+        .eq('language_code', 'en')
         .maybeSingle(),
     ])
 
@@ -1081,10 +1150,31 @@ async function getEditDraft(
         artifact: {
           categoryCode,
           title: itemTranslation?.title ?? '',
+          maker: (artefact as Record<string, unknown>).maker as string ?? '',
           material: artefact.material ?? '',
-          dimensions: artefact.dimensions ?? '',
           description: translation?.notes ?? itemTranslation?.body ?? '',
-          datePeriod: artefact.date_created_label ?? '',
+          itemId: (artefact.catalogue_reference as string | null) ?? '',
+          ...(() => {
+            let dimensionsH = '', dimensionsW = '', dimensionsD = ''
+            try {
+              const dims = JSON.parse((artefact.dimensions as string | null) ?? '{}')
+              dimensionsH = dims.h != null ? String(dims.h) : ''
+              dimensionsW = dims.w != null ? String(dims.w) : ''
+              dimensionsD = dims.d != null ? String(dims.d) : ''
+            } catch { /* ignore */ }
+            return { dimensionsH, dimensionsW, dimensionsD }
+          })(),
+          startDay: itemRow.start_date_day != null ? String(itemRow.start_date_day) : '',
+          startMonth: itemRow.start_date_month != null ? String(itemRow.start_date_month) : '',
+          startYear: itemRow.start_date_year != null ? String(itemRow.start_date_year) : '',
+          startEra: ((itemRow.start_date_era as string | null) === 'BC' ? 'BC' : 'AD') as 'AD' | 'BC',
+          endDay: itemRow.end_date_day != null ? String(itemRow.end_date_day) : '',
+          endMonth: itemRow.end_date_month != null ? String(itemRow.end_date_month) : '',
+          endYear: itemRow.end_date_year != null ? String(itemRow.end_date_year) : '',
+          endEra: ((itemRow.end_date_era as string | null) === 'BC' ? 'BC' : 'AD') as 'AD' | 'BC',
+          periodId: (itemRow.historical_period_id as string | null) ?? '',
+          eraId: (itemRow.historical_era_id as string | null) ?? '',
+          customPeriod: (itemTranslationEn?.custom_period_label as string | null) ?? '',
         },
         artifactCy: {
           title: itemTranslationCy?.title ?? '',
@@ -1287,6 +1377,8 @@ export default async function OverviewPage({ searchParams }: PageProps) {
     availableStoryTypes,
     availablePaintingMediums,
     availableArtifactCategories,
+    availableHistoricalPeriods,
+    availableHistoricalEras,
     sidebarBookGroups,
     sidebarStoryGroups,
     sidebarPaintingGroups,
@@ -1301,6 +1393,8 @@ export default async function OverviewPage({ searchParams }: PageProps) {
     getAvailableStoryTypes(),
     getAvailablePaintingMediums(),
     getAvailableArtifactCategories(),
+    getAvailableHistoricalPeriods(),
+    getAvailableHistoricalEras(),
     getSidebarBookGroups(adminSupabase),
     getSidebarStoryGroups(adminSupabase),
     getSidebarPaintingGroups(adminSupabase),
@@ -1326,6 +1420,8 @@ export default async function OverviewPage({ searchParams }: PageProps) {
       availableStoryTypes={availableStoryTypes}
       availablePaintingMediums={availablePaintingMediums}
       availableArtifactCategories={availableArtifactCategories}
+      availableHistoricalPeriods={availableHistoricalPeriods}
+      availableHistoricalEras={availableHistoricalEras}
       sidebarBookGroups={sidebarBookGroups}
       sidebarStoryGroups={sidebarStoryGroups}
       sidebarPaintingGroups={sidebarPaintingGroups}

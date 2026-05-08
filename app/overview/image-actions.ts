@@ -45,7 +45,7 @@ export async function saveImageMetadataAction(args: SaveImageArgs) {
     .from('media_assets')
     .insert({
       id: mediaAssetId,
-      storage_path: args.publicUrl ?? args.objectKey,
+      storage_path: args.objectKey,
       file_name: args.fileName,
       mime_type: args.mimeType,
       file_size_bytes: args.fileSizeBytes ?? null,

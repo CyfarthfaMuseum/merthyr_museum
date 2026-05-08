@@ -2,10 +2,10 @@ import { randomUUID } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { PutObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
-import { getR2Client } from '@/lib/r2'
+import { getStorageClient } from '@/lib/r2'
 
 const allowedContentTypes = new Set(['book', 'stories', 'painting', 'artifacts', 'bio', 'generic'])
-const publicBaseUrl = process.env.R2_PUBLIC_BASE_URL
+const publicBaseUrl = process.env.STORAGE_PUBLIC_BASE_URL
 
 function sanitizeFileName(fileName: string) {
   return fileName
@@ -17,9 +17,9 @@ function sanitizeFileName(fileName: string) {
 
 export async function POST(req: NextRequest) {
   try {
-    const bucket = process.env.R2_BUCKET_NAME
+    const bucket = process.env.STORAGE_BUCKET_NAME
     if (!bucket) {
-      return NextResponse.json({ error: 'Missing R2_BUCKET_NAME.' }, { status: 500 })
+      return NextResponse.json({ error: 'Missing STORAGE_BUCKET_NAME.' }, { status: 500 })
     }
 
     const body = await req.json()
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
       ContentType: mimeType,
     })
 
-    const uploadUrl = await getSignedUrl(getR2Client(), command, { expiresIn: 60 * 5 })
+    const uploadUrl = await getSignedUrl(getStorageClient(), command, { expiresIn: 60 * 5 })
 
     return NextResponse.json({
       uploadUrl,

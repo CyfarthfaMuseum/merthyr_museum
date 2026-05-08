@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
-function getR2Hostname(): string {
-  const raw = (process.env.R2_PUBLIC_BASE_URL ?? '').trim().replace(/^=+/, '')
+function getStorageHostname(): string {
+  const raw = (process.env.STORAGE_PUBLIC_BASE_URL ?? '').trim().replace(/^=+/, '')
   try {
     return raw ? new URL(raw).hostname : ''
   } catch {
@@ -9,12 +9,12 @@ function getR2Hostname(): string {
   }
 }
 
-const r2Hostname = getR2Hostname()
+const storageHostname = getStorageHostname()
 
 const nextConfig: NextConfig = {
   images: {
-    remotePatterns: r2Hostname
-      ? [{ protocol: 'https', hostname: r2Hostname }]
+    remotePatterns: storageHostname
+      ? [{ protocol: 'https', hostname: storageHostname }]
       : [],
   },
 };
