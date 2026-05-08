@@ -133,6 +133,37 @@ export type BioDraft = {
   deathDate: string
 }
 
+// Welsh (CY) translatable fields per content type
+
+export type BookCyDraft = {
+  title: string
+  author: string
+  summary: string
+  exposition: string
+}
+
+export type StoryCyDraft = {
+  title: string
+  summary: string
+  exposition: string
+}
+
+export type PaintingCyDraft = {
+  title: string
+  description: string
+}
+
+export type ArtifactCyDraft = {
+  title: string
+  description: string
+}
+
+export type BioCyDraft = {
+  occupation: string
+  summary: string
+  content: string
+}
+
 export type OverviewDraft = {
   contentType: ContentType
   slug: string
@@ -142,11 +173,18 @@ export type OverviewDraft = {
   featuredImageId: string
   seoTitle: string
   seoDescription: string
+  seoTitleCy: string
+  seoDescriptionCy: string
   book: BookDraft
   story: StoryDraft
   painting: PaintingDraft
   artifact: ArtifactDraft
   bio: BioDraft
+  bookCy: BookCyDraft
+  storyCy: StoryCyDraft
+  paintingCy: PaintingCyDraft
+  artifactCy: ArtifactCyDraft
+  bioCy: BioCyDraft
 }
 
 export type StoryTypeOption = {
@@ -168,6 +206,8 @@ export const initialDraft: OverviewDraft = {
   featuredImageId: '',
   seoTitle: '',
   seoDescription: '',
+  seoTitleCy: '',
+  seoDescriptionCy: '',
   book: {
     title: '',
     author: '',
@@ -209,5 +249,29 @@ export const initialDraft: OverviewDraft = {
     content: '',
     birthDate: '',
     deathDate: '',
+  },
+  bookCy: {
+    title: '',
+    author: '',
+    summary: '',
+    exposition: '',
+  },
+  storyCy: {
+    title: '',
+    summary: '',
+    exposition: '',
+  },
+  paintingCy: {
+    title: '',
+    description: '',
+  },
+  artifactCy: {
+    title: '',
+    description: '',
+  },
+  bioCy: {
+    occupation: '',
+    summary: '',
+    content: '',
   },
 }

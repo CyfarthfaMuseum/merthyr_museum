@@ -1,4 +1,6 @@
-import type { BookDraft } from '../../types'
+import type { BookDraft, BookCyDraft } from '../../types'
+import type { UiLang } from '../../ui-strings'
+import { uiStrings } from '../../ui-strings'
 import { BlackButton } from '../ui/Buttons'
 import Divider from '../ui/Divider'
 import Input from '../ui/Input'
@@ -15,6 +17,10 @@ type Props = {
   onNewGenre: () => void
   onRemoveGenre: (genre: string) => void
   onChange: (patch: Partial<BookDraft>) => void
+  language: 'en' | 'cy'
+  cyValue: BookCyDraft
+  onCyChange: (patch: Partial<BookCyDraft>) => void
+  uiLang: UiLang
 }
 
 export default function BookForm({
@@ -25,17 +31,25 @@ export default function BookForm({
   onNewGenre,
   onRemoveGenre,
   onChange,
+  language,
+  cyValue,
+  onCyChange,
+  uiLang,
 }: Props) {
+  const isCy = language === 'cy'
+  const t = uiStrings[uiLang]
+  const langSuffix = language !== uiLang ? `(${language === 'cy' ? t.welshSuffix : t.englishSuffix})` : ''
+  const withSuffix = (label: string) => langSuffix ? `${label} ${langSuffix}` : label
   // Filter out genres already applied to the book
   const genresToShow = availableGenres.filter((g) => !value.genres.includes(g));
   return (
     <>
-      <div className="space-y-4">
-        <SectionTitle>Book Genres</SectionTitle>
+      <div className={`space-y-4 ${isCy ? 'opacity-50 pointer-events-none select-none' : ''}`}>
+        <SectionTitle>{t.bookGenres}</SectionTitle>
 
         <div className="grid gap-4 md:grid-cols-[1fr_auto]">
           <Select value={selectedGenre} onChange={(e) => onSelectedGenreChange(e.target.value)}>
-            <option value="">Select or add a genre</option>
+            <option value="">{t.selectOrAddGenre}</option>
             {genresToShow.map((genre) => (
               <option key={genre} value={genre}>
                 {genre}
@@ -44,7 +58,7 @@ export default function BookForm({
           </Select>
 
           <BlackButton className="min-w-[160px]" onClick={onNewGenre}>
-            ADD GENRE
+            {t.addGenre}
           </BlackButton>
         </div>
 
@@ -62,59 +76,59 @@ export default function BookForm({
       <Divider />
 
       <div className="space-y-4">
-        <SectionTitle>Book Details</SectionTitle>
+        <SectionTitle>{t.bookDetails}</SectionTitle>
 
         <Input
-          value={value.title}
-          onChange={(e) => onChange({ title: e.target.value })}
-          placeholder="Book Title"
+          value={isCy ? cyValue.title : value.title}
+          onChange={(e) => isCy ? onCyChange({ title: e.target.value }) : onChange({ title: e.target.value })}
+          placeholder={withSuffix(t.bookTitle)}
         />
 
         <Input
-          value={value.author}
-          onChange={(e) => onChange({ author: e.target.value })}
-          placeholder="Author"
+          value={isCy ? cyValue.author : value.author}
+          onChange={(e) => isCy ? onCyChange({ author: e.target.value }) : onChange({ author: e.target.value })}
+          placeholder={withSuffix(t.author)}
         />
 
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className={`grid gap-4 md:grid-cols-2 ${isCy ? 'opacity-50 pointer-events-none select-none' : ''}`}>
           <Input
             value={value.publisher}
             onChange={(e) => onChange({ publisher: e.target.value })}
-            placeholder="Publisher"
+            placeholder={t.publisher}
           />
           <Input
             value={value.isbn}
             onChange={(e) => onChange({ isbn: e.target.value })}
-            placeholder="ISBN"
+            placeholder={t.isbn}
           />
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className={`grid gap-4 md:grid-cols-2 ${isCy ? 'opacity-50 pointer-events-none select-none' : ''}`}>
           <Input
             value={value.publicationDate}
             onChange={(e) => onChange({ publicationDate: e.target.value })}
             type="date"
-            aria-label="Publication Date"
+            aria-label={t.publicationDate}
           />
           <Input
             value={value.pagesCount}
             onChange={(e) => onChange({ pagesCount: e.target.value })}
-            placeholder="Pages Count"
+            placeholder={t.pagesCount}
           />
         </div>
 
         <Textarea
           rows={4}
-          value={value.summary}
-          onChange={(e) => onChange({ summary: e.target.value })}
-          placeholder="Summary"
+          value={isCy ? cyValue.summary : value.summary}
+          onChange={(e) => isCy ? onCyChange({ summary: e.target.value }) : onChange({ summary: e.target.value })}
+          placeholder={withSuffix(t.summary)}
         />
 
         <Textarea
           rows={8}
-          value={value.exposition}
-          onChange={(e) => onChange({ exposition: e.target.value })}
-          placeholder="Detailed Content"
+          value={isCy ? cyValue.exposition : value.exposition}
+          onChange={(e) => isCy ? onCyChange({ exposition: e.target.value }) : onChange({ exposition: e.target.value })}
+          placeholder={withSuffix(t.detailedContent)}
         />
       </div>
     </>

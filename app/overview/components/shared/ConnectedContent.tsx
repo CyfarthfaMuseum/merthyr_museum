@@ -10,12 +10,15 @@ import {
   removeRelatedContentAction,
 } from '../../image-actions'
 import type { ConnectedItem } from '../../types'
+import type { UiLang } from '../../ui-strings'
+import { uiStrings } from '../../ui-strings'
 
 type Props = {
   contentItemId?: string | null
   contentType: string
   initialConnected?: ConnectedItem[]
   onError?: (message: string) => void
+  uiLang: UiLang
 }
 
 export default function ConnectedContent({
@@ -23,12 +26,14 @@ export default function ConnectedContent({
   contentType,
   initialConnected,
   onError,
+  uiLang,
 }: Props) {
+  const t = uiStrings[uiLang]
   const [query, setQuery] = useState('')
   const [searchResults, setSearchResults] = useState<ConnectedItem[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const [connected, setConnected] = useState<ConnectedItem[]>(initialConnected ?? [])
-  const [activeTab, setActiveTab] = useState('All')
+  const [activeTab, setActiveTab] = useState(() => uiStrings['en'].allTab)
   const [, startLinkTransition] = useTransition()
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -52,15 +57,15 @@ export default function ConnectedContent({
   }, [query, contentItemId, connected])
 
   const typeTabs = [...new Set(searchResults.map((r) => r.contentTypeLabel).filter(Boolean))]
-  const tabs = ['All', ...typeTabs]
+  const tabs = [t.allTab, ...typeTabs]
   const filteredResults =
-    activeTab === 'All'
+    activeTab === t.allTab
       ? searchResults
       : searchResults.filter((r) => r.contentTypeLabel === activeTab)
 
   function handleAddItem(item: ConnectedItem) {
     if (!contentItemId) {
-      onError?.('Save the content item before adding connections.')
+      onError?.(t.saveBeforeConnecting)
       return
     }
     startLinkTransition(async () => {
@@ -95,22 +100,22 @@ export default function ConnectedContent({
 
   const contentTypeLabel =
     contentType === 'book'
-      ? 'book'
+      ? t.connectedTypeBook
       : contentType === 'stories'
-        ? 'story'
+        ? t.connectedTypeStory
         : contentType === 'painting'
-          ? 'painting'
+          ? t.connectedTypePainting
           : contentType === 'artifacts'
-            ? 'artefact'
+            ? t.connectedTypeArtefact
             : contentType === 'bio'
-              ? 'biography'
-              : 'item'
+              ? t.connectedTypeBiography
+              : t.connectedTypeItem
 
   return (
     <div className="space-y-4">
-      <SectionTitle>Connected Content</SectionTitle>
+      <SectionTitle>{t.connectedContent}</SectionTitle>
       <p className="text-sm text-neutral-600">
-        Search existing content to connect this {contentTypeLabel} with.
+        {t.connectedSearchHint} {contentTypeLabel} {t.connectedSearchWith}
       </p>
 
       <div className="relative">
@@ -119,9 +124,9 @@ export default function ConnectedContent({
           value={query}
           onChange={(e) => {
             setQuery(e.target.value)
-            setActiveTab('All')
+            setActiveTab(t.allTab)
           }}
-          placeholder="Search content..."
+          placeholder={t.searchContent}
           className="w-full rounded-lg border border-neutral-300 bg-white px-4 py-3 pr-10 text-[14px] outline-none focus:border-neutral-600"
         />
         <Search
@@ -130,14 +135,14 @@ export default function ConnectedContent({
         />
       </div>
 
-      {isSearching && <p className="text-sm text-neutral-500">Searching…</p>}
+      {isSearching && <p className="text-sm text-neutral-500">{t.searching}</p>}
 
       {!isSearching && searchResults.length > 0 && (
         <div className="overflow-hidden rounded-lg border border-neutral-200">
           <div className="flex overflow-x-auto border-b border-neutral-200 bg-white">
             {tabs.map((tab) => {
               const count =
-                tab === 'All'
+                tab === t.allTab
                   ? searchResults.length
                   : searchResults.filter((r) => r.contentTypeLabel === tab).length
               return (

@@ -1,19 +1,23 @@
+import type { UiLang } from '../ui-strings'
+import { uiStrings } from '../ui-strings'
 import type { ContentType } from '../types'
-
-const contentTypes: { value: ContentType; label: string }[] = [
-  { value: 'book', label: 'Book' },
-  { value: 'stories', label: 'Stories' },
-  { value: 'painting', label: 'Painting' },
-  { value: 'artifacts', label: 'Artefacts' },
-  { value: 'bio', label: 'Bio' },
-]
 
 type Props = {
   value: ContentType
   onChange: (value: ContentType) => void
+  uiLang: UiLang
 }
 
-export default function ContentTypeSelector({ value, onChange }: Props) {
+export default function ContentTypeSelector({ value, onChange, uiLang }: Props) {
+  const t = uiStrings[uiLang]
+  const contentTypes: { value: ContentType; label: string }[] = [
+    { value: 'book', label: t.contentTypeBook },
+    { value: 'stories', label: t.contentTypeStories },
+    { value: 'painting', label: t.contentTypePainting },
+    { value: 'artifacts', label: t.contentTypeArtefacts },
+    { value: 'bio', label: t.contentTypeBio },
+  ]
+
   return (
     <div className="flex flex-wrap gap-8">
       {contentTypes.map((type) => {

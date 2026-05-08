@@ -7,13 +7,16 @@ export async function GET(request: NextRequest) {
   const token_hash = searchParams.get('token_hash')
   const type = searchParams.get('type') as EmailOtpType | null
   const next = searchParams.get('next') ?? '/overview'
+  const lang = searchParams.get('lang')
 
   if (token_hash && type) {
     const supabase = await createClient()
     const { error } = await supabase.auth.verifyOtp({ type, token_hash })
     if (!error) {
-      const destination = type === 'invite' ? '/accept-invite' : next
-      return NextResponse.redirect(new URL(destination, origin))
+      const destinationPath = type === 'invite' ? '/accept-invite' : next
+      const destUrl = new URL(destinationPath, origin)
+      if (lang === 'cy' || lang === 'en') destUrl.searchParams.set('lang', lang)
+      return NextResponse.redirect(destUrl)
     }
   }
 

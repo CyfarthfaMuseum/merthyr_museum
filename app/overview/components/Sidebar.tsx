@@ -2,7 +2,11 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useState } from 'react'
+import { createClient } from '../../../utils/supabase/client'
+import type { UiLang } from '../ui-strings'
+import { uiStrings } from '../ui-strings'
 import type { SidebarBookGroup, SidebarCounts, SidebarStoryGroup, SidebarPaintingGroup, SidebarArtifactGroup, SidebarBio, SidebarLocation } from '../types'
 import { GreenButton } from './ui/Buttons'
 
@@ -56,14 +60,24 @@ type Props = {
   adminUsersActive?: boolean
   locationsActive?: boolean
   selectedId?: string | null
+  uiLang: UiLang
+  onUiLangChange: (lang: UiLang) => void
 }
 
-export default function Sidebar({ userEmail, counts, bookGroups, storyGroups, paintingGroups, artifactGroups, bios, sidebarLocations = [], isOpen, onToggle, adminUserCount = 0, adminUsersActive = false, locationsActive = false, selectedId }: Props) {
+export default function Sidebar({ userEmail, counts, bookGroups, storyGroups, paintingGroups, artifactGroups, bios, sidebarLocations = [], isOpen, onToggle, adminUserCount = 0, adminUsersActive = false, locationsActive = false, selectedId, uiLang, onUiLangChange }: Props) {
+  const router = useRouter()
+  const t = uiStrings[uiLang]
   const [booksExpanded, setBooksExpanded] = useState(false)
   const [storiesExpanded, setStoriesExpanded] = useState(false)
   const [paintingsExpanded, setPaintingsExpanded] = useState(false)
   const [artefactsExpanded, setArtefactsExpanded] = useState(false)
   const [biographiesExpanded, setBiographiesExpanded] = useState(false)
+
+  async function handleLogOut() {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.replace('/login')
+  }
 
   return (
     <>
@@ -83,9 +97,9 @@ export default function Sidebar({ userEmail, counts, bookGroups, storyGroups, pa
         {/* Scrollable/fill content (middle row) */}
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
           <div className="border-b border-neutral-200 px-8 py-8">
-            <div className="mb-6"><ContentHeader label="Content" count={counts.totalContent} /></div>
+            <div className="mb-6"><ContentHeader label={t.content} count={counts.totalContent} /></div>
             <Link href="/overview?new=1">
-              <GreenButton className="w-full">ADD NEW</GreenButton>
+              <GreenButton className="w-full">{t.addNew}</GreenButton>
             </Link>
           </div>
 
@@ -95,7 +109,7 @@ export default function Sidebar({ userEmail, counts, bookGroups, storyGroups, pa
               className="flex w-full items-center justify-between text-left"
               onClick={() => setBooksExpanded((current) => !current)}
             >
-              <ContentHeader label="Books" count={counts.books} expanded={booksExpanded} />
+              <ContentHeader label={t.books} count={counts.books} expanded={booksExpanded} />
             </button>
 
             {booksExpanded ? (
@@ -121,7 +135,7 @@ export default function Sidebar({ userEmail, counts, bookGroups, storyGroups, pa
                     </div>
                   ))
                 ) : (
-                  <div className="text-[14px] text-neutral-600">No books available.</div>
+                  <div className="text-[14px] text-neutral-600">{t.noBooksAvailable}</div>
                 )}
               </div>
             ) : null}
@@ -133,7 +147,7 @@ export default function Sidebar({ userEmail, counts, bookGroups, storyGroups, pa
               className="flex w-full items-center justify-between text-left"
               onClick={() => setBiographiesExpanded((current) => !current)}
             >
-              <ContentHeader label="Biographies" count={counts.biographies} expanded={biographiesExpanded} />
+              <ContentHeader label={t.biographies} count={counts.biographies} expanded={biographiesExpanded} />
             </button>
 
             {biographiesExpanded ? (
@@ -152,7 +166,7 @@ export default function Sidebar({ userEmail, counts, bookGroups, storyGroups, pa
                     ))}
                   </ul>
                 ) : (
-                  <div className="text-[14px] text-neutral-600">No biographies available.</div>
+                  <div className="text-[14px] text-neutral-600">{t.noBiographiesAvailable}</div>
                 )}
               </div>
             ) : null}
@@ -164,7 +178,7 @@ export default function Sidebar({ userEmail, counts, bookGroups, storyGroups, pa
               className="flex w-full items-center justify-between text-left"
               onClick={() => setStoriesExpanded((current) => !current)}
             >
-              <ContentHeader label="Stories" count={counts.stories} expanded={storiesExpanded} />
+              <ContentHeader label={t.stories} count={counts.stories} expanded={storiesExpanded} />
             </button>
 
             {storiesExpanded ? (
@@ -190,7 +204,7 @@ export default function Sidebar({ userEmail, counts, bookGroups, storyGroups, pa
                     </div>
                   ))
                 ) : (
-                  <div className="text-[14px] text-neutral-600">No stories available.</div>
+                  <div className="text-[14px] text-neutral-600">{t.noStoriesAvailable}</div>
                 )}
               </div>
             ) : null}
@@ -202,7 +216,7 @@ export default function Sidebar({ userEmail, counts, bookGroups, storyGroups, pa
               className="flex w-full items-center justify-between text-left"
               onClick={() => setPaintingsExpanded((current) => !current)}
             >
-              <ContentHeader label="Paintings" count={counts.paintings} expanded={paintingsExpanded} />
+              <ContentHeader label={t.paintings} count={counts.paintings} expanded={paintingsExpanded} />
             </button>
 
             {paintingsExpanded ? (
@@ -228,7 +242,7 @@ export default function Sidebar({ userEmail, counts, bookGroups, storyGroups, pa
                     </div>
                   ))
                 ) : (
-                  <div className="text-[14px] text-neutral-600">No paintings available.</div>
+                  <div className="text-[14px] text-neutral-600">{t.noPaintingsAvailable}</div>
                 )}
               </div>
             ) : null}
@@ -240,7 +254,7 @@ export default function Sidebar({ userEmail, counts, bookGroups, storyGroups, pa
               className="flex w-full items-center justify-between text-left"
               onClick={() => setArtefactsExpanded((current) => !current)}
             >
-              <ContentHeader label="Artefacts" count={counts.artifacts} expanded={artefactsExpanded} />
+              <ContentHeader label={t.artefacts} count={counts.artifacts} expanded={artefactsExpanded} />
             </button>
 
             {artefactsExpanded ? (
@@ -266,7 +280,7 @@ export default function Sidebar({ userEmail, counts, bookGroups, storyGroups, pa
                     </div>
                   ))
                 ) : (
-                  <div className="text-[14px] text-neutral-600">No artefacts available.</div>
+                  <div className="text-[14px] text-neutral-600">{t.noArtefactsAvailable}</div>
                 )}
               </div>
             ) : null}
@@ -281,7 +295,7 @@ export default function Sidebar({ userEmail, counts, bookGroups, storyGroups, pa
               className={`flex items-center gap-3 px-8 py-3 transition ${locationsActive ? 'bg-neutral-900 text-white hover:text-white' : 'hover:bg-neutral-50 text-neutral-900'}`}
             >
               <img src="/location-icon.svg" alt="" aria-hidden width={32} height={32} className="opacity-70" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
-              <span className="text-[16px] font-semibold">Locations ({sidebarLocations.length})</span>
+              <span className="text-[16px] font-semibold">{t.locations} ({sidebarLocations.length})</span>
             </Link>
           </div>
           <div className={`border-t border-neutral-200 bg-white ${adminUsersActive ? 'bg-neutral-900 border-r-4 border-r-[#fbb042]' : ''}`}>
@@ -290,12 +304,35 @@ export default function Sidebar({ userEmail, counts, bookGroups, storyGroups, pa
               className={`flex items-center gap-3 px-8 py-3 transition ${adminUsersActive ? 'bg-neutral-900 text-white hover:text-white' : 'hover:bg-neutral-50 text-neutral-900'}`}
             >
               <img src="/user-icon.svg" alt="" aria-hidden width={32} height={32} className="opacity-70" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
-              <span className="text-[16px] font-semibold">Admin Users ({adminUserCount})</span>
+              <span className="text-[16px] font-semibold">{t.adminUsers} ({adminUserCount})</span>
             </Link>
           </div>
-          <div className="border-t-0 border-neutral-300 bg-white px-8 py-3">
-            <div className="text-[18px] font-semibold">LOG OUT</div>
-            <div className="text-[15px] text-neutral-600">{userEmail}</div>
+          <div className="border-t border-neutral-200" />
+          <div className="flex items-center justify-between gap-3 px-8 py-3">
+            <button
+              type="button"
+              onClick={handleLogOut}
+              className="text-left transition hover:opacity-70"
+            >
+              <div className="text-[18px] font-semibold">{t.logOut}</div>
+              <div className="text-[15px] text-neutral-600">{userEmail}</div>
+            </button>
+            <div className="inline-flex overflow-hidden rounded-lg border border-neutral-300 text-sm font-medium">
+              <button
+                type="button"
+                onClick={() => onUiLangChange('en')}
+                className={`px-3 py-1.5 transition ${uiLang === 'en' ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-700 hover:bg-neutral-50'}`}
+              >
+                EN
+              </button>
+              <button
+                type="button"
+                onClick={() => onUiLangChange('cy')}
+                className={`border-l border-neutral-300 px-3 py-1.5 transition ${uiLang === 'cy' ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-700 hover:bg-neutral-50'}`}
+              >
+                CY
+              </button>
+            </div>
           </div>
         </div>
       </aside>

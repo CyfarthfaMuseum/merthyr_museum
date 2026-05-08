@@ -30,6 +30,7 @@ type PageProps = {
     id?: string
     new?: string
     view?: string
+    lang?: string
   }>
 }
 
@@ -804,12 +805,26 @@ async function getEditDraft(
       .eq('content_item_id', id)
       .maybeSingle()
 
-    const { data: translation } = await adminSupabase
-      .from('book_translations')
-      .select('*')
-      .eq('book_content_item_id', id)
-      .eq('language_code', 'en')
-      .maybeSingle()
+    const [{ data: translation }, { data: translationCy }, { data: itemTranslationCy }] = await Promise.all([
+      adminSupabase
+        .from('book_translations')
+        .select('*')
+        .eq('book_content_item_id', id)
+        .eq('language_code', 'en')
+        .maybeSingle(),
+      adminSupabase
+        .from('book_translations')
+        .select('*')
+        .eq('book_content_item_id', id)
+        .eq('language_code', 'cy')
+        .maybeSingle(),
+      adminSupabase
+        .from('content_item_translations')
+        .select('*')
+        .eq('content_item_id', id)
+        .eq('language_code', 'cy')
+        .maybeSingle(),
+    ])
 
     const { data: genreLinks } = await adminSupabase
       .from('book_theme_books')
@@ -846,6 +861,8 @@ async function getEditDraft(
         featuredImageId: '',
         seoTitle: itemTranslation?.seo_title ?? '',
         seoDescription: itemTranslation?.seo_description ?? '',
+        seoTitleCy: itemTranslationCy?.seo_title ?? '',
+        seoDescriptionCy: itemTranslationCy?.seo_description ?? '',
         book: {
           title: itemTranslation?.title ?? '',
           author: translation?.author ?? '',
@@ -856,6 +873,12 @@ async function getEditDraft(
           publicationDate: book?.publication_year ? `${book.publication_year}-01-01` : '',
           pagesCount: '',
           genres,
+        },
+        bookCy: {
+          title: itemTranslationCy?.title ?? '',
+          author: translationCy?.author ?? '',
+          summary: translationCy?.excerpt ?? itemTranslationCy?.summary ?? '',
+          exposition: itemTranslationCy?.body ?? '',
         },
       },
     }
@@ -868,12 +891,26 @@ async function getEditDraft(
       .eq('content_item_id', id)
       .maybeSingle()
 
-    const { data: translation } = await adminSupabase
-      .from('story_translations')
-      .select('*')
-      .eq('story_content_item_id', id)
-      .eq('language_code', 'en')
-      .maybeSingle()
+    const [{ data: translation }, { data: translationCy }, { data: itemTranslationCy }] = await Promise.all([
+      adminSupabase
+        .from('story_translations')
+        .select('*')
+        .eq('story_content_item_id', id)
+        .eq('language_code', 'en')
+        .maybeSingle(),
+      adminSupabase
+        .from('story_translations')
+        .select('*')
+        .eq('story_content_item_id', id)
+        .eq('language_code', 'cy')
+        .maybeSingle(),
+      adminSupabase
+        .from('content_item_translations')
+        .select('*')
+        .eq('content_item_id', id)
+        .eq('language_code', 'cy')
+        .maybeSingle(),
+    ])
 
     const storyCode = (story?.story_types as { code?: string } | null)?.code ?? 'historical'
 
@@ -894,12 +931,19 @@ async function getEditDraft(
         featuredImageId: '',
         seoTitle: itemTranslation?.seo_title ?? '',
         seoDescription: itemTranslation?.seo_description ?? '',
+        seoTitleCy: itemTranslationCy?.seo_title ?? '',
+        seoDescriptionCy: itemTranslationCy?.seo_description ?? '',
         story: {
           storyType: storyCode,
           title: itemTranslation?.title ?? '',
           summary: itemTranslation?.summary ?? '',
           exposition: translation?.event_details ?? itemTranslation?.body ?? '',
           sortOrder: '0',
+        },
+        storyCy: {
+          title: itemTranslationCy?.title ?? '',
+          summary: itemTranslationCy?.summary ?? '',
+          exposition: translationCy?.event_details ?? itemTranslationCy?.body ?? '',
         },
       },
     }
@@ -916,12 +960,26 @@ async function getEditDraft(
       return noEdit
     }
 
-    const { data: translation } = await adminSupabase
-      .from('painting_translations')
-      .select('*')
-      .eq('painting_content_item_id', id)
-      .eq('language_code', 'en')
-      .maybeSingle()
+    const [{ data: translation }, { data: translationCy }, { data: itemTranslationCy }] = await Promise.all([
+      adminSupabase
+        .from('painting_translations')
+        .select('*')
+        .eq('painting_content_item_id', id)
+        .eq('language_code', 'en')
+        .maybeSingle(),
+      adminSupabase
+        .from('painting_translations')
+        .select('*')
+        .eq('painting_content_item_id', id)
+        .eq('language_code', 'cy')
+        .maybeSingle(),
+      adminSupabase
+        .from('content_item_translations')
+        .select('*')
+        .eq('content_item_id', id)
+        .eq('language_code', 'cy')
+        .maybeSingle(),
+    ])
 
     return {
       initialLocation,
@@ -940,6 +998,8 @@ async function getEditDraft(
         featuredImageId: '',
         seoTitle: itemTranslation?.seo_title ?? '',
         seoDescription: itemTranslation?.seo_description ?? '',
+        seoTitleCy: itemTranslationCy?.seo_title ?? '',
+        seoDescriptionCy: itemTranslationCy?.seo_description ?? '',
         painting: {
           title: itemTranslation?.title ?? '',
           artist: painting.artist_name ?? '',
@@ -947,6 +1007,10 @@ async function getEditDraft(
           dimensions: painting.dimensions ?? '',
           description: translation?.detail_notes ?? itemTranslation?.body ?? '',
           yearCreated: painting.year_created ? String(painting.year_created) : '',
+        },
+        paintingCy: {
+          title: itemTranslationCy?.title ?? '',
+          description: translationCy?.detail_notes ?? itemTranslationCy?.body ?? '',
         },
       },
     }
@@ -963,12 +1027,26 @@ async function getEditDraft(
       return noEdit
     }
 
-    const { data: translation } = await adminSupabase
-      .from('artefact_translations')
-      .select('*')
-      .eq('artefact_content_item_id', id)
-      .eq('language_code', 'en')
-      .maybeSingle()
+    const [{ data: translation }, { data: translationCy }, { data: itemTranslationCy }] = await Promise.all([
+      adminSupabase
+        .from('artefact_translations')
+        .select('*')
+        .eq('artefact_content_item_id', id)
+        .eq('language_code', 'en')
+        .maybeSingle(),
+      adminSupabase
+        .from('artefact_translations')
+        .select('*')
+        .eq('artefact_content_item_id', id)
+        .eq('language_code', 'cy')
+        .maybeSingle(),
+      adminSupabase
+        .from('content_item_translations')
+        .select('*')
+        .eq('content_item_id', id)
+        .eq('language_code', 'cy')
+        .maybeSingle(),
+    ])
 
     let categoryCode = ''
     const rawCategoryId = (artefact as Record<string, unknown>).artefact_category_id
@@ -998,6 +1076,8 @@ async function getEditDraft(
         featuredImageId: '',
         seoTitle: itemTranslation?.seo_title ?? '',
         seoDescription: itemTranslation?.seo_description ?? '',
+        seoTitleCy: itemTranslationCy?.seo_title ?? '',
+        seoDescriptionCy: itemTranslationCy?.seo_description ?? '',
         artifact: {
           categoryCode,
           title: itemTranslation?.title ?? '',
@@ -1005,6 +1085,10 @@ async function getEditDraft(
           dimensions: artefact.dimensions ?? '',
           description: translation?.notes ?? itemTranslation?.body ?? '',
           datePeriod: artefact.date_created_label ?? '',
+        },
+        artifactCy: {
+          title: itemTranslationCy?.title ?? '',
+          description: translationCy?.notes ?? itemTranslationCy?.body ?? '',
         },
       },
     }
@@ -1021,12 +1105,26 @@ async function getEditDraft(
       return noEdit
     }
 
-    const { data: translation } = await adminSupabase
-      .from('biography_translations')
-      .select('*')
-      .eq('biography_content_item_id', id)
-      .eq('language_code', 'en')
-      .maybeSingle()
+    const [{ data: translation }, { data: translationCy }, { data: itemTranslationCy }] = await Promise.all([
+      adminSupabase
+        .from('biography_translations')
+        .select('*')
+        .eq('biography_content_item_id', id)
+        .eq('language_code', 'en')
+        .maybeSingle(),
+      adminSupabase
+        .from('biography_translations')
+        .select('*')
+        .eq('biography_content_item_id', id)
+        .eq('language_code', 'cy')
+        .maybeSingle(),
+      adminSupabase
+        .from('content_item_translations')
+        .select('*')
+        .eq('content_item_id', id)
+        .eq('language_code', 'cy')
+        .maybeSingle(),
+    ])
 
     return {
       initialLocation,
@@ -1045,6 +1143,8 @@ async function getEditDraft(
         featuredImageId: '',
         seoTitle: itemTranslation?.seo_title ?? '',
         seoDescription: itemTranslation?.seo_description ?? '',
+        seoTitleCy: itemTranslationCy?.seo_title ?? '',
+        seoDescriptionCy: itemTranslationCy?.seo_description ?? '',
         bio: {
           name: biography.person_name ?? itemTranslation?.title ?? '',
           occupation: translation?.occupation ?? '',
@@ -1052,6 +1152,11 @@ async function getEditDraft(
           content: translation?.biography_text ?? itemTranslation?.body ?? '',
           birthDate: biography.birth_year ? String(biography.birth_year) : '',
           deathDate: biography.death_year ? String(biography.death_year) : '',
+        },
+        bioCy: {
+          occupation: translationCy?.occupation ?? '',
+          summary: itemTranslationCy?.summary ?? '',
+          content: translationCy?.biography_text ?? itemTranslationCy?.body ?? '',
         },
       },
     }
@@ -1171,6 +1276,7 @@ export default async function OverviewPage({ searchParams }: PageProps) {
   const createSelected = resolvedParams.new === '1'
   const viewAdminUsers = resolvedParams.view === 'admin-users'
   const viewLocations = resolvedParams.view === 'locations'
+  const initialUiLang = resolvedParams.lang === 'cy' ? 'cy' : 'en'
 
   const adminSupabase = createAdminClient()
 
@@ -1210,6 +1316,7 @@ export default async function OverviewPage({ searchParams }: PageProps) {
     <OverviewContent
       userEmail={user.email ?? ''}
       userId={user.id}
+      initialUiLang={initialUiLang}
       sidebarCounts={sidebarCounts}
       initialDraft={editState.draft}
       mode={editState.mode}

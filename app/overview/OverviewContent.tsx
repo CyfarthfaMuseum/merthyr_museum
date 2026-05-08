@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { createBookGenreAction, createStoryTypeAction, createArtifactCategoryAction, saveContentAction, archiveContentAction } from './actions'
 import { validateDraft } from './validation'
+import { uiStrings, type UiLang } from './ui-strings'
 import type {
   AudioItem,
   ConnectedItem,
@@ -18,6 +19,11 @@ import type {
   SidebarLocation,
   StoryTypeOption,
   ArtifactCategoryOption,
+  BookCyDraft,
+  StoryCyDraft,
+  PaintingCyDraft,
+  ArtifactCyDraft,
+  BioCyDraft,
 } from './types'
 import Sidebar from './components/Sidebar'
 import ContentTypeSelector from './components/ContentTypeSelector'
@@ -63,6 +69,7 @@ type Props = {
   adminUsers: AdminUser[]
   viewAdminUsers: boolean
   viewLocations: boolean
+  initialUiLang?: UiLang
   initialImages: {
     id: string
     previewUrl: string
@@ -111,8 +118,11 @@ export default function OverviewContent({
   adminUsers,
   viewAdminUsers,
   viewLocations,
+  initialUiLang,
 }: Props) {
   const [draft, setDraft] = useState<OverviewDraft>(initialDraft)
+  const [activeLanguage, setActiveLanguage] = useState<'en' | 'cy'>('en')
+  const [uiLang, setUiLang] = useState<UiLang>(initialUiLang ?? 'en')
   const [genres, setGenres] = useState<string[]>(availableBookGenres)
   const [selectedBookGenre, setSelectedBookGenre] = useState('')
   const [isPending, startTransition] = useTransition()
@@ -152,6 +162,8 @@ export default function OverviewContent({
   const [savedContentItemId, setSavedContentItemId] = useState<string | null>(editId)
   const [pendingMediaAssetIds, setPendingMediaAssetIds] = useState<string[]>([])
 
+  const t = uiStrings[uiLang]
+
   const editorIdentityRef = useRef<string | null>(null)
 
   useEffect(() => {
@@ -160,6 +172,7 @@ export default function OverviewContent({
 
     editorIdentityRef.current = identity
     setDraft(initialDraft)
+    setActiveLanguage('en')
     setGenres(availableBookGenres)
     setStoryTypes(availableStoryTypes)
     setPaintingMediums(availablePaintingMediums)
@@ -431,7 +444,6 @@ export default function OverviewContent({
         draft,
         mode,
         editId,
-        languageCode: 'en',
         pendingMediaAssetIds,
       })
 
@@ -442,7 +454,7 @@ export default function OverviewContent({
 
       setSavedContentItemId(result.id)
       setPendingMediaAssetIds([])
-      showToast(mode === 'edit' ? 'Content updated.' : 'Content saved.', 'success')
+      showToast(mode === 'edit' ? t.contentUpdated : t.contentSaved, 'success')
     })
   }
 
@@ -482,7 +494,7 @@ export default function OverviewContent({
         aria-label="Toggle sidebar"
       >
         <span className="text-xl">☰</span>
-        <span className="text-sm font-semibold">Menu</span>
+        <span className="text-sm font-semibold">{t.menu}</span>
       </button>
 
       <div className="mx-auto flex min-h-0 w-full max-w-[1600px] flex-1 border-x border-neutral-300 bg-white">
@@ -501,6 +513,8 @@ export default function OverviewContent({
           adminUserCount={adminUsers.length}
           adminUsersActive={viewAdminUsers}
           locationsActive={viewLocations}
+          uiLang={uiLang}
+          onUiLangChange={setUiLang}
         />
         <main className="flex min-h-0 min-w-0 flex-1 flex-col">
           <div className="flex-1 min-h-0 overflow-y-auto px-6 py-8 md:px-12 xl:px-16">
@@ -516,26 +530,45 @@ export default function OverviewContent({
               />
             ) : showEditor ? (
               <>
-                <div className="mb-10 flex items-center gap-3">
-                  <img src="/content-icon.png" alt="" className="h-[24px] w-[24px]" />
-                  <h1 className="text-[22px] font-semibold">
-                    {mode === 'edit'
-                      ? (
-                          draft.contentType === 'book' ? draft.book.title
-                          : draft.contentType === 'stories' ? draft.story.title
-                          : draft.contentType === 'painting' ? draft.painting.title
-                          : draft.contentType === 'artifacts' ? draft.artifact.title
-                          : draft.contentType === 'bio' ? draft.bio.name
-                          : 'Edit Content'
-                        ) || 'Edit Content'
-                      : 'New Content'}
-                  </h1>
+                <div className="mb-10 flex items-center justify-between gap-4 flex-wrap">
+                  <div className="flex items-center gap-3">
+                    <img src="/content-icon.png" alt="" className="h-[24px] w-[24px]" />
+                    <h1 className="text-[22px] font-semibold">
+                      {mode === 'edit'
+                        ? (
+                            draft.contentType === 'book' ? draft.book.title
+                            : draft.contentType === 'stories' ? draft.story.title
+                            : draft.contentType === 'painting' ? draft.painting.title
+                            : draft.contentType === 'artifacts' ? draft.artifact.title
+                            : draft.contentType === 'bio' ? draft.bio.name
+                            : t.editContent
+                          ) || t.editContent
+                        : t.newContent}
+                    </h1>
+                  </div>
+
+                  <div className="inline-flex overflow-hidden rounded-lg border border-neutral-300 text-sm font-medium">
+                    <button
+                      type="button"
+                      onClick={() => setActiveLanguage('en')}
+                      className={`px-4 py-2 transition ${activeLanguage === 'en' ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-700 hover:bg-neutral-50'}`}
+                    >
+                      EN
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveLanguage('cy')}
+                      className={`border-l border-neutral-300 px-4 py-2 transition ${activeLanguage === 'cy' ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-700 hover:bg-neutral-50'}`}
+                    >
+                      CY
+                    </button>
+                  </div>
                 </div>
 
                 <div className="mx-auto max-w-[920px] space-y-8 pb-32">
                   <div className="space-y-4">
-                    <SectionTitle>Select Content Type</SectionTitle>
-                    <ContentTypeSelector value={draft.contentType} onChange={updateContentType} />
+                    <SectionTitle>{t.selectContentType}</SectionTitle>
+                    <ContentTypeSelector value={draft.contentType} onChange={updateContentType} uiLang={uiLang} />
                   </div>
 
                   <Divider />
@@ -554,13 +587,22 @@ export default function OverviewContent({
                           book: { ...current.book, ...patch },
                         }))
                       }
+                      language={activeLanguage}
+                      cyValue={draft.bookCy}
+                      onCyChange={(patch) =>
+                        setDraft((current) => ({
+                          ...current,
+                          bookCy: { ...current.bookCy, ...patch },
+                        }))
+                      }
+                      uiLang={uiLang}
                     />
                   )}
 
                   {draft.contentType === 'stories' && (
                     <>
                       <div className="space-y-4">
-                        <SectionTitle>Select Story Type</SectionTitle>
+                        <SectionTitle>{t.selectStoryType}</SectionTitle>
                         <StoryTypeSelector
                           value={draft.story.storyType}
                           options={storyTypes}
@@ -576,7 +618,7 @@ export default function OverviewContent({
                           onClick={() => setStoryTypeModalOpen(true)}
                           className="text-sm font-medium text-emerald-700 underline underline-offset-2"
                         >
-                          + Add story type
+                          {t.addStoryType}
                         </button>
                       </div>
 
@@ -590,6 +632,15 @@ export default function OverviewContent({
                             story: { ...current.story, ...patch },
                           }))
                         }
+                        language={activeLanguage}
+                        cyValue={draft.storyCy}
+                        onCyChange={(patch) =>
+                          setDraft((current) => ({
+                            ...current,
+                            storyCy: { ...current.storyCy, ...patch },
+                          }))
+                        }
+                        uiLang={uiLang}
                       />
                     </>
                   )}
@@ -597,7 +648,7 @@ export default function OverviewContent({
                   {draft.contentType === 'painting' && (
                     <>
                       <div className="space-y-4">
-                        <SectionTitle>Select Medium</SectionTitle>
+                        <SectionTitle>{t.selectMedium}</SectionTitle>
                         <StoryTypeSelector
                           value={draft.painting.medium}
                           options={paintingMediums.map((m) => ({ code: m, label: m }))}
@@ -613,7 +664,7 @@ export default function OverviewContent({
                           onClick={() => setMediumModalOpen(true)}
                           className="text-sm font-medium text-emerald-700 underline underline-offset-2"
                         >
-                          + Add medium
+                          {t.addMedium}
                         </button>
                       </div>
 
@@ -627,6 +678,15 @@ export default function OverviewContent({
                             painting: { ...current.painting, ...patch },
                           }))
                         }
+                        language={activeLanguage}
+                        cyValue={draft.paintingCy}
+                        onCyChange={(patch) =>
+                          setDraft((current) => ({
+                            ...current,
+                            paintingCy: { ...current.paintingCy, ...patch },
+                          }))
+                        }
+                        uiLang={uiLang}
                       />
                     </>
                   )}
@@ -634,7 +694,7 @@ export default function OverviewContent({
                   {draft.contentType === 'artifacts' && (
                     <>
                       <div className="space-y-4">
-                        <SectionTitle>Select Category</SectionTitle>
+                        <SectionTitle>{t.selectCategory}</SectionTitle>
                         <StoryTypeSelector
                           value={draft.artifact.categoryCode}
                           options={artifactCategories}
@@ -650,7 +710,7 @@ export default function OverviewContent({
                           onClick={() => setArtifactCategoryModalOpen(true)}
                           className="text-sm font-medium text-emerald-700 underline underline-offset-2"
                         >
-                          + Add category
+                          {t.addCategory}
                         </button>
                       </div>
 
@@ -664,6 +724,15 @@ export default function OverviewContent({
                             artifact: { ...current.artifact, ...patch },
                           }))
                         }
+                        language={activeLanguage}
+                        cyValue={draft.artifactCy}
+                        onCyChange={(patch) =>
+                          setDraft((current) => ({
+                            ...current,
+                            artifactCy: { ...current.artifactCy, ...patch },
+                          }))
+                        }
+                        uiLang={uiLang}
                       />
                     </>
                   )}
@@ -677,6 +746,15 @@ export default function OverviewContent({
                           bio: { ...current.bio, ...patch },
                         }))
                       }
+                      language={activeLanguage}
+                      cyValue={draft.bioCy}
+                      onCyChange={(patch) =>
+                        setDraft((current) => ({
+                          ...current,
+                          bioCy: { ...current.bioCy, ...patch },
+                        }))
+                      }
+                      uiLang={uiLang}
                     />
                   )}
 
@@ -691,6 +769,7 @@ export default function OverviewContent({
                     initialImages={initialImages}
                     initialLocation={initialLocation}
                     sidebarLocations={locations}
+                    uiLang={uiLang}
                     onLocationSaved={(newLoc) => {
                       setLocations((current) => {
                         const exists = current.some((l) => l.id === newLoc.id)
@@ -718,6 +797,7 @@ export default function OverviewContent({
                     contentType={draft.contentType}
                     initialAudio={initialAudio}
                     onError={(msg) => showToast(msg, 'error')}
+                    uiLang={uiLang}
                   />
 
                   <Divider />
@@ -728,6 +808,7 @@ export default function OverviewContent({
                     contentType={draft.contentType}
                     initialConnected={initialRelatedContent}
                     onError={(msg) => showToast(msg, 'error')}
+                    uiLang={uiLang}
                   />
 
                   <Divider />
@@ -738,7 +819,7 @@ export default function OverviewContent({
                       onClick={() => setSeoOpen((current) => !current)}
                       className="flex items-center gap-3 text-left"
                     >
-                      <span className="text-[20px] font-semibold text-neutral-900">SEO</span>
+                      <span className="text-[20px] font-semibold text-neutral-900">{t.seo}</span>
                       <span className="text-[18px] text-neutral-500">
                         {seoOpen ? '−' : '+'}
                       </span>
@@ -746,29 +827,40 @@ export default function OverviewContent({
 
                     {!seoOpen ? (
                       <p className="text-sm text-neutral-600">
-                        Hidden by default. SEO title and description are auto-filled unless you edit them.
+                        {t.seoHint}
                       </p>
                     ) : (
                       <div className="space-y-4">
                         <Input
-                          value={draft.seoTitle}
+                          value={activeLanguage === 'cy' ? draft.seoTitleCy : draft.seoTitle}
                           onChange={(e) => {
-                            setSeoTitleEditedManually(true)
-                            setDraft((current) => ({ ...current, seoTitle: e.target.value }))
+                            if (activeLanguage === 'cy') {
+                              setDraft((current) => ({ ...current, seoTitleCy: e.target.value }))
+                            } else {
+                              setSeoTitleEditedManually(true)
+                              setDraft((current) => ({ ...current, seoTitle: e.target.value }))
+                            }
                           }}
-                          placeholder="Meta Title"
+                          placeholder={activeLanguage === 'cy' ? 'Meta Title (Welsh)' : 'Meta Title'}
                         />
                         <Textarea
                           rows={4}
-                          value={draft.seoDescription}
+                          value={activeLanguage === 'cy' ? draft.seoDescriptionCy : draft.seoDescription}
                           onChange={(e) => {
-                            setSeoDescriptionEditedManually(true)
-                            setDraft((current) => ({
-                              ...current,
-                              seoDescription: e.target.value,
-                            }))
+                            if (activeLanguage === 'cy') {
+                              setDraft((current) => ({
+                                ...current,
+                                seoDescriptionCy: e.target.value,
+                              }))
+                            } else {
+                              setSeoDescriptionEditedManually(true)
+                              setDraft((current) => ({
+                                ...current,
+                                seoDescription: e.target.value,
+                              }))
+                            }
                           }}
-                          placeholder="Meta Description"
+                          placeholder={activeLanguage === 'cy' ? 'Meta Description (Welsh)' : 'Meta Description'}
                         />
                       </div>
                     )}
@@ -783,7 +875,7 @@ export default function OverviewContent({
                       className="flex items-center gap-3 text-left"
                     >
                       <span className="text-[20px] font-semibold text-neutral-900">
-                        Publishing Settings
+                        {t.publishingSettings}
                       </span>
                       <span className="text-[18px] text-neutral-500">
                         {publishingSettingsOpen ? '−' : '+'}
@@ -792,7 +884,7 @@ export default function OverviewContent({
 
                     {!publishingSettingsOpen ? (
                       <p className="text-sm text-neutral-600">
-                        Hidden by default. Slug is auto-generated, sort order defaults to 100, featured image is blank unless set.
+                        {t.publishingHint}
                       </p>
                     ) : (
                       <div className="space-y-4">
@@ -834,7 +926,7 @@ export default function OverviewContent({
                                 }))
                               }
                             />
-                            <span>Featured</span>
+                            <span>{t.featured}</span>
                           </label>
 
                           <label className="flex items-center gap-3">
@@ -848,7 +940,7 @@ export default function OverviewContent({
                                 }))
                               }
                             />
-                            <span>Published</span>
+                            <span>{t.published}</span>
                           </label>
                         </div>
                       </div>
@@ -859,7 +951,10 @@ export default function OverviewContent({
             ) : (
               <div className="mx-auto flex min-h-[60vh] max-w-[920px] items-center justify-center rounded-xl border border-dashed border-neutral-300 bg-white/70 p-10 text-center">
                 <p className="text-lg text-neutral-600">
-                  Select <span className="font-semibold text-neutral-900">ADD NEW</span> to begin creating content.
+                  {uiLang === 'en'
+                    ? <>Select <span className="font-semibold text-neutral-900">ADD NEW</span> to begin creating content.</>
+                    : <>Dewiswch <span className="font-semibold text-neutral-900">YCHWANEGU NEWYDD</span> i ddechrau creu cynnwys.</>
+                  }
                 </p>
               </div>
             )}
@@ -873,7 +968,7 @@ export default function OverviewContent({
                 onClick={handleArchiveClick}
                 className="text-[18px] font-medium text-neutral-800 transition hover:text-red-600 disabled:opacity-40"
               >
-                ARCHIVE
+                {t.archive}
               </button>
 
               <div className="flex flex-wrap justify-end gap-4">
@@ -882,13 +977,13 @@ export default function OverviewContent({
                   onClick={handleSave}
                   disabled={isPending || !showEditor}
                 >
-                  {isPending ? (mode === 'edit' ? 'UPDATING...' : 'SAVING...') : 'SAVE'}
+                  {isPending ? (mode === 'edit' ? t.updating : t.saving) : t.save}
                 </BlackButton>
                 <BlackButton className="min-w-[140px]" disabled={!showEditor} onClick={() => setPreviewModalOpen(true)}>
-                  PREVIEW
+                  {t.preview}
                 </BlackButton>
                 <GreenButton className="min-w-[160px]" disabled={!showEditor} onClick={() => setPublishModalOpen(true)}>
-                  PUBLISH
+                  {t.publish}
                 </GreenButton>
               </div>
             </div>
@@ -899,66 +994,66 @@ export default function OverviewContent({
 
       <Toast open={toastOpen} message={toastMessage} tone={toastTone} />
 
-      <Modal open={previewModalOpen} title="Preview" onClose={() => setPreviewModalOpen(false)}>
-        <p className="text-neutral-700">Preview functionality is coming soon.</p>
+      <Modal open={previewModalOpen} title={t.previewTitle} onClose={() => setPreviewModalOpen(false)}>
+        <p className="text-neutral-700">{t.previewBody}</p>
         <div className="mt-6 flex justify-end">
-          <BlackButton onClick={() => setPreviewModalOpen(false)}>CLOSE</BlackButton>
+          <BlackButton onClick={() => setPreviewModalOpen(false)}>{t.close}</BlackButton>
         </div>
       </Modal>
 
-      <Modal open={publishModalOpen} title="Publish" onClose={() => setPublishModalOpen(false)}>
-        <p className="text-neutral-700">Publish functionality is coming soon.</p>
+      <Modal open={publishModalOpen} title={t.publishTitle} onClose={() => setPublishModalOpen(false)}>
+        <p className="text-neutral-700">{t.publishBody}</p>
         <div className="mt-6 flex justify-end">
-          <BlackButton onClick={() => setPublishModalOpen(false)}>CLOSE</BlackButton>
+          <BlackButton onClick={() => setPublishModalOpen(false)}>{t.close}</BlackButton>
         </div>
       </Modal>
 
-      <Modal open={archiveModalOpen} title="Archive content" onClose={() => setArchiveModalOpen(false)}>
-        <p className="text-neutral-700">Are you sure you want to archive this content item? It will be hidden from the public but can be restored later.</p>
+      <Modal open={archiveModalOpen} title={t.archiveTitle} onClose={() => setArchiveModalOpen(false)}>
+        <p className="text-neutral-700">{t.archiveBody}</p>
         <div className="mt-6 flex justify-end gap-3">
-          <BlackButton onClick={() => setArchiveModalOpen(false)}>CANCEL</BlackButton>
-          <BlackButton className="bg-red-600 hover:bg-red-700" onClick={handleConfirmArchive} disabled={isPending}>CONFIRM ARCHIVE</BlackButton>
+          <BlackButton onClick={() => setArchiveModalOpen(false)}>{t.cancel}</BlackButton>
+          <BlackButton className="bg-red-600 hover:bg-red-700" onClick={handleConfirmArchive} disabled={isPending}>{t.confirmArchive}</BlackButton>
         </div>
       </Modal>
 
       <Modal
         open={genreModalOpen}
-        title="New Genre"
+        title={t.newGenreTitle}
         onClose={() => setGenreModalOpen(false)}
       >
         <div className="space-y-4">
           <Input
             value={newGenreTitle}
             onChange={(e) => setNewGenreTitle(e.target.value)}
-            placeholder="Genre name"
+            placeholder={t.genrePlaceholder}
           />
 
           <div className="flex justify-end gap-3">
             <BlackButton onClick={() => setGenreModalOpen(false)}>
-              CANCEL
+              {t.cancel}
             </BlackButton>
             <GreenButton onClick={handleCreateGenre} disabled={isCreatingGenre}>
-              {isCreatingGenre ? 'CREATING...' : 'CONFIRM'}
+              {isCreatingGenre ? t.creating : t.confirm}
             </GreenButton>
           </div>
         </div>
       </Modal>
       <Modal
         open={storyTypeModalOpen}
-        title="New Story Type"
+        title={t.newStoryTypeTitle}
         onClose={() => setStoryTypeModalOpen(false)}
       >
         <div className="space-y-4">
           <Input
             value={newStoryTypeLabel}
             onChange={(e) => setNewStoryTypeLabel(e.target.value)}
-            placeholder="Story type name"
+            placeholder={t.storyTypePlaceholder}
           />
 
           <div className="flex justify-end gap-3">
-            <BlackButton onClick={() => setStoryTypeModalOpen(false)}>CANCEL</BlackButton>
+            <BlackButton onClick={() => setStoryTypeModalOpen(false)}>{t.cancel}</BlackButton>
             <GreenButton onClick={handleCreateStoryType} disabled={isCreatingStoryType}>
-              {isCreatingStoryType ? 'CREATING...' : 'CONFIRM'}
+              {isCreatingStoryType ? t.creating : t.confirm}
             </GreenButton>
           </div>
         </div>
@@ -966,39 +1061,39 @@ export default function OverviewContent({
 
       <Modal
         open={mediumModalOpen}
-        title="New Medium"
+        title={t.newMediumTitle}
         onClose={() => setMediumModalOpen(false)}
       >
         <div className="space-y-4">
           <Input
             value={newMediumLabel}
             onChange={(e) => setNewMediumLabel(e.target.value)}
-            placeholder="Medium name"
+            placeholder={t.mediumPlaceholder}
           />
 
           <div className="flex justify-end gap-3">
-            <BlackButton onClick={() => setMediumModalOpen(false)}>CANCEL</BlackButton>
-            <GreenButton onClick={handleAddMedium}>CONFIRM</GreenButton>
+            <BlackButton onClick={() => setMediumModalOpen(false)}>{t.cancel}</BlackButton>
+            <GreenButton onClick={handleAddMedium}>{t.confirm}</GreenButton>
           </div>
         </div>
       </Modal>
 
       <Modal
         open={artifactCategoryModalOpen}
-        title="New Artefact Category"
+        title={t.newCategoryTitle}
         onClose={() => setArtifactCategoryModalOpen(false)}
       >
         <div className="space-y-4">
           <Input
             value={newArtifactCategoryLabel}
             onChange={(e) => setNewArtifactCategoryLabel(e.target.value)}
-            placeholder="Category name"
+            placeholder={t.categoryPlaceholder}
           />
 
           <div className="flex justify-end gap-3">
-            <BlackButton onClick={() => setArtifactCategoryModalOpen(false)}>CANCEL</BlackButton>
+            <BlackButton onClick={() => setArtifactCategoryModalOpen(false)}>{t.cancel}</BlackButton>
             <GreenButton onClick={handleCreateArtifactCategory} disabled={isCreatingArtifactCategory}>
-              {isCreatingArtifactCategory ? 'CREATING...' : 'CONFIRM'}
+              {isCreatingArtifactCategory ? t.creating : t.confirm}
             </GreenButton>
           </div>
         </div>

@@ -9,6 +9,8 @@ import SectionTitle from '../ui/SectionTitle'
 import { uploadImageToR2 } from '../../upload-image'
 import { deleteImageAction, saveImageMetadataAction, saveLocationAction, linkLocationAction } from '../../image-actions'
 import { checkSlugAvailabilityAction } from '../../actions'
+import type { UiLang } from '../../ui-strings'
+import { uiStrings } from '../../ui-strings'
 
 type InitialImage = {
   id: string
@@ -32,6 +34,7 @@ type Props = {
   initialLocation?: { address: string; lat: number; lng: number } | null
   sidebarLocations?: SidebarLocation[]
   onLocationSaved?: (location: { id: string; address: string; lat: number; lng: number }) => void
+  uiLang: UiLang
 }
 
 type ImageItem = {
@@ -101,7 +104,9 @@ export default function ImageManager({
   initialLocation = null,
   sidebarLocations = [],
   onLocationSaved,
+  uiLang,
 }: Props) {
+  const t = uiStrings[uiLang]
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const previewObjectUrlsRef = useRef<string[]>([])
   const mapContainerRef = useRef<HTMLDivElement | null>(null)
@@ -321,7 +326,7 @@ export default function ImageManager({
       setImageryMessage('')
       setUploadState({
         phase: 'requesting-url',
-        details: 'Requesting upload URL from the server...',
+        details: t.preparingUpload,
       })
 
       const uploaded = await uploadImageToR2(selectedFile, contentType, {
@@ -329,14 +334,14 @@ export default function ImageManager({
           if (phase === 'requesting-presigned-url') {
             setUploadState({
               phase: 'requesting-url',
-              details: 'Requesting upload URL from the server...',
+              details: t.preparingUpload,
             })
             return
           }
 
           setUploadState({
             phase: 'uploading-r2',
-            details: 'Uploading image bytes to Cloudflare R2...',
+            details: t.uploadingAudio,
           })
         },
       })
@@ -344,7 +349,7 @@ export default function ImageManager({
 
       setUploadState({
         phase: 'saving-metadata',
-        details: 'Saving image metadata in the database...',
+        details: t.preparingUpload,
       })
       const result = await saveImageMetadataAction({
         contentItemId,
@@ -399,9 +404,9 @@ export default function ImageManager({
       onUploaded?.(result.mediaAssetId)
       setUploadState({
         phase: 'done',
-        details: 'Upload complete.',
+        details: t.imageUploadedSuccessfully,
       })
-      setImageryMessage('Image uploaded successfully.')
+      setImageryMessage(t.imageUploadedSuccessfully)
     } catch (error) {
       console.error('[ImageManager] Upload failed', error)
       const failureMessage = error instanceof Error ? error.message : 'Upload failed.'
@@ -422,7 +427,7 @@ export default function ImageManager({
   function handleGenerateQr() {
     const slug = slugValue.trim()
     if (!slug) {
-      setQrMessage('Please enter a slug before generating a QR code.')
+      setQrMessage(t.pleaseEnterSlug)
       return
     }
 
@@ -432,12 +437,12 @@ export default function ImageManager({
 
     setQrLink(qrUrl)
     setQrDataUrl(generatedQrUrl)
-    setQrMessage('QR code generated.')
+    setQrMessage(t.qrCodeGenerated)
   }
 
   async function handleConfirmLocation(forceCreate = false) {
     if (!selectedCoordinates) {
-      setLocationMessage('Please drop a pin before confirming location.')
+      setLocationMessage(t.pleaseDropPin)
       return
     }
 
@@ -504,13 +509,13 @@ export default function ImageManager({
       console.warn('[handleConfirmLocation] no contentItemId — location will not be persisted')
     }
 
-    setLocationMessage('Location confirmed and saved.')
+    setLocationMessage(t.locationConfirmed)
   }
 
   return (
     <div className="space-y-8">
       <div className="space-y-4">
-        <SectionTitle>Imagery</SectionTitle>
+        <SectionTitle>{t.imagery}</SectionTitle>
 
         <input
           ref={fileInputRef}
@@ -529,7 +534,7 @@ export default function ImageManager({
 
         <div className="grid gap-6 lg:grid-cols-[160px_minmax(0,1fr)]">
           <div className="space-y-2">
-            <p className="text-[18px] text-neutral-800">Primary</p>
+            <p className="text-[18px] text-neutral-800">{t.primary}</p>
             {primaryImage ? (
               <>
                 <button
@@ -561,7 +566,7 @@ export default function ImageManager({
           </div>
 
           <div className="space-y-2">
-            <p className="text-[18px] text-neutral-800">Additional Imagery</p>
+            <p className="text-[18px] text-neutral-800">{t.additionalImagery}</p>
             <div className="max-w-full overflow-x-auto pb-2">
               <div className="flex w-max items-start gap-3">
                 <button
@@ -593,7 +598,7 @@ export default function ImageManager({
                       />
                       {image.isUploading ? (
                         <span className="absolute inset-0 flex items-center justify-center bg-black/50 text-xs text-white">
-                          Uploading...
+                          {t.uploading}
                         </span>
                       ) : null}
                     </button>
@@ -627,19 +632,19 @@ export default function ImageManager({
             <Input
               value={selectedImage.altText}
               onChange={(e) => updateSelectedImage({ altText: e.target.value })}
-              placeholder="Alt text"
+              placeholder={t.altText}
             />
 
             <Input
               value={selectedImage.caption}
               onChange={(e) => updateSelectedImage({ caption: e.target.value })}
-              placeholder="Caption"
+              placeholder={t.caption}
             />
 
             <Input
               value={selectedImage.credit}
               onChange={(e) => updateSelectedImage({ credit: e.target.value })}
-              placeholder="Credit"
+              placeholder={t.credit}
             />
 
             <label className="flex items-center gap-3">
@@ -648,12 +653,12 @@ export default function ImageManager({
                 checked={selectedImage.isPrimary}
                 onChange={(e) => updateSelectedImage({ isPrimary: e.target.checked })}
               />
-              <span>Set as primary image</span>
+              <span>{t.setAsPrimaryImage}</span>
             </label>
           </div>
         ) : null}
       <div className="border-t border-neutral-300 pt-8">
-        <SectionTitle>Location</SectionTitle>
+        <SectionTitle>{t.location}</SectionTitle>
         <div className="mt-4 grid gap-3 md:grid-cols-[1fr_auto]">
           <select
             className="h-12 w-full rounded-xl border border-neutral-300 bg-white px-4 text-[16px] text-neutral-800 outline-none transition focus:border-neutral-500"
@@ -673,8 +678,8 @@ export default function ImageManager({
                 }).then((result) => {
                   setLocationMessage(
                     result.success
-                      ? 'Location saved.'
-                      : `Failed to save location: ${result.error ?? 'Unknown error.'}`
+                      ? t.locationSaved
+                      : `${t.location}: ${result.error ?? 'Unknown error.'}`
                   )
                 })
               } else {
@@ -682,7 +687,7 @@ export default function ImageManager({
               }
             }}
           >
-            <option value="">Select from Locations</option>
+            <option value="">{t.selectFromLocations}</option>
             {localLocations.map((loc) => (
               <option key={loc.id} value={loc.id}>
                 {loc.address}
@@ -690,13 +695,13 @@ export default function ImageManager({
             ))}
           </select>
           <BlackButton className="min-w-[260px]" onClick={() => setIsLocationDialogOpen(true)}>
-            SET LOCATION
+            {t.setLocation}
           </BlackButton>
         </div>
 
         {selectedCoordinates ? (
           <div className="mt-4 rounded-xl border border-neutral-300 p-4 text-[16px] text-neutral-800">
-            <p className="font-medium">{locationAddress || 'Pin selected'}</p>
+            <p className="font-medium">{locationAddress || t.pinSelected}</p>
             <p className="mt-2 text-neutral-700">
               Lat: {selectedCoordinates.lat.toFixed(6)}, Lng: {selectedCoordinates.lng.toFixed(6)}
             </p>
@@ -707,7 +712,7 @@ export default function ImageManager({
       </div>
 
       <div className="border-t border-neutral-300 pt-8">
-        <SectionTitle>QR Code</SectionTitle>
+        <SectionTitle>{t.qrCode}</SectionTitle>
         <div className="mt-4 grid gap-3 md:grid-cols-[1fr_auto]">
           <Input
             value={slugValue}
@@ -716,23 +721,23 @@ export default function ImageManager({
               setQrMessage('')
               onSlugChange(nextValue)
             }}
-            placeholder="Enter slug / QR value"
+            placeholder={t.enterSlugQr}
           />
           <BlackButton
             className="min-w-[260px]"
             onClick={handleGenerateQr}
             disabled={isUploading || !slugValue.trim() || slugAvailability === 'taken' || slugAvailability === 'checking'}
           >
-            GENERATE QR CODE
+            {t.generateQrCode}
           </BlackButton>
         </div>
 
         {slugAvailability === 'checking' && slugValue.trim() ? (
-          <p className="mt-2 text-sm text-neutral-500">Checking slug availability…</p>
+          <p className="mt-2 text-sm text-neutral-500">{t.checkingSlug}</p>
         ) : null}
 
         {slugAvailability === 'taken' ? (
-          <p className="mt-2 text-sm text-red-600">This slug is already in use. Please choose a different one.</p>
+          <p className="mt-2 text-sm text-red-600">{t.slugTaken}</p>
         ) : null}
 
         {qrDataUrl ? (
@@ -769,7 +774,7 @@ export default function ImageManager({
 
       {isUploading ? (
         <p className="text-sm text-neutral-600">
-          Upload activity: {uploadState.details || 'Preparing upload...'}
+          {t.uploadActivity}: {uploadState.details || t.preparingUpload}
         </p>
       ) : null}
 
@@ -777,8 +782,8 @@ export default function ImageManager({
         <div className="fixed inset-0 z-[60] flex flex-col bg-white">
           <div className="flex items-center justify-between border-b border-neutral-300 px-6 py-4">
             <div>
-              <h2 className="text-xl font-semibold text-neutral-900">Select Location</h2>
-              <p className="text-sm text-neutral-600">Click anywhere on the map to drop a pin.</p>
+              <h2 className="text-xl font-semibold text-neutral-900">{t.selectLocationTitle}</h2>
+              <p className="text-sm text-neutral-600">{t.clickMapPin}</p>
             </div>
             <button
               type="button"
@@ -795,26 +800,26 @@ export default function ImageManager({
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-300 px-6 py-4">
             <p className="text-sm text-neutral-700">
               {selectedCoordinates
-                ? `Selected: ${selectedCoordinates.lat.toFixed(6)}, ${selectedCoordinates.lng.toFixed(6)}`
-                : 'No pin selected yet.'}
+                ? `${t.coordinatesSelected}: ${selectedCoordinates.lat.toFixed(6)}, ${selectedCoordinates.lng.toFixed(6)}`
+                : t.noPinSelected}
             </p>
             <div className="flex items-center gap-3">
               <BlackButton
                 className="bg-white text-neutral-900 hover:bg-neutral-300"
                 onClick={() => setIsLocationDialogOpen(false)}
               >
-                CANCEL
+                {t.cancel}
               </BlackButton>
               <BlackButton onClick={() => void handleConfirmLocation(false)} disabled={!selectedCoordinates}>
                 <span className="inline-flex items-center gap-2">
                   <MapPin size={18} />
-                  UPDATE LOCATION
+                  {t.updateLocation}
                 </span>
               </BlackButton>
               <BlackButton onClick={() => void handleConfirmLocation(true)} disabled={!selectedCoordinates}>
                 <span className="inline-flex items-center gap-2">
                   <MapPin size={18} />
-                  ADD LOCATION
+                  {t.addLocation}
                 </span>
               </BlackButton>
             </div>

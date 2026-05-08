@@ -6,17 +6,21 @@ import { BlackButton } from '../ui/Buttons'
 import SectionTitle from '../ui/SectionTitle'
 import { saveAudioAction, deleteAudioAction } from '../../image-actions'
 import type { AudioItem } from '../../types'
+import type { UiLang } from '../../ui-strings'
+import { uiStrings } from '../../ui-strings'
 
 type Props = {
   contentItemId?: string | null
   contentType: string
   initialAudio?: AudioItem | null
   onError?: (message: string) => void
+  uiLang: UiLang
 }
 
 const MAX_SIZE = 15 * 1024 * 1024
 
-export default function AudioGuide({ contentItemId, contentType, initialAudio, onError }: Props) {
+export default function AudioGuide({ contentItemId, contentType, initialAudio, onError, uiLang }: Props) {
+  const t = uiStrings[uiLang]
   const [audio, setAudio] = useState<AudioItem | null>(initialAudio ?? null)
   const [isUploading, setIsUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -27,17 +31,17 @@ export default function AudioGuide({ contentItemId, contentType, initialAudio, o
     if (!file) return
 
     if (!file.type.includes('audio') && !file.name.toLowerCase().endsWith('.mp3')) {
-      onError?.('Only MP3 files are allowed.')
+      onError?.(t.audioMp3Only)
       return
     }
 
     if (file.size > MAX_SIZE) {
-      onError?.('File exceeds 15MB limit.')
+      onError?.(t.audioFileTooLarge)
       return
     }
 
     if (!contentItemId) {
-      onError?.('Save the content item before uploading an audio guide.')
+      onError?.(t.saveBeforeAudio)
       return
     }
 
@@ -102,7 +106,7 @@ export default function AudioGuide({ contentItemId, contentType, initialAudio, o
 
   return (
     <div className="space-y-4">
-      <SectionTitle>Audio Guide</SectionTitle>
+      <SectionTitle>{t.audioGuide}</SectionTitle>
 
       <div className="flex flex-wrap items-center gap-4">
         <BlackButton
@@ -110,10 +114,10 @@ export default function AudioGuide({ contentItemId, contentType, initialAudio, o
           onClick={() => fileInputRef.current?.click()}
           disabled={isUploading || !!audio}
         >
-          {isUploading ? 'UPLOADING...' : 'UPLOAD AUDIO GUIDE'}
+          {isUploading ? t.uploadingAudio : t.uploadAudioGuide}
         </BlackButton>
         <span className="text-sm text-neutral-500">
-          File requirements – Format .mp3, Max size 15mb
+          {t.audioFileRequirements}
         </span>
       </div>
 

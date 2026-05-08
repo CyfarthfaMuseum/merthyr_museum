@@ -14,7 +14,6 @@ type SaveArgs = {
   draft: OverviewDraft
   mode: 'create' | 'edit'
   editId?: string | null
-  languageCode?: string
   pendingMediaAssetIds?: string[]
 }
 
@@ -696,7 +695,6 @@ export async function saveContentAction({
   draft,
   mode,
   editId,
-  languageCode = 'en',
   pendingMediaAssetIds = [],
 }: SaveArgs): Promise<ActionResult> {
   const supabase = await createClient()
@@ -803,23 +801,24 @@ export async function saveContentAction({
         return { success: false, error: bookError.message }
       }
 
-      const { error: translationError } = await adminSupabase
+      // English translation
+      const { error: translationEnError } = await adminSupabase
         .from('book_translations')
         .upsert(
           {
             book_content_item_id: contentItemId,
-            language_code: languageCode,
+            language_code: 'en',
             author: draft.book.author || null,
             excerpt: draft.book.summary || null,
           },
           { onConflict: 'book_content_item_id,language_code' }
         )
 
-      if (translationError) {
-        return { success: false, error: translationError.message }
+      if (translationEnError) {
+        return { success: false, error: translationEnError.message }
       }
 
-      await upsertContentItemTranslation(adminSupabase, contentItemId, languageCode, {
+      await upsertContentItemTranslation(adminSupabase, contentItemId, 'en', {
         title: draft.book.title,
         summary: draft.book.summary || null,
         body: draft.book.exposition || null,
@@ -827,7 +826,34 @@ export async function saveContentAction({
         seoDescription: draft.seoDescription || draft.book.summary || null,
       })
 
-      await syncBookGenres(adminSupabase, contentItemId, draft.book.genres, languageCode)
+      // Welsh (CY) translation — only saved when a Welsh title is present
+      if (draft.bookCy.title.trim()) {
+        const { error: translationCyError } = await adminSupabase
+          .from('book_translations')
+          .upsert(
+            {
+              book_content_item_id: contentItemId,
+              language_code: 'cy',
+              author: draft.bookCy.author || null,
+              excerpt: draft.bookCy.summary || null,
+            },
+            { onConflict: 'book_content_item_id,language_code' }
+          )
+
+        if (translationCyError) {
+          return { success: false, error: translationCyError.message }
+        }
+
+        await upsertContentItemTranslation(adminSupabase, contentItemId, 'cy', {
+          title: draft.bookCy.title,
+          summary: draft.bookCy.summary || null,
+          body: draft.bookCy.exposition || null,
+          seoTitle: draft.seoTitleCy || draft.bookCy.title,
+          seoDescription: draft.seoDescriptionCy || draft.bookCy.summary || null,
+        })
+      }
+
+      await syncBookGenres(adminSupabase, contentItemId, draft.book.genres, 'en')
     }
 
     if (draft.contentType === 'stories') {
@@ -846,28 +872,55 @@ export async function saveContentAction({
         return { success: false, error: storyError.message }
       }
 
-      const { error: translationError } = await adminSupabase
+      // English translation
+      const { error: translationEnError } = await adminSupabase
         .from('story_translations')
         .upsert(
           {
             story_content_item_id: contentItemId,
-            language_code: languageCode,
+            language_code: 'en',
             event_details: draft.story.exposition || null,
           },
           { onConflict: 'story_content_item_id,language_code' }
         )
 
-      if (translationError) {
-        return { success: false, error: translationError.message }
+      if (translationEnError) {
+        return { success: false, error: translationEnError.message }
       }
 
-      await upsertContentItemTranslation(adminSupabase, contentItemId, languageCode, {
+      await upsertContentItemTranslation(adminSupabase, contentItemId, 'en', {
         title: draft.story.title,
         summary: draft.story.summary || null,
         body: draft.story.exposition || null,
         seoTitle: draft.seoTitle || draft.story.title,
         seoDescription: draft.seoDescription || draft.story.summary || null,
       })
+
+      // Welsh (CY) translation
+      if (draft.storyCy.title.trim()) {
+        const { error: translationCyError } = await adminSupabase
+          .from('story_translations')
+          .upsert(
+            {
+              story_content_item_id: contentItemId,
+              language_code: 'cy',
+              event_details: draft.storyCy.exposition || null,
+            },
+            { onConflict: 'story_content_item_id,language_code' }
+          )
+
+        if (translationCyError) {
+          return { success: false, error: translationCyError.message }
+        }
+
+        await upsertContentItemTranslation(adminSupabase, contentItemId, 'cy', {
+          title: draft.storyCy.title,
+          summary: draft.storyCy.summary || null,
+          body: draft.storyCy.exposition || null,
+          seoTitle: draft.seoTitleCy || draft.storyCy.title,
+          seoDescription: draft.seoDescriptionCy || draft.storyCy.summary || null,
+        })
+      }
     }
 
     if (draft.contentType === 'painting') {
@@ -892,28 +945,55 @@ export async function saveContentAction({
         return { success: false, error: paintingError.message }
       }
 
-      const { error: translationError } = await adminSupabase
+      // English translation
+      const { error: translationEnError } = await adminSupabase
         .from('painting_translations')
         .upsert(
           {
             painting_content_item_id: contentItemId,
-            language_code: languageCode,
+            language_code: 'en',
             detail_notes: draft.painting.description || null,
           },
           { onConflict: 'painting_content_item_id,language_code' }
         )
 
-      if (translationError) {
-        return { success: false, error: translationError.message }
+      if (translationEnError) {
+        return { success: false, error: translationEnError.message }
       }
 
-      await upsertContentItemTranslation(adminSupabase, contentItemId, languageCode, {
+      await upsertContentItemTranslation(adminSupabase, contentItemId, 'en', {
         title: draft.painting.title,
         summary: draft.painting.description || null,
         body: draft.painting.description || null,
         seoTitle: draft.seoTitle || draft.painting.title,
         seoDescription: draft.seoDescription || draft.painting.description || null,
       })
+
+      // Welsh (CY) translation
+      if (draft.paintingCy.title.trim()) {
+        const { error: translationCyError } = await adminSupabase
+          .from('painting_translations')
+          .upsert(
+            {
+              painting_content_item_id: contentItemId,
+              language_code: 'cy',
+              detail_notes: draft.paintingCy.description || null,
+            },
+            { onConflict: 'painting_content_item_id,language_code' }
+          )
+
+        if (translationCyError) {
+          return { success: false, error: translationCyError.message }
+        }
+
+        await upsertContentItemTranslation(adminSupabase, contentItemId, 'cy', {
+          title: draft.paintingCy.title,
+          summary: draft.paintingCy.description || null,
+          body: draft.paintingCy.description || null,
+          seoTitle: draft.seoTitleCy || draft.paintingCy.title,
+          seoDescription: draft.seoDescriptionCy || draft.paintingCy.description || null,
+        })
+      }
     }
 
     if (draft.contentType === 'artifacts') {
@@ -938,28 +1018,55 @@ export async function saveContentAction({
         return { success: false, error: artefactError.message }
       }
 
-      const { error: translationError } = await adminSupabase
+      // English translation
+      const { error: translationEnError } = await adminSupabase
         .from('artefact_translations')
         .upsert(
           {
             artefact_content_item_id: contentItemId,
-            language_code: languageCode,
+            language_code: 'en',
             notes: draft.artifact.description || null,
           },
           { onConflict: 'artefact_content_item_id,language_code' }
         )
 
-      if (translationError) {
-        return { success: false, error: translationError.message }
+      if (translationEnError) {
+        return { success: false, error: translationEnError.message }
       }
 
-      await upsertContentItemTranslation(adminSupabase, contentItemId, languageCode, {
+      await upsertContentItemTranslation(adminSupabase, contentItemId, 'en', {
         title: draft.artifact.title,
         summary: draft.artifact.description || null,
         body: draft.artifact.description || null,
         seoTitle: draft.seoTitle || draft.artifact.title,
         seoDescription: draft.seoDescription || draft.artifact.description || null,
       })
+
+      // Welsh (CY) translation
+      if (draft.artifactCy.title.trim()) {
+        const { error: translationCyError } = await adminSupabase
+          .from('artefact_translations')
+          .upsert(
+            {
+              artefact_content_item_id: contentItemId,
+              language_code: 'cy',
+              notes: draft.artifactCy.description || null,
+            },
+            { onConflict: 'artefact_content_item_id,language_code' }
+          )
+
+        if (translationCyError) {
+          return { success: false, error: translationCyError.message }
+        }
+
+        await upsertContentItemTranslation(adminSupabase, contentItemId, 'cy', {
+          title: draft.artifactCy.title,
+          summary: draft.artifactCy.description || null,
+          body: draft.artifactCy.description || null,
+          seoTitle: draft.seoTitleCy || draft.artifactCy.title,
+          seoDescription: draft.seoDescriptionCy || draft.artifactCy.description || null,
+        })
+      }
     }
 
     if (draft.contentType === 'bio') {
@@ -985,29 +1092,58 @@ export async function saveContentAction({
         return { success: false, error: biographyError.message }
       }
 
-      const { error: translationError } = await adminSupabase
+      // English translation
+      const { error: translationEnError } = await adminSupabase
         .from('biography_translations')
         .upsert(
           {
             biography_content_item_id: contentItemId,
-            language_code: languageCode,
+            language_code: 'en',
             occupation: draft.bio.occupation || null,
             biography_text: draft.bio.content || null,
           },
           { onConflict: 'biography_content_item_id,language_code' }
         )
 
-      if (translationError) {
-        return { success: false, error: translationError.message }
+      if (translationEnError) {
+        return { success: false, error: translationEnError.message }
       }
 
-      await upsertContentItemTranslation(adminSupabase, contentItemId, languageCode, {
+      await upsertContentItemTranslation(adminSupabase, contentItemId, 'en', {
         title: draft.bio.name,
         summary: draft.bio.summary || null,
         body: draft.bio.content || null,
         seoTitle: draft.seoTitle || draft.bio.name,
         seoDescription: draft.seoDescription || draft.bio.summary || null,
       })
+
+      // Welsh (CY) translation
+      if (draft.bioCy.occupation.trim() || draft.bioCy.summary.trim() || draft.bioCy.content.trim()) {
+        const { error: translationCyError } = await adminSupabase
+          .from('biography_translations')
+          .upsert(
+            {
+              biography_content_item_id: contentItemId,
+              language_code: 'cy',
+              occupation: draft.bioCy.occupation || null,
+              biography_text: draft.bioCy.content || null,
+            },
+            { onConflict: 'biography_content_item_id,language_code' }
+          )
+
+        if (translationCyError) {
+          return { success: false, error: translationCyError.message }
+        }
+
+        const cyBioTitle = draft.bio.name // Bio name is not translatable; re-use EN name as title
+        await upsertContentItemTranslation(adminSupabase, contentItemId, 'cy', {
+          title: cyBioTitle,
+          summary: draft.bioCy.summary || null,
+          body: draft.bioCy.content || null,
+          seoTitle: draft.seoTitleCy || cyBioTitle,
+          seoDescription: draft.seoDescriptionCy || draft.bioCy.summary || null,
+        })
+      }
     }
 
     revalidatePath('/overview')
