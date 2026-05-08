@@ -10,11 +10,20 @@ export async function GET(request: NextRequest) {
   const lang = searchParams.get('lang')
 
   if (token_hash && type) {
+    // For invite tokens, pass the token to the accept-invite page for
+    // client-side verification — avoids server-side session cookie transfer issues.
+    if (type === 'invite') {
+      const destUrl = new URL('/accept-invite', origin)
+      destUrl.searchParams.set('token_hash', token_hash)
+      destUrl.searchParams.set('type', type)
+      if (lang === 'cy' || lang === 'en') destUrl.searchParams.set('lang', lang)
+      return NextResponse.redirect(destUrl)
+    }
+
     const supabase = await createClient()
     const { error } = await supabase.auth.verifyOtp({ type, token_hash })
     if (!error) {
-      const destinationPath = type === 'invite' ? '/accept-invite' : next
-      const destUrl = new URL(destinationPath, origin)
+      const destUrl = new URL(next, origin)
       if (lang === 'cy' || lang === 'en') destUrl.searchParams.set('lang', lang)
       return NextResponse.redirect(destUrl)
     }

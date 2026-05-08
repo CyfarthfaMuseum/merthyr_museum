@@ -86,7 +86,7 @@ export default function Sidebar({ userEmail, counts, bookGroups, storyGroups, pa
       >
         {/* Header (fixed height) */}
         <div className="border-b border-neutral-200 px-8 flex items-center h-[96px]">
-          <Image src="/menuLogo.png" 
+          <Image src={uiLang === 'cy' ? '/menuLogo-cy.png' : '/menuLogo.png'} 
               alt="Her Stories Content Manager Logo"
               width={240}
             height={96}

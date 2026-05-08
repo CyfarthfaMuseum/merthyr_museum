@@ -83,14 +83,29 @@ function AcceptInviteForm() {
   }
 
   useEffect(() => {
+    const tokenHash = searchParams.get('token_hash')
+    const tokenType = searchParams.get('type')
     const supabase = createClient()
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        setReady(true)
-      } else {
-        setSessionInvalid(true)
-      }
-    })
+
+    if (tokenHash && tokenType === 'invite') {
+      // Verify the invite OTP client-side so the session is established directly
+      // in the browser — no server cookie hand-off needed.
+      supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'invite' }).then(({ error }) => {
+        if (error) {
+          setSessionInvalid(true)
+        } else {
+          setReady(true)
+        }
+      })
+    } else {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+          setReady(true)
+        } else {
+          setSessionInvalid(true)
+        }
+      })
+    }
   }, [])
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -139,7 +154,7 @@ function AcceptInviteForm() {
         <section className="flex flex-1 items-center justify-center px-6 py-12">
           <div className="w-full max-w-sm">
             <div className="mb-8 text-center">
-              <img src="/mainLogo.svg" alt="Her Stories Content Manager" className="mx-auto h-46 w-auto sm:h-24" />
+              <img src={lang === 'cy' ? '/mainLogo-cy.png' : '/mainLogo.svg'} alt="Her Stories Content Manager" className="mx-auto h-46 w-auto sm:h-24" />
             </div>
 
             {!ready ? (

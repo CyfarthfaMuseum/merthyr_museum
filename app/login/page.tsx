@@ -168,7 +168,7 @@ function LoginForm() {
         <section className="flex flex-1 items-center justify-center px-6 py-12">
           <div className="w-full max-w-sm">
             <div className="mb-8 text-center">
-              <img src="/mainLogo.svg" alt="Her Stories Content Manager" className="mx-auto h-46 w-auto sm:h-24" />
+              <img src={lang === 'cy' ? '/mainLogo-cy.png' : '/mainLogo.svg'} alt="Her Stories Content Manager" className="mx-auto h-46 w-auto sm:h-24" />
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
