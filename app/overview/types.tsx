@@ -159,6 +159,7 @@ export type BioDraft = {
 // Welsh (CY) translatable fields per content type
 
 export type BookCyDraft = {
+  title: string
   summary: string
   exposition: string
 }
@@ -303,6 +304,7 @@ export const initialDraft: OverviewDraft = {
     deathEra: 'AD',
   },
   bookCy: {
+    title: '',
     summary: '',
     exposition: '',
   },

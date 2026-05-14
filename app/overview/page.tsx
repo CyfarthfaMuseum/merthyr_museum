@@ -932,6 +932,7 @@ async function getEditDraft(
           genres,
         },
         bookCy: {
+          title: itemTranslationCy?.title ?? '',
           summary: translationCy?.excerpt ?? itemTranslationCy?.summary ?? '',
           exposition: itemTranslationCy?.body ?? '',
         },
