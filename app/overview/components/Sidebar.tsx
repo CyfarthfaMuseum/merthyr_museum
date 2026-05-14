@@ -325,17 +325,17 @@ export default function Sidebar({ userEmail, counts, bookGroups, storyGroups, pa
             <div className="inline-flex overflow-hidden rounded-lg border border-neutral-300 text-sm font-medium">
               <button
                 type="button"
-                onClick={() => onUiLangChange('en')}
-                className={`px-3 py-1.5 transition ${uiLang === 'en' ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-700 hover:bg-neutral-50'}`}
+                onClick={() => onUiLangChange('cy')}
+                className={`px-3 py-1.5 transition ${uiLang === 'cy' ? 'bg-[#147a4c] text-white' : 'bg-white text-neutral-700 hover:bg-neutral-50'}`}
               >
-                EN
+                CY
               </button>
               <button
                 type="button"
-                onClick={() => onUiLangChange('cy')}
-                className={`border-l border-neutral-300 px-3 py-1.5 transition ${uiLang === 'cy' ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-700 hover:bg-neutral-50'}`}
+                onClick={() => onUiLangChange('en')}
+                className={`border-l border-neutral-300 px-3 py-1.5 transition ${uiLang === 'en' ? 'bg-[#147a4c] text-white' : 'bg-white text-neutral-700 hover:bg-neutral-50'}`}
               >
-                CY
+                EN
               </button>
             </div>
           </div>

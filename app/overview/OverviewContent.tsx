@@ -638,17 +638,17 @@ export default function OverviewContent({
                   <div className="inline-flex overflow-hidden rounded-lg border border-neutral-300 text-sm font-medium">
                     <button
                       type="button"
-                      onClick={() => setActiveLanguage('en')}
-                      className={`px-4 py-2 transition ${activeLanguage === 'en' ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-700 hover:bg-neutral-50'}`}
+                      onClick={() => setActiveLanguage('cy')}
+                      className={`px-4 py-2 transition ${activeLanguage === 'cy' ? 'bg-[#147a4c] text-white' : 'bg-white text-neutral-700 hover:bg-neutral-50'}`}
                     >
-                      EN
+                      CY
                     </button>
                     <button
                       type="button"
-                      onClick={() => setActiveLanguage('cy')}
-                      className={`border-l border-neutral-300 px-4 py-2 transition ${activeLanguage === 'cy' ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-700 hover:bg-neutral-50'}`}
+                      onClick={() => setActiveLanguage('en')}
+                      className={`border-l border-neutral-300 px-4 py-2 transition ${activeLanguage === 'en' ? 'bg-[#147a4c] text-white' : 'bg-white text-neutral-700 hover:bg-neutral-50'}`}
                     >
-                      CY
+                      EN
                     </button>
                   </div>
                 </div>

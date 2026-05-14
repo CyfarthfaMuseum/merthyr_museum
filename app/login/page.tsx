@@ -37,17 +37,17 @@ function LanguageToggle({ lang, setLang }: { lang: 'en' | 'cy'; setLang: (l: 'en
     <div className="flex overflow-hidden rounded-lg border border-[#b7b7b1] text-sm font-semibold">
       <button
         type="button"
-        onClick={() => setLang('en')}
-        className={`px-4 py-2 transition ${lang === 'en' ? 'bg-[#147a4c] text-white' : 'bg-white text-[#1f1f1f] hover:bg-neutral-50'}`}
+        onClick={() => setLang('cy')}
+        className={`px-4 py-2 transition ${lang === 'cy' ? 'bg-[#147a4c] text-white' : 'bg-white text-[#1f1f1f] hover:bg-neutral-50'}`}
       >
-        EN
+        CY
       </button>
       <button
         type="button"
-        onClick={() => setLang('cy')}
-        className={`border-l border-[#b7b7b1] px-4 py-2 transition ${lang === 'cy' ? 'bg-[#147a4c] text-white' : 'bg-white text-[#1f1f1f] hover:bg-neutral-50'}`}
+        onClick={() => setLang('en')}
+        className={`border-l border-[#b7b7b1] px-4 py-2 transition ${lang === 'en' ? 'bg-[#147a4c] text-white' : 'bg-white text-[#1f1f1f] hover:bg-neutral-50'}`}
       >
-        CY
+        EN
       </button>
     </div>
   )
