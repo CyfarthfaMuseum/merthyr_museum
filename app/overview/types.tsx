@@ -171,6 +171,7 @@ export type StoryCyDraft = {
 }
 
 export type PaintingCyDraft = {
+  title: string
   description: string
 }
 
@@ -314,6 +315,7 @@ export const initialDraft: OverviewDraft = {
     exposition: '',
   },
   paintingCy: {
+    title: '',
     description: '',
   },
   artifactCy: {

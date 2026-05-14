@@ -1074,6 +1074,7 @@ async function getEditDraft(
           itemId: '',
         },
         paintingCy: {
+          title: itemTranslationCy?.title ?? '',
           description: translationCy?.detail_notes ?? itemTranslationCy?.body ?? '',
         },
       },
