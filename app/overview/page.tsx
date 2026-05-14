@@ -1241,7 +1241,13 @@ async function getEditDraft(
           summary: itemTranslation?.summary ?? '',
           content: translation?.biography_text ?? itemTranslation?.body ?? '',
           birthDate: biography.birth_year ? String(biography.birth_year) : '',
+          birthDay: '',
+          birthMonth: '',
+          birthEra: 'AD',
           deathDate: biography.death_year ? String(biography.death_year) : '',
+          deathDay: '',
+          deathMonth: '',
+          deathEra: 'AD',
         },
         bioCy: {
           occupation: translationCy?.occupation ?? '',
