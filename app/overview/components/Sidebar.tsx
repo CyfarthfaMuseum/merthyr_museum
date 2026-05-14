@@ -85,13 +85,18 @@ export default function Sidebar({ userEmail, counts, bookGroups, storyGroups, pa
         className={`${isOpen ? 'fixed' : 'hidden'} left-0 top-14 z-40 flex h-[calc(100vh-56px)] w-[420px] flex-col border-r border-neutral-300 bg-white lg:relative lg:top-0 lg:flex lg:h-full lg:z-auto`}
       >
         {/* Header (fixed height) */}
-        <div className="border-b border-neutral-200 px-8 flex items-center h-[96px]">
+        <div className="border-b border-neutral-200 px-8 flex flex-col items-start justify-center h-[96px]">
           <Image src={uiLang === 'cy' ? '/menuLogo-cy.png' : '/menuLogo.png'} 
               alt="Her Stories Content Manager Logo"
               width={240}
             height={96}
             className="object-contain"
             priority/>
+          {process.env.NEXT_PUBLIC_IS_DEV === 'true' && (
+            <div className="mt-1 rounded bg-amber-400 px-2 py-0.5 text-[11px] font-bold uppercase tracking-widest text-amber-900">
+              Development
+            </div>
+          )}
         </div>
 
         {/* Scrollable/fill content (middle row) */}

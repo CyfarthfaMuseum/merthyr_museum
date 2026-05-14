@@ -1,8 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 
 export function createAdminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  const isDev = process.env.NEXT_PUBLIC_IS_DEV === 'true'
+  const url = isDev ? process.env.NEXT_PUBLIC_SUPABASE_DEV_URL : process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceRoleKey = isDev ? process.env.SUPABASE_SERVICE_ROLE_DEV_KEY : process.env.SUPABASE_SERVICE_ROLE_KEY
 
   if (!url) {
     throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL environment variable.')

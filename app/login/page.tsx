@@ -75,8 +75,9 @@ function LoginForm() {
     localStorage.setItem(LANG_STORAGE_KEY, l)
   }
 
-  const [email, setEmail] = useState(process.env.NEXT_PUBLIC_DEV_EMAIL || '')
-  const [password, setPassword] = useState(process.env.NEXT_PUBLIC_DEV_PASSWORD || '')
+  const isDev = process.env.NEXT_PUBLIC_IS_DEV === 'true'
+  const [email, setEmail] = useState(isDev ? (process.env.NEXT_PUBLIC_DEV_EMAIL || '') : '')
+  const [password, setPassword] = useState(isDev ? (process.env.NEXT_PUBLIC_DEV_PASSWORD || '') : '')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [resetSent, setResetSent] = useState(false)
@@ -169,6 +170,11 @@ function LoginForm() {
           <div className="w-full max-w-sm">
             <div className="mb-8 text-center">
               <img src={lang === 'cy' ? '/mainLogo-cy.png' : '/mainLogo.svg'} alt="Her Stories Content Manager" className="mx-auto h-46 w-auto sm:h-24" />
+              {process.env.NEXT_PUBLIC_IS_DEV === 'true' && (
+                <div className="mt-2 inline-block rounded bg-amber-400 px-2 py-0.5 text-[11px] font-bold uppercase tracking-widest text-amber-900">
+                  Development
+                </div>
+              )}
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
