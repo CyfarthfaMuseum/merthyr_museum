@@ -9,6 +9,8 @@ import {
   initialDraft,
   type AudioItem,
   type ArtifactCategoryOption,
+  type PaintingMediumOption,
+  type BookGenreOption,
   type ConnectedItem,
   type ContentType,
   type EditorMode,
@@ -178,7 +180,7 @@ async function getSidebarBookGroups(
   const bookIds = (bookItems ?? []).map((book) => book.id)
   if (bookIds.length === 0) return []
 
-  const [{ data: translations }, { data: genreLinks }, { data: genreTranslations }] =
+  const [{ data: translations }, { data: genreLinks }, { data: genreTranslations }, { data: genreTranslationsCy }] =
     await Promise.all([
       supabase
         .from('content_item_translations')
@@ -193,6 +195,10 @@ async function getSidebarBookGroups(
         .from('book_theme_translations')
         .select('book_theme_id, title')
         .eq('language_code', 'en'),
+      adminSupabase
+        .from('book_theme_translations')
+        .select('book_theme_id, title')
+        .eq('language_code', 'cy'),
     ])
 
   const titleByBookId = new Map<string, string>(
@@ -207,6 +213,12 @@ async function getSidebarBookGroups(
       .map((row) => [String(row.book_theme_id), row.title as string])
   )
 
+  const genreCyById = new Map<string, string>(
+    (genreTranslationsCy ?? [])
+      .filter((row) => row.title)
+      .map((row) => [String(row.book_theme_id), row.title as string])
+  )
+
   const genresByBookId = new Map<string, string[]>()
   for (const link of genreLinks ?? []) {
     const genreTitle = genreById.get(String(link.book_theme_id))
@@ -215,6 +227,14 @@ async function getSidebarBookGroups(
     if (!current.includes(genreTitle)) {
       genresByBookId.set(link.book_content_item_id, [...current, genreTitle])
     }
+  }
+
+  // Map EN genre title → CY genre title
+  const genreCyByEnGenre = new Map<string, string>()
+  for (const link of genreLinks ?? []) {
+    const enTitle = genreById.get(String(link.book_theme_id))
+    const cyTitle = genreCyById.get(String(link.book_theme_id))
+    if (enTitle && cyTitle) genreCyByEnGenre.set(enTitle, cyTitle)
   }
 
   const grouped = new Map<string, SidebarBookGroup['books']>()
@@ -232,6 +252,7 @@ async function getSidebarBookGroups(
   return [...grouped.entries()]
     .map(([genre, books]) => ({
       genre,
+      genreCy: genreCyByEnGenre.get(genre),
       books: [...books].sort((a, b) => a.title.localeCompare(b.title)),
     }))
     .sort((a, b) => a.genre.localeCompare(b.genre))
@@ -260,6 +281,7 @@ async function getSidebarStoryGroups(
     { data: stories },
     { data: storyTypes },
     { data: storyTypeTranslations },
+    { data: storyTypeTranslationsCy },
   ] = await Promise.all([
     supabase
       .from('content_item_translations')
@@ -277,6 +299,10 @@ async function getSidebarStoryGroups(
       .from('story_type_translations')
       .select('story_type_id, label')
       .eq('language_code', 'en'),
+    adminSupabase
+      .from('story_type_translations')
+      .select('story_type_id, label')
+      .eq('language_code', 'cy'),
   ])
 
   const titleByStoryId = new Map<string, string>(
@@ -301,11 +327,18 @@ async function getSidebarStoryGroups(
       .map((row) => [String(row.story_type_id), row.label as string])
   )
 
+  const storyTypeLabelCyById = new Map<string, string>(
+    (storyTypeTranslationsCy ?? [])
+      .filter((row) => row.label)
+      .map((row) => [String(row.story_type_id), row.label as string])
+  )
+
   const grouped = new Map<
     string,
     {
       storyTypeCode: string
       storyTypeLabel: string
+      storyTypeLabelCy?: string
       sortOrder: number
       stories: SidebarStoryGroup['stories']
     }
@@ -320,9 +353,11 @@ async function getSidebarStoryGroups(
     const storyType = storyTypeById.get(storyTypeId)
     const storyTypeCode = storyType?.code ?? 'uncategorised'
     const storyTypeLabel = storyTypeLabelById.get(storyTypeId) ?? (storyTypeCode === 'uncategorised' ? 'Uncategorised' : storyTypeCode)
+    const storyTypeLabelCy = storyTypeLabelCyById.get(storyTypeId)
     const current = grouped.get(storyTypeCode) ?? {
       storyTypeCode,
       storyTypeLabel,
+      storyTypeLabelCy,
       sortOrder: storyType?.sortOrder ?? Number.MAX_SAFE_INTEGER,
       stories: [],
     }
@@ -336,6 +371,7 @@ async function getSidebarStoryGroups(
           title: titleByStoryId.get(storyId) ?? 'Untitled story',
           storyTypeCode,
           storyTypeLabel,
+          storyTypeLabelCy,
         },
       ],
     })
@@ -346,30 +382,74 @@ async function getSidebarStoryGroups(
     .map((group) => ({
       storyTypeCode: group.storyTypeCode,
       storyTypeLabel: group.storyTypeLabel,
+      storyTypeLabelCy: group.storyTypeLabelCy,
       stories: [...group.stories].sort((a, b) => a.title.localeCompare(b.title)),
     }))
 }
 
-async function getAvailableBookGenres(): Promise<string[]> {
+async function getAvailableBookGenres(): Promise<BookGenreOption[]> {
   const adminSupabase = createAdminClient()
 
   const { data, error } = await adminSupabase
     .from('book_theme_translations')
-    .select('title')
-    .eq('language_code', 'en')
-    .order('title', { ascending: true })
+    .select('book_theme_id, language_code, title')
+    .in('language_code', ['en', 'cy'])
 
   if (error) {
     return []
   }
 
-  return [...new Set((data ?? []).map((row) => row.title).filter(Boolean))]
+  const byTheme = new Map<string, { title?: string; titleCy?: string }>()
+  for (const row of data ?? []) {
+    if (!row.title) continue
+    const id = String(row.book_theme_id)
+    const current = byTheme.get(id) ?? {}
+    if (row.language_code === 'en') byTheme.set(id, { ...current, title: row.title })
+    else if (row.language_code === 'cy') byTheme.set(id, { ...current, titleCy: row.title })
+  }
+
+  return [...byTheme.values()]
+    .filter((g): g is { title: string; titleCy?: string } => !!g.title)
+    .map((g) => ({ title: g.title, titleCy: g.titleCy }))
+    .sort((a, b) => a.title.localeCompare(b.title))
 }
 
-async function getAvailablePaintingMediums(): Promise<string[]> {
+async function getAvailablePaintingMediums(): Promise<PaintingMediumOption[]> {
   const adminSupabase = createAdminClient()
-  const { data } = await adminSupabase.from('paintings').select('medium')
-  return [...new Set((data ?? []).map((row) => (row.medium as string | null) ?? '').filter(Boolean))].sort()
+
+  const { data, error } = await adminSupabase
+    .from('painting_mediums')
+    .select(
+      `
+      code,
+      sort_order,
+      painting_medium_translations (
+        language_code,
+        label
+      )
+    `
+    )
+    .order('sort_order', { ascending: true })
+
+  if (error) return []
+
+  return (data ?? [])
+    .filter((row) => row.code)
+    .map((row) => {
+      const translations = Array.isArray(row.painting_medium_translations)
+        ? row.painting_medium_translations
+        : []
+      const enTranslation =
+        translations.find((item) => item.language_code === 'en') ?? translations[0]
+      const cyTranslation = translations.find((item) => item.language_code === 'cy')
+
+      return {
+        code: row.code as string,
+        label: enTranslation?.label ?? (row.code as string),
+        labelCy: cyTranslation?.label ?? undefined,
+      }
+    })
+    .sort((a, b) => a.label.localeCompare(b.label))
 }
 
 async function getAvailableArtifactCategories(): Promise<ArtifactCategoryOption[]> {
@@ -397,10 +477,15 @@ async function getAvailableArtifactCategories(): Promise<ArtifactCategoryOption[
       const translations = Array.isArray(row.artefact_category_translations)
         ? row.artefact_category_translations
         : []
-      const translation =
+      const enTranslation =
         translations.find((item) => item.language_code === 'en') ?? translations[0]
+      const cyTranslation = translations.find((item) => item.language_code === 'cy')
 
-      return { code: row.code as string, label: translation?.label ?? (row.code as string) }
+      return {
+        code: row.code as string,
+        label: enTranslation?.label ?? (row.code as string),
+        labelCy: cyTranslation?.label ?? undefined,
+      }
     })
     .sort((a, b) => a.label.localeCompare(b.label))
 }
@@ -480,7 +565,9 @@ async function getSidebarPaintingGroups(
   const paintingIds = (paintingItems ?? []).map((p) => p.id)
   if (paintingIds.length === 0) return []
 
-  const [{ data: translations }, { data: paintings }] = await Promise.all([
+  const adminSupabase = createAdminClient()
+
+  const [{ data: translations }, { data: paintings }, { data: mediumTranslations }, { data: mediumTranslationsCy }] = await Promise.all([
     supabase
       .from('content_item_translations')
       .select('content_item_id, title')
@@ -488,29 +575,64 @@ async function getSidebarPaintingGroups(
       .in('content_item_id', paintingIds),
     supabase
       .from('paintings')
-      .select('content_item_id, medium')
+      .select('content_item_id, painting_medium_id')
       .in('content_item_id', paintingIds),
+    adminSupabase
+      .from('painting_medium_translations')
+      .select('painting_medium_id, label')
+      .eq('language_code', 'en'),
+    adminSupabase
+      .from('painting_medium_translations')
+      .select('painting_medium_id, label')
+      .eq('language_code', 'cy'),
   ])
 
   const titleById = new Map<string, string>(
     (translations ?? []).filter((r) => r.title).map((r) => [r.content_item_id as string, r.title as string])
   )
-  const mediumById = new Map<string, string>(
-    (paintings ?? []).map((r) => [r.content_item_id as string, (r.medium as string | null) ?? ''])
+
+  const mediumLabelById = new Map<string, string>(
+    (mediumTranslations ?? [])
+      .filter((r) => r.label)
+      .map((r) => [String(r.painting_medium_id), r.label as string])
   )
 
-  const grouped = new Map<string, SidebarPaintingGroup['paintings']>()
+  const mediumLabelCyById = new Map<string, string>(
+    (mediumTranslationsCy ?? [])
+      .filter((r) => r.label)
+      .map((r) => [String(r.painting_medium_id), r.label as string])
+  )
+
+  const mediumIdByPaintingId = new Map<string, string>(
+    (paintings ?? []).map((r) => [r.content_item_id as string, String(r.painting_medium_id)])
+  )
+
+  const grouped = new Map<
+    string,
+    {
+      medium: string
+      mediumLabelCy?: string
+      paintings: SidebarPaintingGroup['paintings']
+    }
+  >()
+
   for (const id of paintingIds) {
-    const medium = mediumById.get(id) || 'Uncategorised'
+    const mediumId = mediumIdByPaintingId.get(id) ?? ''
+    const medium = mediumId && mediumId !== 'null' ? (mediumLabelById.get(mediumId) ?? mediumId) : 'Uncategorised'
+    const mediumLabelCy = mediumId && mediumId !== 'null' ? mediumLabelCyById.get(mediumId) : undefined
     const title = titleById.get(id) ?? 'Untitled painting'
-    const current = grouped.get(medium) ?? []
-    grouped.set(medium, [...current, { id, title, medium }])
+    const current = grouped.get(medium) ?? { medium, mediumLabelCy, paintings: [] }
+    grouped.set(medium, {
+      ...current,
+      paintings: [...current.paintings, { id, title, medium, mediumLabelCy }],
+    })
   }
 
-  return [...grouped.entries()]
-    .map(([medium, paintings]) => ({
-      medium,
-      paintings: [...paintings].sort((a, b) => a.title.localeCompare(b.title)),
+  return [...grouped.values()]
+    .map((group) => ({
+      medium: group.medium,
+      mediumLabelCy: group.mediumLabelCy,
+      paintings: [...group.paintings].sort((a, b) => a.title.localeCompare(b.title)),
     }))
     .sort((a, b) => {
       if (a.medium === 'Uncategorised') return 1
@@ -536,7 +658,7 @@ async function getSidebarArtifactGroups(
 
   const adminSupabase = createAdminClient()
 
-  const [{ data: translations }, { data: artefacts }, { data: categories }, { data: categoryTranslations }] = await Promise.all([
+  const [{ data: translations }, { data: artefacts }, { data: categories }, { data: categoryTranslations }, { data: categoryTranslationsCy }] = await Promise.all([
     supabase
       .from('content_item_translations')
       .select('content_item_id, title')
@@ -553,6 +675,10 @@ async function getSidebarArtifactGroups(
       .from('artefact_category_translations')
       .select('artefact_category_id, label')
       .eq('language_code', 'en'),
+    adminSupabase
+      .from('artefact_category_translations')
+      .select('artefact_category_id, label')
+      .eq('language_code', 'cy'),
   ])
 
   const titleById = new Map<string, string>(
@@ -575,6 +701,12 @@ async function getSidebarArtifactGroups(
       .map((row) => [String(row.artefact_category_id), row.label as string])
   )
 
+  const categoryLabelCyById = new Map<string, string>(
+    (categoryTranslationsCy ?? [])
+      .filter((row) => row.label)
+      .map((row) => [String(row.artefact_category_id), row.label as string])
+  )
+
   const categoryIdByArtefactId = new Map<string, string>(
     (artefacts ?? []).map((row) => [row.content_item_id as string, String(row.artefact_category_id)])
   )
@@ -584,6 +716,7 @@ async function getSidebarArtifactGroups(
     {
       categoryCode: string
       categoryLabel: string
+      categoryLabelCy?: string
       sortOrder: number
       artifacts: SidebarArtifactGroup['artifacts']
     }
@@ -596,9 +729,11 @@ async function getSidebarArtifactGroups(
     const categoryLabel =
       categoryLabelById.get(catId) ??
       (categoryCode === 'uncategorised' ? 'Uncategorised' : categoryCode)
+    const categoryLabelCy = categoryLabelCyById.get(catId)
     const current = grouped.get(categoryCode) ?? {
       categoryCode,
       categoryLabel,
+      categoryLabelCy,
       sortOrder: cat?.sortOrder ?? Number.MAX_SAFE_INTEGER,
       artifacts: [],
     }
@@ -612,6 +747,7 @@ async function getSidebarArtifactGroups(
           title: titleById.get(id) ?? 'Untitled artefact',
           categoryCode,
           categoryLabel,
+          categoryLabelCy,
         },
       ],
     })
@@ -626,6 +762,7 @@ async function getSidebarArtifactGroups(
     .map((group) => ({
       categoryCode: group.categoryCode,
       categoryLabel: group.categoryLabel,
+      categoryLabelCy: group.categoryLabelCy,
       artifacts: [...group.artifacts].sort((a, b) => a.title.localeCompare(b.title)),
     }))
 }
@@ -721,10 +858,15 @@ async function getAvailableStoryTypes(): Promise<StoryTypeOption[]> {
       const translations = Array.isArray(row.story_type_translations)
         ? row.story_type_translations
         : []
-      const translation =
+      const enTranslation =
         translations.find((item) => item.language_code === 'en') ?? translations[0]
+      const cyTranslation = translations.find((item) => item.language_code === 'cy')
 
-      return { code: row.code as string, label: translation?.label ?? (row.code as string) }
+      return {
+        code: row.code as string,
+        label: enTranslation?.label ?? (row.code as string),
+        labelCy: cyTranslation?.label ?? undefined,
+      }
     })
     .sort((a, b) => a.label.localeCompare(b.label))
 }
@@ -1016,7 +1158,7 @@ async function getEditDraft(
       return noEdit
     }
 
-    const [{ data: translation }, { data: translationCy }, { data: itemTranslationCy }] = await Promise.all([
+    const [{ data: translation }, { data: translationCy }, { data: itemTranslationCy }, { data: mediumRow }] = await Promise.all([
       adminSupabase
         .from('painting_translations')
         .select('*')
@@ -1035,6 +1177,9 @@ async function getEditDraft(
         .eq('content_item_id', id)
         .eq('language_code', 'cy')
         .maybeSingle(),
+      painting.painting_medium_id
+        ? adminSupabase.from('painting_mediums').select('code').eq('id', painting.painting_medium_id).maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
     ])
 
     return {
@@ -1059,7 +1204,7 @@ async function getEditDraft(
         painting: {
           title: itemTranslation?.title ?? '',
           artist: painting.artist_name ?? '',
-          medium: painting.medium ?? '',
+          medium: (mediumRow?.code as string | null) ?? '',
           ...(() => {
             let dimensionsH = '', dimensionsW = ''
             try {

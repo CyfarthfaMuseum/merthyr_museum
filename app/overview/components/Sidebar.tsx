@@ -123,7 +123,7 @@ export default function Sidebar({ userEmail, counts, bookGroups, storyGroups, pa
                   bookGroups.map((group) => (
                     <div key={group.genre}>
                       <div className="text-[15px] font-semibold text-neutral-700">
-                        {group.genre} ({group.books.length})
+                        {uiLang === 'cy' ? (group.genreCy ?? group.genre) : group.genre} ({group.books.length})
                       </div>
                       <ul className="mt-2 space-y-1 pl-4">
                         {group.books.map((book) => (
@@ -192,7 +192,7 @@ export default function Sidebar({ userEmail, counts, bookGroups, storyGroups, pa
                   storyGroups.map((group) => (
                     <div key={group.storyTypeCode}>
                       <div className="text-[15px] font-semibold text-neutral-700">
-                        {group.storyTypeLabel} ({group.stories.length})
+                        {uiLang === 'cy' ? (group.storyTypeLabelCy ?? group.storyTypeLabel) : group.storyTypeLabel} ({group.stories.length})
                       </div>
                       <ul className="mt-2 space-y-1 pl-4">
                         {group.stories.map((story) => (
@@ -230,7 +230,7 @@ export default function Sidebar({ userEmail, counts, bookGroups, storyGroups, pa
                   paintingGroups.map((group) => (
                     <div key={group.medium}>
                       <div className="text-[15px] font-semibold text-neutral-700">
-                        {group.medium} ({group.paintings.length})
+                        {uiLang === 'cy' ? (group.mediumLabelCy ?? group.medium) : group.medium} ({group.paintings.length})
                       </div>
                       <ul className="mt-2 space-y-1 pl-4">
                         {group.paintings.map((painting) => (
@@ -268,7 +268,7 @@ export default function Sidebar({ userEmail, counts, bookGroups, storyGroups, pa
                   artifactGroups.map((group) => (
                     <div key={group.categoryCode}>
                       <div className="text-[15px] font-semibold text-neutral-700">
-                        {group.categoryLabel} ({group.artifacts.length})
+                        {uiLang === 'cy' ? (group.categoryLabelCy ?? group.categoryLabel) : group.categoryLabel} ({group.artifacts.length})
                       </div>
                       <ul className="mt-2 space-y-1 pl-4">
                         {group.artifacts.map((artifact) => (

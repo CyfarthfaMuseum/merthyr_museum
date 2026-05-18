@@ -1,4 +1,4 @@
-import type { BookDraft, BookCyDraft } from '../../types'
+import type { BookDraft, BookCyDraft, BookGenreOption } from '../../types'
 import type { UiLang } from '../../ui-strings'
 import { uiStrings } from '../../ui-strings'
 import { BlackButton } from '../ui/Buttons'
@@ -11,7 +11,7 @@ import Textarea from '../ui/Textarea'
 
 type Props = {
   value: BookDraft
-  availableGenres: string[]
+  availableGenres: BookGenreOption[]
   selectedGenre: string
   onSelectedGenreChange: (value: string) => void
   onNewGenre: () => void
@@ -41,7 +41,11 @@ export default function BookForm({
   const langSuffix = language !== uiLang ? `(${language === 'cy' ? t.welshSuffix : t.englishSuffix})` : ''
   const withSuffix = (label: string) => langSuffix ? `${label} ${langSuffix}` : label
   // Filter out genres already applied to the book
-  const genresToShow = availableGenres.filter((g) => !value.genres.includes(g));
+  const genresToShow = availableGenres.filter((g) => !value.genres.includes(g.title))
+  // Build a lookup map from EN title → display label for tags
+  const genreLabelMap = new Map(
+    availableGenres.map((g) => [g.title, uiLang === 'cy' ? (g.titleCy ?? g.title) : g.title])
+  )
   return (
     <>
       <div className={`space-y-4 ${isCy ? 'opacity-50 pointer-events-none select-none' : ''}`}>
@@ -51,8 +55,8 @@ export default function BookForm({
           <Select value={selectedGenre} onChange={(e) => onSelectedGenreChange(e.target.value)}>
             <option value="">{t.selectOrAddGenre}</option>
             {genresToShow.map((genre) => (
-              <option key={genre} value={genre}>
-                {genre}
+              <option key={genre.title} value={genre.title}>
+                {uiLang === 'cy' ? (genre.titleCy ?? genre.title) : genre.title}
               </option>
             ))}
           </Select>
@@ -66,7 +70,7 @@ export default function BookForm({
           <div className="flex flex-wrap gap-3">
             {value.genres.map((genre) => (
               <Tag key={genre} onRemove={() => onRemoveGenre(genre)}>
-                {genre}
+                {genreLabelMap.get(genre) ?? genre}
               </Tag>
             ))}
           </div>

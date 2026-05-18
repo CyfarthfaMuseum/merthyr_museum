@@ -33,6 +33,7 @@ export type SidebarBook = {
 
 export type SidebarBookGroup = {
   genre: string
+  genreCy?: string
   books: SidebarBook[]
 }
 
@@ -41,11 +42,13 @@ export type SidebarStory = {
   title: string
   storyTypeCode: string
   storyTypeLabel: string
+  storyTypeLabelCy?: string
 }
 
 export type SidebarStoryGroup = {
   storyTypeCode: string
   storyTypeLabel: string
+  storyTypeLabelCy?: string
   stories: SidebarStory[]
 }
 
@@ -53,10 +56,12 @@ export type SidebarPainting = {
   id: string
   title: string
   medium: string
+  mediumLabelCy?: string
 }
 
 export type SidebarPaintingGroup = {
   medium: string
+  mediumLabelCy?: string
   paintings: SidebarPainting[]
 }
 
@@ -65,11 +70,13 @@ export type SidebarArtifact = {
   title: string
   categoryCode: string
   categoryLabel: string
+  categoryLabelCy?: string
 }
 
 export type SidebarArtifactGroup = {
   categoryCode: string
   categoryLabel: string
+  categoryLabelCy?: string
   artifacts: SidebarArtifact[]
 }
 
@@ -212,11 +219,24 @@ export type OverviewDraft = {
 export type StoryTypeOption = {
   code: string
   label: string
+  labelCy?: string
 }
 
 export type ArtifactCategoryOption = {
   code: string
   label: string
+  labelCy?: string
+}
+
+export type PaintingMediumOption = {
+  code: string
+  label: string
+  labelCy?: string
+}
+
+export type BookGenreOption = {
+  title: string
+  titleCy?: string
 }
 
 export type HistoricalPeriodOption = {

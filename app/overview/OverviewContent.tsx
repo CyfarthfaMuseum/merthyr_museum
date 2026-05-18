@@ -1,11 +1,12 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
-import { createBookGenreAction, createStoryTypeAction, createArtifactCategoryAction, createHistoricalPeriodAction, createHistoricalEraAction, saveContentAction, archiveContentAction } from './actions'
+import { createBookGenreAction, createStoryTypeAction, createArtifactCategoryAction, createPaintingMediumAction, createHistoricalPeriodAction, createHistoricalEraAction, saveContentAction, archiveContentAction } from './actions'
 import { validateDraft } from './validation'
 import { uiStrings, type UiLang } from './ui-strings'
 import type {
   AudioItem,
+  BookGenreOption,
   ConnectedItem,
   ContentType,
   EditorMode,
@@ -19,6 +20,7 @@ import type {
   SidebarLocation,
   StoryTypeOption,
   ArtifactCategoryOption,
+  PaintingMediumOption,
   HistoricalPeriodOption,
   HistoricalEraOption,
   BookCyDraft,
@@ -63,9 +65,9 @@ type Props = {
   mode: EditorMode
   editId: string | null
   editType: ContentType | null
-  availableBookGenres: string[]
+  availableBookGenres: BookGenreOption[]
   availableStoryTypes: StoryTypeOption[]
-  availablePaintingMediums: string[]
+  availablePaintingMediums: PaintingMediumOption[]
   availableArtifactCategories: ArtifactCategoryOption[]
   availableHistoricalPeriods: HistoricalPeriodOption[]
   availableHistoricalEras: HistoricalEraOption[]
@@ -129,7 +131,7 @@ export default function OverviewContent({
   const [draft, setDraft] = useState<OverviewDraft>(initialDraft)
   const [activeLanguage, setActiveLanguage] = useState<'en' | 'cy'>('en')
   const [uiLang, setUiLang] = useState<UiLang>(initialUiLang ?? 'en')
-  const [genres, setGenres] = useState<string[]>(availableBookGenres)
+  const [genres, setGenres] = useState<BookGenreOption[]>(availableBookGenres)
   const [selectedBookGenre, setSelectedBookGenre] = useState('')
   const [isPending, startTransition] = useTransition()
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -152,10 +154,11 @@ export default function OverviewContent({
   const [newStoryTypeLabelCy, setNewStoryTypeLabelCy] = useState('')
   const [isCreatingStoryType, startStoryTypeTransition] = useTransition()
 
-  const [paintingMediums, setPaintingMediums] = useState<string[]>(availablePaintingMediums)
+  const [paintingMediums, setPaintingMediums] = useState<PaintingMediumOption[]>(availablePaintingMediums)
   const [mediumModalOpen, setMediumModalOpen] = useState(false)
   const [newMediumLabel, setNewMediumLabel] = useState('')
   const [newMediumLabelCy, setNewMediumLabelCy] = useState('')
+  const [isCreatingMedium, startMediumTransition] = useTransition()
 
   const [artifactCategories, setArtifactCategories] = useState<ArtifactCategoryOption[]>(availableArtifactCategories)
   const [artifactCategoryModalOpen, setArtifactCategoryModalOpen] = useState(false)
@@ -357,10 +360,9 @@ export default function OverviewContent({
       }
 
       setGenres((current) => {
-        const next = current.includes(result.genreTitle)
-          ? current
-          : [...current, result.genreTitle]
-        return [...next].sort((a, b) => a.localeCompare(b))
+        if (current.some((g) => g.title === result.genreTitle)) return current
+        const toAdd: BookGenreOption = { title: result.genreTitle, titleCy: result.genreTitleCy ?? undefined }
+        return [...current, toAdd].sort((a, b) => a.title.localeCompare(b.title))
       })
 
       setGenreModalOpen(false)
@@ -401,7 +403,7 @@ export default function OverviewContent({
         setStoryTypes((current) =>
           current.some((item) => item.code === result.storyType!.code)
             ? current
-            : [...current, result.storyType!].sort((a, b) => a.label.localeCompare(b.label))
+            : [...current, { code: result.storyType!.code, label: result.storyType!.label, labelCy: result.storyType!.labelCy }].sort((a, b) => a.label.localeCompare(b.label))
         )
         setDraft((current) => ({
           ...current,
@@ -415,21 +417,33 @@ export default function OverviewContent({
     })
   }
 
-  function handleAddMedium() {
+  function handleCreateMedium() {
     const label = newMediumLabel.trim()
     if (!label) return
-    const labelCy = newMediumLabelCy.trim()
-    setPaintingMediums((current) => {
-      const toAdd = [label, ...(labelCy ? [labelCy] : [])].filter((v) => !current.includes(v))
-      return toAdd.length === 0 ? current : [...current, ...toAdd].sort()
+
+    startMediumTransition(async () => {
+      const result = await createPaintingMediumAction({ label, labelCy: newMediumLabelCy.trim() || undefined })
+      if (!result.success) {
+        showToast(result.error ?? 'An error occurred.', 'error')
+        return
+      }
+
+      if (result.medium && result.medium.code && result.medium.label) {
+        setPaintingMediums((current) =>
+          current.some((item) => item.code === result.medium!.code)
+            ? current
+            : [...current, { code: result.medium!.code, label: result.medium!.label, labelCy: result.medium!.labelCy }].sort((a, b) => a.label.localeCompare(b.label))
+        )
+        setDraft((current) => ({
+          ...current,
+          painting: { ...current.painting, medium: result.medium!.code },
+        }))
+      }
+      setMediumModalOpen(false)
+      setNewMediumLabel('')
+      setNewMediumLabelCy('')
+      showToast(result.alreadyExisted ? 'Medium already existed.' : 'Medium created.', 'success')
     })
-    setDraft((current) => ({
-      ...current,
-      painting: { ...current.painting, medium: uiLang === 'cy' && labelCy ? labelCy : label },
-    }))
-    setMediumModalOpen(false)
-    setNewMediumLabel('')
-    setNewMediumLabelCy('')
   }
 
   function handleCreateArtifactCategory() {
@@ -447,7 +461,7 @@ export default function OverviewContent({
         setArtifactCategories((current) =>
           current.some((item) => item.code === result.category!.code)
             ? current
-            : [...current, result.category!].sort((a, b) => a.label.localeCompare(b.label))
+            : [...current, { code: result.category!.code, label: result.category!.label, labelCy: result.category!.labelCy }].sort((a, b) => a.label.localeCompare(b.label))
         )
         setDraft((current) => ({
           ...current,
@@ -693,7 +707,10 @@ export default function OverviewContent({
                         <SectionTitle>{t.selectStoryType}</SectionTitle>
                         <StoryTypeSelector
                           value={draft.story.storyType}
-                          options={storyTypes}
+                          options={storyTypes.map((st) => ({
+                            code: st.code,
+                            label: uiLang === 'cy' ? (st.labelCy ?? st.label) : st.label,
+                          }))}
                           onChange={(storyType) =>
                             setDraft((current) => ({
                               ...current,
@@ -739,7 +756,7 @@ export default function OverviewContent({
                         <SectionTitle>{t.selectMedium}</SectionTitle>
                         <StoryTypeSelector
                           value={draft.painting.medium}
-                          options={paintingMediums.map((m) => ({ code: m, label: m }))}
+                          options={paintingMediums.map((m) => ({ code: m.code, label: uiLang === 'cy' ? (m.labelCy ?? m.label) : m.label }))}
                           onChange={(medium) =>
                             setDraft((current) => ({
                               ...current,
@@ -785,7 +802,10 @@ export default function OverviewContent({
                         <SectionTitle>{t.selectCategory}</SectionTitle>
                         <StoryTypeSelector
                           value={draft.artifact.categoryCode}
-                          options={artifactCategories}
+                          options={artifactCategories.map((cat) => ({
+                            code: cat.code,
+                            label: uiLang === 'cy' ? (cat.labelCy ?? cat.label) : cat.label,
+                          }))}
                           onChange={(categoryCode) =>
                             setDraft((current) => ({
                               ...current,
@@ -1231,7 +1251,9 @@ export default function OverviewContent({
 
           <div className="flex justify-end gap-3">
             <BlackButton onClick={() => { setMediumModalOpen(false); setNewMediumLabel(''); setNewMediumLabelCy('') }}>{t.cancel}</BlackButton>
-            <GreenButton onClick={handleAddMedium}>{t.confirm}</GreenButton>
+            <GreenButton onClick={handleCreateMedium} disabled={isCreatingMedium}>
+              {isCreatingMedium ? t.creating : t.confirm}
+            </GreenButton>
           </div>
         </div>
       </Modal>

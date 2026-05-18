@@ -107,6 +107,18 @@ async function getArtifactCategoryId(
   return (data?.id as string | null) ?? null
 }
 
+async function getPaintingMediumId(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  code: string
+): Promise<string | null> {
+  const { data } = await supabase
+    .from('painting_mediums')
+    .select('id')
+    .eq('code', code)
+    .maybeSingle()
+  return (data?.id as string | null) ?? null
+}
+
 async function ensureActiveAdminAccess(userId: string) {
   const adminSupabase = createAdminClient()
 
@@ -554,6 +566,7 @@ export async function createBookGenreAction(args: {
     return {
       success: true,
       genreTitle: title,
+      genreTitleCy: titleCy || undefined,
       alreadyExisted: false,
     }
   } catch (error) {
@@ -643,7 +656,7 @@ export async function createStoryTypeAction(args: { label: string; labelCy?: str
     }
 
     revalidatePath('/overview')
-    return { success: true, alreadyExisted: false, storyType: { code: inserted.code, label: title } }
+    return { success: true, alreadyExisted: false, storyType: { code: inserted.code, label: title, labelCy: labelCy || undefined } }
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : 'Failed to create story type.' }
   }
@@ -735,12 +748,108 @@ export async function createArtifactCategoryAction(args: { label: string; labelC
     return {
       success: true,
       alreadyExisted: false,
-      category: { code: inserted.code as string, label: title },
+      category: { code: inserted.code as string, label: title, labelCy: labelCy || undefined },
     }
   } catch (error) {
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to create artefact category.',
+    }
+  }
+}
+
+export async function createPaintingMediumAction(args: { label: string; labelCy?: string }) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'You must be logged in to create a painting medium.' }
+
+  try {
+    await ensureActiveAdminAccess(user.id)
+    const adminSupabase: Awaited<ReturnType<typeof createClient>> = createAdminClient()
+    const title = args.label.trim()
+    if (!title) return { success: false, error: 'Painting medium name is required.' }
+    const code = toCode(title)
+
+    const { data: existingByCode } = await adminSupabase
+      .from('painting_mediums')
+      .select('id, code')
+      .eq('code', code)
+      .limit(1)
+
+    const existing = existingByCode?.[0]
+    if (existing?.id && existing?.code) {
+      const { data: translation } = await adminSupabase
+        .from('painting_medium_translations')
+        .select('label')
+        .eq('painting_medium_id', existing.id)
+        .eq('language_code', 'en')
+        .maybeSingle()
+
+      return {
+        success: true,
+        alreadyExisted: true,
+        medium: {
+          code: existing.code as string,
+          label: (translation?.label as string | null) ?? (existing.code as string),
+        },
+      }
+    }
+
+    const { data: inserted, error: mediumError } = await adminSupabase
+      .from('painting_mediums')
+      .insert({ code, sort_order: 0 })
+      .select('id, code')
+      .single()
+
+    if (mediumError || !inserted) {
+      return { success: false, error: mediumError?.message ?? 'Failed to create painting medium.' }
+    }
+
+    const { error: translationError } = await adminSupabase
+      .from('painting_medium_translations')
+      .insert({
+        painting_medium_id: inserted.id,
+        language_code: 'en',
+        label: title,
+      })
+
+    if (translationError) {
+      return {
+        success: false,
+        error: `Medium was created but label could not be saved: ${translationError.message}`,
+      }
+    }
+
+    const labelCy = args.labelCy?.trim()
+    if (labelCy) {
+      const { error: translationCyError } = await adminSupabase
+        .from('painting_medium_translations')
+        .insert({
+          painting_medium_id: inserted.id,
+          language_code: 'cy',
+          label: labelCy,
+        })
+
+      if (translationCyError) {
+        return {
+          success: false,
+          error: `Medium was created but Welsh label could not be saved: ${translationCyError.message}`,
+        }
+      }
+    }
+
+    revalidatePath('/overview')
+    return {
+      success: true,
+      alreadyExisted: false,
+      medium: { code: inserted.code as string, label: title, labelCy: labelCy || undefined },
+    }
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to create painting medium.',
     }
   }
 }
@@ -1107,7 +1216,7 @@ export async function saveContentAction({
           content_item_id: contentItemId,
           artist_name: draft.painting.artist || null,
           year_created: Number.isFinite(yearCreated) ? yearCreated : null,
-          medium: draft.painting.medium || null,
+          painting_medium_id: draft.painting.medium ? await getPaintingMediumId(adminSupabase, draft.painting.medium) : null,
           dimensions: (draft.painting.dimensionsH || draft.painting.dimensionsW)
             ? JSON.stringify({ h: draft.painting.dimensionsH || null, w: draft.painting.dimensionsW || null })
             : null,
