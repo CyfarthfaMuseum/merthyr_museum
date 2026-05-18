@@ -252,7 +252,7 @@ async function getSidebarBookGroups(
   return [...grouped.entries()]
     .map(([genre, books]) => ({
       genre,
-      genreCy: genreCyByEnGenre.get(genre),
+      genreCy: genreCyByEnGenre.get(genre) ?? (genre === 'Uncategorised' ? 'Heb gategori' : undefined),
       books: [...books].sort((a, b) => a.title.localeCompare(b.title)),
     }))
     .sort((a, b) => a.genre.localeCompare(b.genre))

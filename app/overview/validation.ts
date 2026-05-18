@@ -6,8 +6,6 @@ export function validateDraft(draft: OverviewDraft): string[] {
   if (draft.contentType === 'book') {
     if (!draft.book.title.trim()) errors.push('Book title is required.')
     if (!draft.book.summary.trim()) errors.push('Book summary is required.')
-    if (!draft.bookCy.title.trim()) errors.push('Welsh book title is required.')
-    if (!draft.bookCy.summary.trim()) errors.push('Welsh book summary is required.')
   }
 
   if (draft.contentType === 'stories') {

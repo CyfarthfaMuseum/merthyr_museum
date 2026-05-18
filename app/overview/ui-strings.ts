@@ -253,7 +253,7 @@ export const uiStrings = {
     contentTypeStories: 'Straeon',
     contentTypePainting: 'Peintiad',
     contentTypeArtefacts: 'Arteffactau',
-    contentTypeBio: 'Bio',
+    contentTypeBio: 'Byw',
     // SEO
     seo: 'SEO',
     seoHint: "Cudd yn ddiofyn. Llenwir y teitl a'r disgrifiad SEO yn awtomatig oni bai eich bod yn eu golygu.",
