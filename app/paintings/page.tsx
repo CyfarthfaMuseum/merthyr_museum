@@ -1,5 +1,5 @@
-import PublicHome from "@/components/public/PublicHome"
-import { getPublicMapLocations } from "@/lib/public/map"
+import PublicCatalogue from "@/components/public/PublicCatalogue"
+import { getPublicCatalogueItems } from "@/lib/public/content"
 import { isPublicLanguage, type PublicLanguage } from "@/lib/public/types"
 
 function resolveLang(value: string | string[] | undefined): PublicLanguage {
@@ -7,14 +7,14 @@ function resolveLang(value: string | string[] | undefined): PublicLanguage {
   return candidate && isPublicLanguage(candidate) ? candidate : "en"
 }
 
-export default async function Home({
+export default async function PublicPaintingsPage({
   searchParams,
 }: {
   searchParams?: Promise<{ lang?: string | string[] }>
 }) {
   const params = searchParams ? await searchParams : {}
   const lang = resolveLang(params.lang)
-  const locations = await getPublicMapLocations(lang)
+  const items = await getPublicCatalogueItems("painting", lang)
 
-  return <PublicHome lang={lang} locations={locations} />
+  return <PublicCatalogue type="painting" lang={lang} items={items} />
 }
