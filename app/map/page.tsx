@@ -1,4 +1,4 @@
-import PublicHome from "@/components/public/PublicHome"
+import PublicMapShell from "@/components/public/PublicMapShell"
 import { getPublicMapLocations } from "@/lib/public/map"
 import { isPublicLanguage, type PublicLanguage } from "@/lib/public/types"
 
@@ -7,7 +7,7 @@ function resolveLang(value: string | string[] | undefined): PublicLanguage {
   return candidate && isPublicLanguage(candidate) ? candidate : "en"
 }
 
-export default async function Home({
+export default async function PublicMapPage({
   searchParams,
 }: {
   searchParams?: Promise<{ lang?: string | string[] }>
@@ -16,5 +16,5 @@ export default async function Home({
   const lang = resolveLang(params.lang)
   const locations = await getPublicMapLocations(lang)
 
-  return <PublicHome lang={lang} locations={locations} />
+  return <PublicMapShell lang={lang} locations={locations} />
 }
