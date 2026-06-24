@@ -10,34 +10,15 @@ import {
   Hammer,
   Map,
   MapPin,
-  Menu,
-  Search,
   Sparkles,
   UserRound,
-  X,
 } from "lucide-react"
-import { publicHref, type PublicLanguage, type PublicMapLocation } from "@/lib/public/types"
+import { publicHref, type PublicLanguage, type PublicMapContentSummary, type PublicMapLocation } from "@/lib/public/types"
+import { t } from "@/lib/public/i18n"
+import PublicMapSidebar from "./PublicMapSidebar"
 
-const categoryLabels = {
-  all: "All",
-  painting: "Paintings",
-  book: "Books",
-  story: "Stories",
-  artefact: "Artefacts",
-  biography: "Biographies",
-}
-
-const menuItems = [
-  { label: "Map", href: "/map", icon: Map, active: true },
-  { label: "Creativity", href: "/paintings", icon: Sparkles },
-  { label: "Activism", href: "/stories", icon: Feather },
-  { label: "Industry", href: "/artefacts", icon: Hammer },
-  { label: "Everyday", href: "/biographies", icon: UserRound },
-  { label: "Books", href: "/books", icon: BookOpen },
-]
-
+type CategoryKey = "all" | "painting" | "book" | "story" | "artefact" | "biography"
 type OpenPanel = "left" | "right" | null
-type CategoryKey = keyof typeof categoryLabels
 type MapLngLat = [number, number]
 
 type MapEvent = {
@@ -86,7 +67,6 @@ type MapTilerSDK = {
   Map: new (options: Record<string, unknown>) => MapInstance
   Marker: new (options: { element: HTMLElement; anchor?: string }) => MapMarker
   LngLatBounds: new (southWest: MapLngLat, northEast: MapLngLat) => MapBounds
-  NavigationControl: new (options?: Record<string, unknown>) => unknown
 }
 
 declare global {
@@ -167,49 +147,81 @@ export default function PublicMapShell({
   lang: PublicLanguage
   locations: PublicMapLocation[]
 }) {
+  type SelectedItem = { content: PublicMapContentSummary; location: PublicMapLocation }
+  type MapItem = { id: string; content: PublicMapContentSummary; location: PublicMapLocation; coordinates: MapLngLat }
+
+  const [currentLang, setCurrentLang] = useState<PublicLanguage>(lang)
+  const [currentLocations, setCurrentLocations] = useState<PublicMapLocation[]>(locations)
+
+  function switchLang(newLang: PublicLanguage) {
+    setCurrentLang(newLang)
+    fetch(`/api/public/map?lang=${newLang}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+      .then((data: PublicMapLocation[]) => {
+        setCurrentLocations(data)
+        // Keep the sidebar open with an updated content reference in the new language
+        setSelectedItem((prev) => {
+          if (!prev) return null
+          for (const loc of data) {
+            const updated = loc.content.find((c) => c.id === prev.content.id)
+            if (updated) return { content: updated, location: loc }
+          }
+          return prev
+        })
+      })
+      .catch((err) => console.error("[lang] map fetch failed:", err))
+  }
+
   const mapContainerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<MapInstance | null>(null)
-  const locationsRef = useRef<PublicMapLocation[]>(locations)
+  const mapItemsRef = useRef<MapItem[]>([])
   const markersByIdRef = useRef<Record<string, MapMarker>>({})
   const onScreenByIdRef = useRef<Record<string, MapMarker>>({})
   const [openPanel, setOpenPanel] = useState<OpenPanel>(null)
-  const [selectedLocation, setSelectedLocation] = useState<PublicMapLocation | null>(null)
+  const [selectedItem, setSelectedItem] = useState<SelectedItem | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<CategoryKey>("all")
   const [mapError, setMapError] = useState<string | null>(null)
   const [mapReady, setMapReady] = useState(false)
-
-  console.log("[map] locations received from server:", locations.length, locations.map(l => ({ id: l.id, lat: l.latitude, lng: l.longitude, title: l.title })))
 
   const categories = useMemo(
     () =>
       [
         "all",
-        ...new Set(locations.flatMap((location) => location.categories)),
-      ] as Array<keyof typeof categoryLabels>,
-    [locations]
+        ...new Set(currentLocations.flatMap((location) => location.categories)),
+      ] as CategoryKey[],
+    [currentLocations]
   )
-  locationsRef.current = locations
 
   const filteredLocations = useMemo(
     () =>
       selectedCategory === "all"
-        ? locations
-        : locations.filter((location) => location.categories.includes(selectedCategory)),
-    [locations, selectedCategory]
-  )
-  const mappedLocations = useMemo(
-    () =>
-      filteredLocations
-        .map((location) => ({ location, coordinates: coordinatesFor(location) }))
-        .filter(
-          (entry): entry is { location: PublicMapLocation; coordinates: MapLngLat } =>
-            Boolean(entry.coordinates)
-        ),
-    [filteredLocations]
+        ? currentLocations
+        : currentLocations.filter((location) => location.categories.includes(selectedCategory)),
+    [currentLocations, selectedCategory]
   )
 
-  const openLocation = useCallback((location: PublicMapLocation) => {
-    setSelectedLocation(location)
+  const mapItems = useMemo((): MapItem[] => {
+    const items: MapItem[] = []
+    for (const location of filteredLocations) {
+      const coords = coordinatesFor(location)
+      if (!coords) continue
+      const contentItems = location.content
+      for (let i = 0; i < contentItems.length; i++) {
+        const content = contentItems[i]
+        const [lng, lat] = coords
+        const offsetLng = contentItems.length > 1
+          ? lng + (i - (contentItems.length - 1) / 2) * 0.00018
+          : lng
+        items.push({ id: content.id, content, location, coordinates: [offsetLng, lat] })
+      }
+    }
+    return items
+  }, [filteredLocations])
+
+  mapItemsRef.current = mapItems
+
+  const openItem = useCallback((item: SelectedItem) => {
+    setSelectedItem(item)
     setOpenPanel("right")
   }, [])
 
@@ -226,21 +238,6 @@ export default function PublicMapShell({
     setOpenPanel(null)
   }
 
-  function selectAdjacentLocation(direction: -1 | 1) {
-    if (!selectedLocation || filteredLocations.length === 0) return
-
-    const currentIndex = filteredLocations.findIndex((location) => location.id === selectedLocation.id)
-    const safeIndex = currentIndex === -1 ? 0 : currentIndex
-    const nextIndex =
-      (safeIndex + direction + filteredLocations.length) % filteredLocations.length
-    const nextLocation = filteredLocations[nextIndex]
-
-    if (nextLocation) {
-      setSelectedLocation(nextLocation)
-      setOpenPanel("right")
-    }
-  }
-
   useEffect(() => {
     let cancelled = false
 
@@ -252,18 +249,19 @@ export default function PublicMapShell({
 
         maptilersdk.config.apiKey = mapTilerApiKey
         const initialCoordinates =
-          locations.map(coordinatesFor).find((coordinates) => coordinates !== null) ??
+          currentLocations.map(coordinatesFor).find((coordinates) => coordinates !== null) ??
           merthyrTydfilCenter
         const map = new maptilersdk.Map({
           container: mapContainerRef.current,
           style: mapTilerStyleUrl,
           center: initialCoordinates,
-          zoom: locations.length > 1 ? 12.6 : 13.4,
+          zoom: currentLocations.length > 1 ? 12.6 : 13.4,
           attributionControl: true,
+          navigationControl: false,
+          geolocateControl: false,
         })
 
-        map.addControl(new maptilersdk.NavigationControl({ showCompass: false }), "top-right")
-        mapRef.current = map
+mapRef.current = map
         window.requestAnimationFrame(() => map.resize())
 
         map.on("load", () => {
@@ -367,14 +365,14 @@ export default function PublicMapShell({
               const id = String(feature.properties.id)
 
               if (!markersByIdRef.current[id]) {
-                const location = locationsRef.current.find((l) => l.id === id)
-                if (!location) continue
+                const mapItem = mapItemsRef.current.find((item) => item.id === id)
+                if (!mapItem) continue
 
                 const el = document.createElement("button")
                 el.type = "button"
                 el.className = "public-map-marker"
-                el.setAttribute("aria-label", `Open ${location.title}`)
-                const pinLabel = location.address?.split(", ")[0] ?? location.title
+                el.setAttribute("aria-label", `Open ${mapItem.content.title}`)
+                const pinLabel = mapItem.content.title
                 el.innerHTML = `
                   <span class="public-map-marker__label">${pinLabel}</span>
                   <span class="public-map-marker__pin">
@@ -385,8 +383,8 @@ export default function PublicMapShell({
                   </span>
                 `
                 el.addEventListener("click", () => {
-                  const loc = locationsRef.current.find((l) => l.id === id)
-                  if (loc) openLocation(loc)
+                  const item = mapItemsRef.current.find((i) => i.id === id)
+                  if (item) openItem({ content: item.content, location: item.location })
                 })
 
                 markersByIdRef.current[id] = new maptilersdk.Marker({ element: el, anchor: "bottom" })
@@ -430,49 +428,37 @@ export default function PublicMapShell({
   }, [locations])
 
   useEffect(() => {
-    console.log("[map] data effect — mapReady:", mapReady, "mappedLocations:", mappedLocations.length)
-    if (!mapReady || !mapRef.current || !window.maptilersdk) {
-      console.log("[map] data effect skipped — map not ready yet")
-      return
-    }
+    if (!mapReady || !mapRef.current || !window.maptilersdk) return
 
     const map = mapRef.current
     const maptilersdk = window.maptilersdk
     const source = map.getSource("locations")
-    if (!source) {
-      console.log("[map] data effect skipped — locations source not found")
-      return
-    }
+    if (!source) return
 
-    // Clear marker cache so the render listener recreates markers for the new set
     Object.values(onScreenByIdRef.current).forEach((m) => m.remove())
     onScreenByIdRef.current = {}
     markersByIdRef.current = {}
 
-    console.log("[map] updating GeoJSON source with", mappedLocations.length, "features")
     source.setData({
       type: "FeatureCollection",
-      features: mappedLocations.map(({ location, coordinates }) => ({
+      features: mapItems.map(({ id, content, coordinates }) => ({
         type: "Feature",
         geometry: { type: "Point", coordinates },
-        properties: { id: location.id, title: location.title },
+        properties: { id, title: content.title },
       })),
     })
 
-    if (mappedLocations.length === 1) {
+    if (mapItems.length === 1) {
       map.fitBounds(
-        new maptilersdk.LngLatBounds(mappedLocations[0].coordinates, mappedLocations[0].coordinates),
+        new maptilersdk.LngLatBounds(mapItems[0].coordinates, mapItems[0].coordinates),
         { maxZoom: 14.5, padding: 120, duration: 600 }
       )
-    } else if (mappedLocations.length > 1) {
-      const bounds = new maptilersdk.LngLatBounds(
-        mappedLocations[0].coordinates,
-        mappedLocations[0].coordinates
-      )
-      mappedLocations.slice(1).forEach(({ coordinates }) => bounds.extend(coordinates))
+    } else if (mapItems.length > 1) {
+      const bounds = new maptilersdk.LngLatBounds(mapItems[0].coordinates, mapItems[0].coordinates)
+      mapItems.slice(1).forEach(({ coordinates }) => bounds.extend(coordinates))
       map.fitBounds(bounds, { maxZoom: 14, padding: 120, duration: 600 })
     }
-  }, [mappedLocations, mapReady])
+  }, [mapItems, mapReady])
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#f8f6ed] text-neutral-950">
@@ -496,15 +482,6 @@ export default function PublicMapShell({
           </div>
         ) : null}
 
-        <button
-          type="button"
-          onClick={openLeftMenu}
-          className="absolute left-4 top-4 z-30 flex h-14 w-14 items-center justify-center bg-neutral-950/45 text-white shadow-sm backdrop-blur-sm transition hover:bg-neutral-950/60"
-          aria-label="Open menu"
-          aria-expanded={openPanel === "left"}
-        >
-          <Menu className="h-7 w-7" />
-        </button>
 
         <div className="absolute bottom-5 left-1/2 z-20 flex max-w-[calc(100%-2rem)] -translate-x-1/2 gap-2 overflow-x-auto px-1">
           {categories.map((category) => (
@@ -519,7 +496,7 @@ export default function PublicMapShell({
               }`}
               aria-pressed={selectedCategory === category}
             >
-              {categoryLabels[category]}
+              {t(`filter.${category}`, currentLang)}
             </button>
           ))}
         </div>
@@ -535,158 +512,147 @@ export default function PublicMapShell({
           />
         ) : null}
 
-        <aside
-          className={`absolute inset-y-0 left-0 z-40 flex w-[min(84vw,330px)] flex-col border-r border-neutral-200 bg-white shadow-2xl transition-transform duration-300 ease-out ${
-            openPanel === "left" ? "translate-x-0" : "-translate-x-full"
+        {/* Sliding wrapper — button is attached to the panel's right edge */}
+        <div
+          className={`absolute inset-y-0 left-0 z-40 flex items-start transition-transform duration-300 ease-out ${
+            openPanel === "left" ? "translate-x-0" : "-translate-x-[min(84vw,330px)]"
           }`}
-          aria-hidden={openPanel !== "left"}
-          inert={openPanel !== "left"}
         >
-          <div className="flex items-center justify-between px-6 pb-5 pt-8">
-            <Link
-              href={publicHref("/", lang)}
-              className="font-serif text-[30px] leading-none text-[#006b43]"
-            >
-              HER:STORIES
-            </Link>
-            <button
-              type="button"
-              onClick={closePanels}
-              className="flex h-10 w-10 items-center justify-center border border-neutral-200 text-neutral-700 transition hover:border-neutral-950 hover:text-neutral-950"
-              aria-label="Close menu"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-
-          <div className="mx-6 mb-7 flex items-center gap-3 border-b border-neutral-400 pb-3 text-neutral-700">
-            <Search className="h-5 w-5" />
-            <span className="font-serif text-[18px] font-semibold">Search</span>
-          </div>
-
-          <nav className="space-y-1">
-            {menuItems.map((item) => {
-              const Icon = item.icon
-              return (
-                <Link
-                  key={item.label}
-                  href={publicHref(item.href, lang)}
-                  className={`mx-4 flex h-12 items-center justify-between px-4 font-serif text-[18px] font-semibold transition ${
-                    item.active
-                      ? "rounded-full bg-neutral-950 text-white"
-                      : "text-neutral-800 hover:bg-neutral-100"
-                  }`}
-                >
-                  <span className="flex items-center gap-3">
-                    <Icon className="h-5 w-5" />
-                    {item.label}
-                  </span>
-                  {!item.active ? <ChevronRight className="h-5 w-5 text-neutral-300" /> : null}
-                </Link>
-              )
-            })}
-          </nav>
-
-          <div className="mt-auto px-6 pb-6">
-            <div className="mb-6 h-20 w-28 rounded-sm bg-[#f1f4ef] p-3 text-[10px] font-semibold uppercase leading-tight text-[#006b43]">
-              Merthyr Tydfil County Borough Council
+          <aside
+            className="flex h-full w-[min(84vw,330px)] flex-col border-r border-neutral-200 bg-white shadow-2xl"
+            aria-hidden={openPanel !== "left"}
+            inert={openPanel !== "left"}
+          >
+            <div className="flex flex-col items-center px-6 pb-24 pt-8">
+              <Link href={publicHref("/", currentLang)} aria-label="Her Stories">
+                <img
+                  src={currentLang === "cy" ? "/mainLogo-cy.png" : "/mainLogo.svg"}
+                  alt="Her Stories"
+                  className="h-16 w-auto object-contain"
+                />
+              </Link>
             </div>
-            <button
-              type="button"
-              className="h-11 w-full rounded-full border border-neutral-300 text-[15px] text-neutral-700"
-            >
-              {lang === "cy" ? "Cymraeg" : "English (UK)"}
-            </button>
-          </div>
-        </aside>
 
-        <aside
-          className={`absolute inset-y-0 right-0 z-40 flex w-[min(90vw,390px)] flex-col overflow-y-auto border-l border-neutral-200 bg-white shadow-2xl transition-transform duration-300 ease-out ${
-            openPanel === "right" ? "translate-x-0" : "translate-x-full"
-          }`}
-          aria-hidden={openPanel !== "right"}
-          inert={openPanel !== "right"}
-        >
-          <div className="sticky top-0 z-10 flex items-center justify-between border-b border-neutral-200 bg-white/95 p-4 backdrop-blur-sm">
-            <button
-              type="button"
-              onClick={closePanels}
-              className="flex h-11 w-11 items-center justify-center bg-neutral-950/55 text-white transition hover:bg-neutral-950/70"
-              aria-label="Close details"
-            >
-              <ChevronRight className="h-6 w-6" />
-            </button>
-            <p className="text-[12px] font-semibold uppercase text-neutral-500">
-              Location details
-            </p>
-          </div>
+            <nav className="space-y-1">
+              {([
+                { key: "nav.map",        href: "/map",         icon: Map,      active: true },
+                { key: "nav.creativity", href: "/paintings",   icon: Sparkles  },
+                { key: "nav.activism",   href: "/stories",     icon: Feather   },
+                { key: "nav.industry",   href: "/artefacts",   icon: Hammer    },
+                { key: "nav.everyday",   href: "/biographies", icon: UserRound },
+                { key: "nav.books",      href: "/books",       icon: BookOpen  },
+              ] as const).map((item) => {
+                const Icon = item.icon
+                const label = t(item.key, currentLang)
+                return (
+                  <Link
+                    key={item.key}
+                    href={publicHref(item.href, currentLang)}
+                    className={`ml-4 flex h-12 items-center justify-between px-4 font-serif text-[18px] font-semibold transition ${"active" in item
+                      ? "rounded-l-full bg-neutral-950 text-white"
+                      : "rounded-l-full text-neutral-800 hover:bg-neutral-100"
+                    }`}
+                  >
+                    <span className="flex items-center gap-3">
+                      <Icon className="h-5 w-5" />
+                      {label}
+                    </span>
+                    {"active" in item
+                      ? null
+                      : <ChevronRight className="h-5 w-5 text-neutral-300" />}
+                  </Link>
+                )
+              })}
+            </nav>
 
-          {selectedLocation ? (
-            <div className="p-5">
-              <div className="mb-5 aspect-[4/3] bg-[linear-gradient(135deg,#f7f1dc,#ffffff_48%,#e5ecd9)] p-4">
-                <div className="flex h-full items-center justify-center border border-neutral-200 bg-white/55">
-                  <MapPin className="h-12 w-12 text-[#00744b]" />
-                </div>
+            <div className="mt-auto flex flex-col items-center px-6 pb-6">
+              <div className="mb-6">
+                <img
+                  src="/logos.png"
+                  alt="Welsh Government and Merthyr Tydfil County Borough Council"
+                  className="h-40 w-auto object-contain"
+                />
               </div>
-
-              <div className="mb-4 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => selectAdjacentLocation(-1)}
-                  className="flex h-11 w-11 items-center justify-center bg-neutral-950/55 text-white"
-                  aria-label="Previous location"
-                  disabled={filteredLocations.length < 2}
-                >
-                  <ChevronLeft className="h-6 w-6" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => selectAdjacentLocation(1)}
-                  className="flex h-11 w-11 items-center justify-center bg-neutral-950/55 text-white"
-                  aria-label="Next location"
-                  disabled={filteredLocations.length < 2}
-                >
-                  <ChevronRight className="h-6 w-6" />
-                </button>
-              </div>
-
-              <h1 className="font-serif text-[42px] leading-none text-neutral-950">
-                {selectedLocation.title}
-              </h1>
-              {selectedLocation.address ? (
-                <p className="mt-2 text-[18px] text-neutral-700">{selectedLocation.address}</p>
-              ) : null}
-              {selectedLocation.description ? (
-                <p className="mt-6 text-[18px] leading-7 text-neutral-800">
-                  {selectedLocation.description}
-                </p>
-              ) : null}
-
-              <div className="mt-7 space-y-3">
-                {selectedLocation.content.length > 0 ? (
-                  selectedLocation.content.map((item) => (
-                    <Link
-                      key={item.id}
-                      href={item.href}
-                      className="block border border-neutral-200 p-4 transition hover:border-neutral-950"
-                    >
-                      <p className="text-[11px] font-semibold uppercase text-[#00744b]">
-                        {item.contentType}
-                      </p>
-                      <p className="mt-1 font-serif text-[22px] leading-tight text-neutral-950">
-                        {item.title}
-                      </p>
-                    </Link>
-                  ))
-                ) : (
-                  <p className="border border-neutral-200 p-4 text-[15px] text-neutral-600">
-                    No public items linked.
-                  </p>
-                )}
+              <div className="flex w-full overflow-hidden rounded-full border border-neutral-300">
+                {(["en", "cy"] as const).map((l, i) => (
+                  <button
+                    key={l}
+                    type="button"
+                    onClick={() => switchLang(l)}
+                    className={`flex-1 py-2.5 text-[14px] font-medium transition ${
+                      i > 0 ? "border-l border-neutral-300" : ""
+                    } ${
+                      currentLang === l
+                        ? "bg-neutral-950 text-white"
+                        : "text-neutral-700 hover:bg-neutral-50"
+                    }`}
+                  >
+                    {l === "en" ? "English" : "Cymraeg"}
+                  </button>
+                ))}
               </div>
             </div>
-          ) : null}
-        </aside>
+          </aside>
+
+          {/* Toggle button — rides the right edge of the panel */}
+          <button
+            type="button"
+            onClick={openLeftMenu}
+            className="flex h-14 w-14 shrink-0 items-center justify-center bg-neutral-950/45 text-white shadow-sm backdrop-blur-sm transition hover:bg-neutral-950/60"
+            aria-label={openPanel === "left" ? t("nav.closeMenu", currentLang) : "Open menu"}
+            aria-expanded={openPanel === "left"}
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-7 w-7"
+              aria-hidden="true"
+            >
+              <line
+                x1="3" y1="6" x2="21" y2="6"
+                style={{
+                  transformOrigin: "12px 6px",
+                  transition: "transform 0.3s cubic-bezier(0.4,0,0.2,1)",
+                  transform: openPanel === "left"
+                    ? "translateY(6px) rotate(-45deg) scaleX(0.65)"
+                    : "none",
+                }}
+              />
+              <line
+                x1="3" y1="12" x2="21" y2="12"
+                style={{
+                  transformOrigin: "center",
+                  transition: "transform 0.3s cubic-bezier(0.4,0,0.2,1)",
+                  transform: openPanel === "left" ? "scaleX(0)" : "none",
+                }}
+              />
+              <line
+                x1="3" y1="18" x2="21" y2="18"
+                style={{
+                  transformOrigin: "12px 18px",
+                  transition: "transform 0.3s cubic-bezier(0.4,0,0.2,1)",
+                  transform: openPanel === "left"
+                    ? "translateY(-6px) rotate(45deg) scaleX(0.65)"
+                    : "none",
+                }}
+              />
+            </svg>
+          </button>
+        </div>
+
+        {selectedItem ? (
+          <PublicMapSidebar
+            content={selectedItem.content}
+            location={selectedItem.location}
+            lang={currentLang}
+            isOpen={openPanel === "right"}
+            onClose={closePanels}
+          />
+        ) : null}
       </section>
     </main>
   )

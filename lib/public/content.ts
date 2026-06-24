@@ -1,4 +1,5 @@
 import { createClient } from "@/utils/supabase/server"
+import { createAdminClient } from "@/utils/supabase/admin"
 import {
   isPublicLanguage,
   publicContentHref,
@@ -203,7 +204,8 @@ async function getPublicMedia(
   contentItemId: string,
   lang: PublicLanguage
 ) {
-  const { data } = await supabase
+  const adminClient = createAdminClient()
+  const { data } = await adminClient
     .from("content_media")
     .select(
       `

@@ -154,6 +154,8 @@ export type PublicMapContentSummary = {
   title: string
   contentType: PublicContentType
   href: string
+  primaryImage: PublicMedia | null
+  galleryMedia: PublicMedia[]
 }
 
 export type PublicMapLocation = PublicLocationSummary & {

@@ -1,12 +1,17 @@
 import Link from "next/link"
 import { Menu } from "lucide-react"
 import { publicHref, type PublicLanguage } from "@/lib/public/types"
+import { t } from "@/lib/public/i18n"
 
 export default function PublicHome({ lang }: { lang: PublicLanguage }) {
   return (
     <main className="min-h-screen bg-white text-neutral-950">
       <header className="mx-auto flex h-[68px] max-w-[1280px] items-center justify-between px-4 sm:px-6 lg:px-8">
-        <h1 className="font-serif text-[30px] leading-none">Her Stories</h1>
+        <img
+            src={lang === "cy" ? "/mainLogo-cy.png" : "/mainLogo.svg"}
+            alt="Her Stories"
+            className="h-10 w-auto object-contain"
+          />
         <button
           type="button"
           className="flex h-11 w-11 items-center justify-center bg-neutral-200"
@@ -31,19 +36,19 @@ export default function PublicHome({ lang }: { lang: PublicLanguage }) {
               href={publicHref("/map", lang)}
               className="inline-flex h-12 items-center bg-neutral-950 px-6 text-[13px] font-semibold uppercase tracking-[0.14em] text-white transition hover:bg-neutral-800"
             >
-              Open Map
+              {t("home.openMap", lang)}
             </Link>
             <Link
               href={publicHref("/books", lang)}
               className="inline-flex h-12 items-center border border-neutral-200 px-5 text-[13px] font-semibold uppercase tracking-[0.14em] text-neutral-700 transition hover:border-neutral-950"
             >
-              Books
+              {t("home.books", lang)}
             </Link>
             <Link
               href={publicHref("/paintings", lang)}
               className="inline-flex h-12 items-center border border-neutral-200 px-5 text-[13px] font-semibold uppercase tracking-[0.14em] text-neutral-700 transition hover:border-neutral-950"
             >
-              Paintings
+              {t("home.paintings", lang)}
             </Link>
           </div>
         </aside>
