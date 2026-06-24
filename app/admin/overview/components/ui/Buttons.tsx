@@ -38,3 +38,20 @@ export function GreenButton({
     </button>
   )
 }
+
+export function AmberButton({
+  children,
+  className = '',
+  type = 'button',
+  ...props
+}: ButtonProps) {
+  return (
+    <button
+      type={type}
+      {...props}
+      className={`rounded-xl bg-amber-600 px-6 py-3 text-[16px] font-medium text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+    >
+      {children}
+    </button>
+  )
+}

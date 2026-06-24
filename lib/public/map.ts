@@ -1,4 +1,4 @@
-import { createClient } from "@/utils/supabase/server"
+import { createPublicClient } from "@/utils/supabase/public"
 import {
   isPublicLanguage,
   publicContentHref,
@@ -9,7 +9,7 @@ import {
   type PublicMapLocation,
 } from "./types"
 
-type SupabaseClient = Awaited<ReturnType<typeof createClient>>
+type SupabaseClient = ReturnType<typeof createPublicClient>
 
 type LocationTranslationRow = {
   language_code?: string | null
@@ -140,9 +140,9 @@ async function getPublicContentSummaries(
 
 export async function getPublicMapLocations(lang: string): Promise<PublicMapLocation[]> {
   const language = normalizeLanguage(lang)
-  const supabase = await createClient()
+  const supabase = createPublicClient()
 
-  const { data: locations } = await supabase
+  const { data: locations, error: locationsError } = await supabase
     .from("locations")
     .select(
       `
@@ -164,7 +164,14 @@ export async function getPublicMapLocations(lang: string): Promise<PublicMapLoca
     `
     )
     .eq("is_published", true)
+    .not("latitude", "is", null)
+    .not("longitude", "is", null)
     .order("slug", { ascending: true })
+
+  if (locationsError) {
+    console.error("[map] locations query error:", locationsError)
+  }
+  console.log("[map] server: locations returned:", locations?.length ?? 0)
 
   const locationIds = (locations ?? []).map((location) => location.id as string)
   const { data: links } = locationIds.length
@@ -213,7 +220,7 @@ export async function getPublicLocationWithContent(
   lang: string
 ): Promise<PublicLocationWithContent | null> {
   const language = normalizeLanguage(lang)
-  const supabase = await createClient()
+  const supabase = createPublicClient()
 
   const { data: location } = await supabase
     .from("locations")

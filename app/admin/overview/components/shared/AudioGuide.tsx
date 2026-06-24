@@ -13,8 +13,10 @@ type Props = {
   contentItemId?: string | null
   contentType: string
   initialAudio?: AudioItem | null
+  language: 'en' | 'cy'
   onError?: (message: string) => void
-  onUploaded?: (mediaAssetId: string) => void
+  onUploaded?: (language: 'en' | 'cy', audio: AudioItem) => void
+  onRemoved?: (language: 'en' | 'cy') => void
   uiLang: UiLang
 }
 
@@ -40,7 +42,16 @@ function getAudioMimeType(file: File) {
   return 'audio/mpeg'
 }
 
-export default function AudioGuide({ contentItemId, contentType, initialAudio, onError, onUploaded, uiLang }: Props) {
+export default function AudioGuide({
+  contentItemId,
+  contentType,
+  initialAudio,
+  language,
+  onError,
+  onUploaded,
+  onRemoved,
+  uiLang,
+}: Props) {
   const t = uiStrings[uiLang]
   const [audio, setAudio] = useState<AudioItem | null>(initialAudio ?? null)
   const [isUploading, setIsUploading] = useState(false)
@@ -90,7 +101,7 @@ export default function AudioGuide({ contentItemId, contentType, initialAudio, o
       if (!uploadRes.ok) throw new Error('Upload to storage failed.')
 
       const result = await saveAudioAction({
-        contentItemId,
+        language,
         objectKey,
         publicUrl,
         fileName: file.name,
@@ -100,10 +111,9 @@ export default function AudioGuide({ contentItemId, contentType, initialAudio, o
 
       if (!result.success) throw new Error(result.error)
 
-      setAudio({ mediaAssetId: result.mediaAssetId, fileName: file.name, url: publicUrl ?? null })
-      if (!contentItemId) {
-        onUploaded?.(result.mediaAssetId)
-      }
+      const uploadedAudio = { mediaAssetId: result.mediaAssetId, fileName: file.name, url: publicUrl ?? null }
+      setAudio(uploadedAudio)
+      onUploaded?.(language, uploadedAudio)
     } catch (err) {
       onError?.(err instanceof Error ? err.message : 'Upload failed.')
     } finally {
@@ -112,7 +122,7 @@ export default function AudioGuide({ contentItemId, contentType, initialAudio, o
   }
 
   async function handleRemove() {
-    if (!audio || !contentItemId) return
+    if (!audio) return
     const result = await deleteAudioAction({
       mediaAssetId: audio.mediaAssetId,
       contentItemId,
@@ -122,11 +132,12 @@ export default function AudioGuide({ contentItemId, contentType, initialAudio, o
       return
     }
     setAudio(null)
+    onRemoved?.(language)
   }
 
   return (
     <div className="space-y-4">
-      <SectionTitle>{t.audioGuide}</SectionTitle>
+      <SectionTitle>{language === 'cy' ? t.audioGuideWelsh : t.audioGuideEnglish}</SectionTitle>
 
       <div className="flex flex-wrap items-center gap-4">
         <BlackButton

@@ -15,7 +15,10 @@ type SaveArgs = {
   mode: 'create' | 'edit'
   editId?: string | null
   pendingMediaAssetIds?: string[]
-  pendingAudioAssetId?: string | null
+  pendingAudioAssetIds?: {
+    en?: string | null
+    cy?: string | null
+  }
 }
 
 const CONTENT_TYPE_CODE_MAP: Record<ContentType, string> = {
@@ -980,7 +983,7 @@ export async function saveContentAction({
   mode,
   editId,
   pendingMediaAssetIds = [],
-  pendingAudioAssetId,
+  pendingAudioAssetIds = {},
 }: SaveArgs): Promise<ActionResult> {
   const supabase = await createClient()
 
@@ -1067,18 +1070,23 @@ export async function saveContentAction({
 
     await linkMediaAssetsToContentItem(adminSupabase, contentItemId, pendingMediaAssetIds)
 
-    if (pendingAudioAssetId) {
+    const pendingAudioEntries = [
+      { language: 'en', role: 'audio_en', mediaAssetId: pendingAudioAssetIds.en },
+      { language: 'cy', role: 'audio_cy', mediaAssetId: pendingAudioAssetIds.cy },
+    ].filter((entry) => entry.mediaAssetId)
+
+    for (const entry of pendingAudioEntries) {
       await adminSupabase
         .from('content_media')
         .delete()
         .eq('content_item_id', contentItemId)
-        .eq('role', 'audio')
+        .in('role', entry.language === 'en' ? ['audio', 'audio_en'] : ['audio_cy'])
 
       await adminSupabase.from('content_media').insert({
         content_item_id: contentItemId,
-        media_asset_id: pendingAudioAssetId,
-        role: 'audio',
-        sort_order: 0,
+        media_asset_id: entry.mediaAssetId,
+        role: entry.role,
+        sort_order: entry.language === 'en' ? 0 : 1,
         is_primary: false,
       })
     }

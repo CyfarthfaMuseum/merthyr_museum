@@ -8,6 +8,11 @@ export type AudioItem = {
   url: string | null
 }
 
+export type AudioItems = {
+  en: AudioItem | null
+  cy: AudioItem | null
+}
+
 export type ConnectedItem = {
   id: string
   title: string

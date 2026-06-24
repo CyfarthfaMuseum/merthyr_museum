@@ -4,10 +4,11 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { createAdminClient } from '@/utils/supabase/admin'
 import { createClient } from '@/utils/supabase/server'
 import { getStorageClient } from '@/lib/r2'
+import { getOptionalStorageEnv } from '@/lib/storage-env'
 import OverviewContent from './OverviewContent'
 import {
   initialDraft,
-  type AudioItem,
+  type AudioItems,
   type ArtifactCategoryOption,
   type PaintingMediumOption,
   type BookGenreOption,
@@ -38,6 +39,19 @@ type PageProps = {
   }>
 }
 
+type MediaAssetTranslation = {
+  language_code?: string | null
+  alt_text?: string | null
+  caption?: string | null
+}
+
+type InitialImageAsset = {
+  file_name?: string | null
+  storage_path?: string | null
+  credit?: string | null
+  media_asset_translations?: MediaAssetTranslation[] | MediaAssetTranslation | null
+}
+
 const CONTENT_TYPE_UI_TO_DB: Record<string, ContentType> = {
   book: 'book',
   stories: 'stories',
@@ -65,14 +79,14 @@ async function resolvePreviewUrl(storagePath: string | null | undefined): Promis
     return ''
   }
 
-  const bucket = process.env.STORAGE_BUCKET_NAME
-  if (!bucket) {
+  const { bucketName } = getOptionalStorageEnv()
+  if (!bucketName) {
     return ''
   }
 
   try {
     const command = new GetObjectCommand({
-      Bucket: bucket,
+      Bucket: bucketName,
       Key: normalizedPath,
     })
     return await getSignedUrl(getStorageClient(), command, { expiresIn: 60 * 15 })
@@ -881,10 +895,18 @@ async function getEditDraft(
   editId: string | null
   editType: ContentType | null
   initialLocation: { address: string; lat: number; lng: number } | null
-  initialAudio: AudioItem | null
+  initialAudio: AudioItems
   initialRelatedContent: ConnectedItem[]
 }> {
-  const noEdit = { mode: 'create' as const, draft: initialDraft, editId: null, editType: null, initialLocation: null, initialAudio: null, initialRelatedContent: [] }
+  const noEdit = {
+    mode: 'create' as const,
+    draft: initialDraft,
+    editId: null,
+    editType: null,
+    initialLocation: null,
+    initialAudio: { en: null, cy: null },
+    initialRelatedContent: [],
+  }
   if (!type || !id) return noEdit
 
   const resolvedType = CONTENT_TYPE_UI_TO_DB[type]
@@ -940,17 +962,21 @@ async function getEditDraft(
   }
 
   // Fetch audio guide
-  let initialAudio: AudioItem | null = null
+  const initialAudio: AudioItems = { en: null, cy: null }
   const { data: audioMedia } = await adminSupabase
     .from('content_media')
-    .select('media_asset_id, media_assets(file_name, storage_path)')
+    .select('media_asset_id, role, media_assets(file_name, storage_path)')
     .eq('content_item_id', id)
-    .eq('role', 'audio')
-    .maybeSingle()
-  if (audioMedia?.media_asset_id) {
-    const asset = (audioMedia.media_assets as unknown as { file_name: string; storage_path: string } | null)
-    initialAudio = {
-      mediaAssetId: audioMedia.media_asset_id as string,
+    .in('role', ['audio', 'audio_en', 'audio_cy'])
+    .order('sort_order', { ascending: true })
+  for (const media of audioMedia ?? []) {
+    const role = media.role as string
+    const language = role === 'audio_cy' ? 'cy' : 'en'
+    if (initialAudio[language]) continue
+
+    const asset = (media.media_assets as unknown as { file_name: string; storage_path: string } | null)
+    initialAudio[language] = {
+      mediaAssetId: media.media_asset_id as string,
       fileName: asset?.file_name ?? '',
       url: asset?.storage_path && isAbsoluteUrl(asset.storage_path) ? asset.storage_path : null,
     }
@@ -1444,7 +1470,7 @@ async function getInitialImages(
     `
     )
     .eq('content_item_id', contentItemId)
-    .neq('role', 'audio')
+    .not('role', 'in', '("audio","audio_en","audio_cy")')
     .order('is_primary', { ascending: false })
     .order('sort_order', { ascending: true })
 
@@ -1455,22 +1481,23 @@ async function getInitialImages(
 
   const rows = await Promise.all((data ?? []).map(async (row) => {
     const asset = Array.isArray(row.media_assets) ? row.media_assets[0] : row.media_assets
-    const storagePath = (asset?.storage_path as string | null) ?? ''
+    const typedAsset = asset as InitialImageAsset | null
+    const storagePath = typedAsset?.storage_path ?? ''
     const previewUrl = await resolvePreviewUrl(storagePath)
 
-    const translations = Array.isArray((asset as any)?.media_asset_translations)
-      ? (asset as any).media_asset_translations
+    const translations = Array.isArray(typedAsset?.media_asset_translations)
+      ? typedAsset.media_asset_translations
       : []
     const translation =
-      translations.find((item: any) => item.language_code === 'en') ?? translations[0] ?? null
+      translations.find((item) => item.language_code === 'en') ?? translations[0] ?? null
 
     return {
       id: row.media_asset_id as string,
       previewUrl,
-      fileName: (asset?.file_name as string | null) ?? 'Image',
-      altText: (translation?.alt_text as string | null) ?? '',
-      caption: (translation?.caption as string | null) ?? '',
-      credit: (asset?.credit as string | null) ?? '',
+      fileName: typedAsset?.file_name ?? 'Image',
+      altText: translation?.alt_text ?? '',
+      caption: translation?.caption ?? '',
+      credit: typedAsset?.credit ?? '',
       isPrimary: Boolean(row.is_primary),
     }
   }))

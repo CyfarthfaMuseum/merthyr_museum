@@ -311,6 +311,7 @@ export async function deleteImageAction(args: DeleteImageArgs) {
 
 type SaveAudioArgs = {
   contentItemId?: string | null
+  language: 'en' | 'cy'
   objectKey: string
   publicUrl?: string | null
   fileName: string
@@ -342,18 +343,20 @@ export async function saveAudioAction(
   if (assetError) return { success: false, error: assetError.message }
 
   if (args.contentItemId) {
-    // Remove any existing audio for this content item first
+    const role = args.language === 'cy' ? 'audio_cy' : 'audio_en'
+
+    // Remove existing audio for this content item/language first.
     await adminSupabase
       .from('content_media')
       .delete()
       .eq('content_item_id', args.contentItemId)
-      .eq('role', 'audio')
+      .in('role', args.language === 'en' ? ['audio', 'audio_en'] : ['audio_cy'])
 
     const { error: linkError } = await adminSupabase.from('content_media').insert({
       content_item_id: args.contentItemId,
       media_asset_id: mediaAssetId,
-      role: 'audio',
-      sort_order: 0,
+      role,
+      sort_order: args.language === 'en' ? 0 : 1,
       is_primary: false,
     })
 
@@ -365,7 +368,7 @@ export async function saveAudioAction(
 
 type DeleteAudioArgs = {
   mediaAssetId: string
-  contentItemId: string
+  contentItemId?: string | null
 }
 
 export async function deleteAudioAction(
@@ -379,11 +382,13 @@ export async function deleteAudioAction(
 
   const adminSupabase = createAdminClient()
 
-  await adminSupabase
-    .from('content_media')
-    .delete()
-    .eq('content_item_id', args.contentItemId)
-    .eq('media_asset_id', args.mediaAssetId)
+  if (args.contentItemId) {
+    await adminSupabase
+      .from('content_media')
+      .delete()
+      .eq('content_item_id', args.contentItemId)
+      .eq('media_asset_id', args.mediaAssetId)
+  }
 
   await adminSupabase.from('media_assets').delete().eq('id', args.mediaAssetId)
 

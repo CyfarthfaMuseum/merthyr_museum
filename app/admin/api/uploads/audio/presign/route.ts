@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { PutObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { getStorageClient } from '@/lib/r2'
+import { getStorageEnv } from '@/lib/storage-env'
 
 const allowedMimeTypes = new Set([
   'audio/mpeg',
@@ -17,7 +18,6 @@ const allowedMimeTypes = new Set([
 ])
 const allowedContentTypes = new Set(['book', 'stories', 'painting', 'artifacts', 'bio', 'generic'])
 const maxSizeBytes = 15 * 1024 * 1024
-const publicBaseUrl = process.env.STORAGE_PUBLIC_BASE_URL
 
 function sanitizeFileName(fileName: string) {
   return fileName
@@ -29,10 +29,7 @@ function sanitizeFileName(fileName: string) {
 
 export async function POST(req: NextRequest) {
   try {
-    const bucket = process.env.STORAGE_BUCKET_NAME
-    if (!bucket) {
-      return NextResponse.json({ error: 'Missing STORAGE_BUCKET_NAME.' }, { status: 500 })
-    }
+    const { bucketName, publicBaseUrl } = getStorageEnv()
 
     const body = await req.json()
     const { contentType, fileName, mimeType, fileSizeBytes } = body
@@ -61,7 +58,7 @@ export async function POST(req: NextRequest) {
     const objectKey = `content/${contentType}/audio/${randomUUID()}.${ext}`
 
     const command = new PutObjectCommand({
-      Bucket: bucket,
+      Bucket: bucketName,
       Key: objectKey,
       ContentType: mimeType,
     })
