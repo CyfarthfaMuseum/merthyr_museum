@@ -1,16 +1,8 @@
 import Link from "next/link"
-import { MapPin, Menu } from "lucide-react"
-import { publicHref, type PublicLanguage, type PublicMapLocation } from "@/lib/public/types"
+import { Menu } from "lucide-react"
+import { publicHref, type PublicLanguage } from "@/lib/public/types"
 
-export default function PublicHome({
-  lang,
-  locations,
-}: {
-  lang: PublicLanguage
-  locations: PublicMapLocation[]
-}) {
-  const itemCount = locations.reduce((total, location) => total + location.content.length, 0)
-
+export default function PublicHome({ lang }: { lang: PublicLanguage }) {
   return (
     <main className="min-h-screen bg-white text-neutral-950">
       <header className="mx-auto flex h-[68px] max-w-[1280px] items-center justify-between px-4 sm:px-6 lg:px-8">
@@ -24,27 +16,7 @@ export default function PublicHome({
         </button>
       </header>
 
-      <section className="mx-auto grid max-w-[1280px] gap-10 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,0.82fr)_minmax(320px,0.38fr)] lg:px-8 lg:py-14">
-        <div className="min-h-[520px] bg-neutral-100 p-5">
-          <div className="relative h-full min-h-[480px] border border-neutral-300 bg-white">
-            {locations.slice(0, 9).map((location, index) => {
-              const x = 14 + ((index * 27) % 72)
-              const y = 16 + ((index * 29) % 68)
-              return (
-                <Link
-                  key={location.id}
-                  href={publicHref(`/map#${location.slug}`, lang)}
-                  className="absolute flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center bg-neutral-950 text-white shadow-sm"
-                  style={{ left: `${x}%`, top: `${y}%` }}
-                  aria-label={location.title}
-                >
-                  <MapPin className="h-5 w-5" />
-                </Link>
-              )
-            })}
-          </div>
-        </div>
-
+      <section className="mx-auto max-w-[1280px] px-4 py-8 sm:px-6 lg:px-8 lg:py-14">
         <aside className="flex flex-col justify-between border-t border-neutral-200 pt-6 lg:border-t-0 lg:pt-0">
           <div>
             <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-neutral-500">
@@ -53,10 +25,6 @@ export default function PublicHome({
             <h2 className="mt-4 font-serif text-[48px] leading-[1.05] text-neutral-950 sm:text-[64px]">
               Hanes-Hi
             </h2>
-            <p className="mt-6 text-[18px] leading-8 text-neutral-700">
-              {itemCount} public collection item{itemCount === 1 ? "" : "s"} across{" "}
-              {locations.length} location{locations.length === 1 ? "" : "s"}.
-            </p>
           </div>
           <div className="mt-10 flex flex-wrap gap-3">
             <Link

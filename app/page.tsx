@@ -1,5 +1,4 @@
 import PublicHome from "@/components/public/PublicHome"
-import { getPublicMapLocations } from "@/lib/public/map"
 import { isPublicLanguage, type PublicLanguage } from "@/lib/public/types"
 
 function resolveLang(value: string | string[] | undefined): PublicLanguage {
@@ -14,7 +13,6 @@ export default async function Home({
 }) {
   const params = searchParams ? await searchParams : {}
   const lang = resolveLang(params.lang)
-  const locations = await getPublicMapLocations(lang)
 
-  return <PublicHome lang={lang} locations={locations} />
+  return <PublicHome lang={lang} />
 }
