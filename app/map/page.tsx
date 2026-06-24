@@ -2,6 +2,8 @@ import PublicMapShell from "@/components/public/PublicMapShell"
 import { getPublicMapLocations } from "@/lib/public/map"
 import { isPublicLanguage, type PublicLanguage } from "@/lib/public/types"
 
+export const dynamic = "force-dynamic"
+
 function resolveLang(value: string | string[] | undefined): PublicLanguage {
   const candidate = Array.isArray(value) ? value[0] : value
   return candidate && isPublicLanguage(candidate) ? candidate : "en"

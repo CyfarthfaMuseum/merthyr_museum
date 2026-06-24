@@ -5,7 +5,6 @@ import { createBookGenreAction, createStoryTypeAction, createArtifactCategoryAct
 import { validateDraft } from './validation'
 import { uiStrings, type UiLang } from './ui-strings'
 import type {
-  AudioItem,
   BookGenreOption,
   ConnectedItem,
   ContentType,
@@ -28,6 +27,7 @@ import type {
   PaintingCyDraft,
   ArtifactCyDraft,
   BioCyDraft,
+  AudioItems,
 } from './types'
 import Sidebar from './components/Sidebar'
 import ContentTypeSelector from './components/ContentTypeSelector'
@@ -37,7 +37,7 @@ import StoryForm from './components/forms/StoryForm'
 import PaintingForm from './components/forms/PaintingForm'
 import ArtifactForm from './components/forms/ArtifactForm'
 import BioForm from './components/forms/BioForm'
-import { BlackButton, GreenButton } from './components/ui/Buttons'
+import { AmberButton, BlackButton, GreenButton } from './components/ui/Buttons'
 import Divider from './components/ui/Divider'
 import Input from './components/ui/Input'
 import Modal from './components/ui/Modal'
@@ -86,7 +86,7 @@ type Props = {
     isPrimary: boolean
   }[]
   initialLocation: { address: string; lat: number; lng: number } | null
-  initialAudio: AudioItem | null
+  initialAudio: AudioItems
   initialRelatedContent: ConnectedItem[]
 }
 
@@ -182,10 +182,15 @@ export default function OverviewContent({
   const [toastTone, setToastTone] = useState<'success' | 'error'>('success')
   const [previewModalOpen, setPreviewModalOpen] = useState(false)
   const [publishModalOpen, setPublishModalOpen] = useState(false)
+  const [unpublishModalOpen, setUnpublishModalOpen] = useState(false)
   const [archiveModalOpen, setArchiveModalOpen] = useState(false)
   const [savedContentItemId, setSavedContentItemId] = useState<string | null>(editId)
   const [pendingMediaAssetIds, setPendingMediaAssetIds] = useState<string[]>([])
-  const [pendingAudioAssetId, setPendingAudioAssetId] = useState<string | null>(null)
+  const [currentAudio, setCurrentAudio] = useState<AudioItems>(initialAudio)
+  const [pendingAudioAssetIds, setPendingAudioAssetIds] = useState<{ en: string | null; cy: string | null }>({
+    en: null,
+    cy: null,
+  })
 
   const t = uiStrings[uiLang]
 
@@ -209,8 +214,9 @@ export default function OverviewContent({
     setSeoDescriptionEditedManually(mode === 'edit')
     setSavedContentItemId(editId)
     setPendingMediaAssetIds([])
-    setPendingAudioAssetId(null)
-  }, [initialDraft, availableBookGenres, availableStoryTypes, availablePaintingMediums, availableArtifactCategories, availableHistoricalPeriods, availableHistoricalEras, mode, editId])
+    setCurrentAudio(initialAudio)
+    setPendingAudioAssetIds({ en: null, cy: null })
+  }, [initialDraft, availableBookGenres, availableStoryTypes, availablePaintingMediums, availableArtifactCategories, availableHistoricalPeriods, availableHistoricalEras, initialAudio, mode, editId])
 
   useEffect(() => {
     if (!toastOpen) return
@@ -537,6 +543,16 @@ export default function OverviewContent({
 
   function handleSave() {
     const errors = validateDraft(draft)
+    const hasEnglishAudio = Boolean(currentAudio.en || pendingAudioAssetIds.en)
+    const hasWelshAudio = Boolean(currentAudio.cy || pendingAudioAssetIds.cy)
+
+    if (hasEnglishAudio && !hasWelshAudio) {
+      errors.push('Welsh audio guide is required when English audio is uploaded.')
+    }
+
+    if (hasWelshAudio && !hasEnglishAudio) {
+      errors.push('English audio guide is required when Welsh audio is uploaded.')
+    }
 
     if (errors.length > 0) {
       showToast(errors[0], 'error')
@@ -549,7 +565,7 @@ export default function OverviewContent({
         mode,
         editId,
         pendingMediaAssetIds,
-        pendingAudioAssetId,
+        pendingAudioAssetIds,
       })
 
       if (!result.success) {
@@ -559,7 +575,7 @@ export default function OverviewContent({
 
       setSavedContentItemId(result.id)
       setPendingMediaAssetIds([])
-      setPendingAudioAssetId(null)
+      setPendingAudioAssetIds({ en: null, cy: null })
       showToast(mode === 'edit' ? t.contentUpdated : t.contentSaved, 'success')
     })
   }
@@ -571,6 +587,73 @@ export default function OverviewContent({
       return
     }
     setArchiveModalOpen(true)
+  }
+
+  function handleConfirmUnpublish() {
+    const unpublishedDraft = { ...draft, isPublished: false }
+    setUnpublishModalOpen(false)
+    console.log("[publish] unpublishing", { id: savedContentItemId, slug: draft.slug })
+    startTransition(async () => {
+      const result = await saveContentAction({
+        draft: unpublishedDraft,
+        mode,
+        editId,
+        pendingMediaAssetIds,
+        pendingAudioAssetIds,
+      })
+
+      console.log("[publish] unpublish result:", result)
+      if (!result.success) {
+        showToast(result.error, 'error')
+        return
+      }
+
+      setSavedContentItemId(result.id)
+      setDraft(unpublishedDraft)
+      showToast(t.contentUnpublished, 'success')
+    })
+  }
+
+  function handleConfirmPublish() {
+    const publishedDraft = { ...draft, isPublished: true }
+    const errors = validateDraft(publishedDraft)
+    const hasEnglishAudio = Boolean(currentAudio.en || pendingAudioAssetIds.en)
+    const hasWelshAudio = Boolean(currentAudio.cy || pendingAudioAssetIds.cy)
+    if (hasEnglishAudio && !hasWelshAudio) {
+      errors.push('Welsh audio guide is required when English audio is uploaded.')
+    }
+    if (hasWelshAudio && !hasEnglishAudio) {
+      errors.push('English audio guide is required when Welsh audio is uploaded.')
+    }
+    setPublishModalOpen(false)
+
+    if (errors.length > 0) {
+      showToast(errors[0], 'error')
+      return
+    }
+
+    console.log("[publish] publishing", { id: savedContentItemId, slug: draft.slug })
+    startTransition(async () => {
+      const result = await saveContentAction({
+        draft: publishedDraft,
+        mode,
+        editId,
+        pendingMediaAssetIds,
+        pendingAudioAssetIds,
+      })
+
+      console.log("[publish] publish result:", result)
+      if (!result.success) {
+        showToast(result.error, 'error')
+        return
+      }
+
+      setSavedContentItemId(result.id)
+      setPendingMediaAssetIds([])
+      setPendingAudioAssetIds({ en: null, cy: null })
+      setDraft(publishedDraft)
+      showToast(t.contentPublished, 'success')
+    })
   }
 
   function handleConfirmArchive() {
@@ -908,12 +991,38 @@ export default function OverviewContent({
                   <Divider />
 
                   <AudioGuide
-                    key={`audio-${editId ?? savedContentItemId ?? `draft-${draft.contentType}`}`}
+                    key={`audio-en-${editId ?? savedContentItemId ?? `draft-${draft.contentType}`}`}
                     contentItemId={savedContentItemId}
                     contentType={draft.contentType}
-                    initialAudio={initialAudio}
+                    initialAudio={currentAudio.en}
+                    language="en"
                     onError={(msg) => showToast(msg, 'error')}
-                    onUploaded={(id) => setPendingAudioAssetId(id)}
+                    onUploaded={(language, audio) => {
+                      setPendingAudioAssetIds((current) => ({ ...current, [language]: audio.mediaAssetId }))
+                      setCurrentAudio((current) => ({ ...current, [language]: audio }))
+                    }}
+                    onRemoved={(language) => {
+                      setPendingAudioAssetIds((current) => ({ ...current, [language]: null }))
+                      setCurrentAudio((current) => ({ ...current, [language]: null }))
+                    }}
+                    uiLang={uiLang}
+                  />
+
+                  <AudioGuide
+                    key={`audio-cy-${editId ?? savedContentItemId ?? `draft-${draft.contentType}`}`}
+                    contentItemId={savedContentItemId}
+                    contentType={draft.contentType}
+                    initialAudio={currentAudio.cy}
+                    language="cy"
+                    onError={(msg) => showToast(msg, 'error')}
+                    onUploaded={(language, audio) => {
+                      setPendingAudioAssetIds((current) => ({ ...current, [language]: audio.mediaAssetId }))
+                      setCurrentAudio((current) => ({ ...current, [language]: audio }))
+                    }}
+                    onRemoved={(language) => {
+                      setPendingAudioAssetIds((current) => ({ ...current, [language]: null }))
+                      setCurrentAudio((current) => ({ ...current, [language]: null }))
+                    }}
                     uiLang={uiLang}
                   />
 
@@ -1099,9 +1208,15 @@ export default function OverviewContent({
                 <BlackButton className="min-w-[140px]" disabled={!showEditor} onClick={() => setPreviewModalOpen(true)}>
                   {t.preview}
                 </BlackButton>
-                <GreenButton className="min-w-[160px]" disabled={!showEditor} onClick={() => setPublishModalOpen(true)}>
-                  {t.publish}
-                </GreenButton>
+                {draft.isPublished ? (
+                  <AmberButton className="min-w-[160px]" disabled={!showEditor || isPending} onClick={() => setUnpublishModalOpen(true)}>
+                    {t.unpublish}
+                  </AmberButton>
+                ) : (
+                  <GreenButton className="min-w-[160px]" disabled={!showEditor || isPending} onClick={() => setPublishModalOpen(true)}>
+                    {t.publish}
+                  </GreenButton>
+                )}
               </div>
             </div>
           </div>
@@ -1120,8 +1235,17 @@ export default function OverviewContent({
 
       <Modal open={publishModalOpen} title={t.publishTitle} onClose={() => setPublishModalOpen(false)}>
         <p className="text-neutral-700">{t.publishBody}</p>
-        <div className="mt-6 flex justify-end">
-          <BlackButton onClick={() => setPublishModalOpen(false)}>{t.close}</BlackButton>
+        <div className="mt-6 flex justify-end gap-3">
+          <BlackButton onClick={() => setPublishModalOpen(false)}>{t.cancel}</BlackButton>
+          <GreenButton onClick={handleConfirmPublish} disabled={isPending}>{t.confirmPublish}</GreenButton>
+        </div>
+      </Modal>
+
+      <Modal open={unpublishModalOpen} title={t.unpublishTitle} onClose={() => setUnpublishModalOpen(false)}>
+        <p className="text-neutral-700">{t.unpublishBody}</p>
+        <div className="mt-6 flex justify-end gap-3">
+          <BlackButton onClick={() => setUnpublishModalOpen(false)}>{t.cancel}</BlackButton>
+          <AmberButton onClick={handleConfirmUnpublish} disabled={isPending}>{t.confirmUnpublish}</AmberButton>
         </div>
       </Modal>
 

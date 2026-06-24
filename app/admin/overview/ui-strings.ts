@@ -60,8 +60,16 @@ export const uiStrings = {
     previewTitle: 'Preview',
     previewBody: 'Preview functionality is coming soon.',
     // Publish modal
-    publishTitle: 'Publish',
-    publishBody: 'Publish functionality is coming soon.',
+    publishTitle: 'Publish content',
+    publishBody: 'This will make the content publicly visible on the site. Are you sure you want to publish?',
+    confirmPublish: 'CONFIRM PUBLISH',
+    contentPublished: 'Content published.',
+    // Unpublish modal
+    unpublish: 'UNPUBLISH',
+    unpublishTitle: 'Unpublish content',
+    unpublishBody: 'This will hide the content from the public site. Are you sure you want to unpublish?',
+    confirmUnpublish: 'CONFIRM UNPUBLISH',
+    contentUnpublished: 'Content unpublished.',
     // Archive modal
     archiveTitle: 'Archive content',
     archiveBody: 'Are you sure you want to archive this content item? It will be hidden from the public but can be restored later.',
@@ -128,6 +136,8 @@ export const uiStrings = {
     imageUploadedSuccessfully: 'Image uploaded successfully.',
     // AudioGuide
     audioGuide: 'Audio Guide',
+    audioGuideEnglish: 'English Audio Guide',
+    audioGuideWelsh: 'Welsh Audio Guide',
     uploadingAudio: 'UPLOADING...',
     uploadAudioGuide: 'UPLOAD AUDIO GUIDE',
     audioFileRequirements: 'File requirements – Format .mp3 or .mp4, Max size 15mb',
@@ -278,8 +288,16 @@ export const uiStrings = {
     previewTitle: 'Rhagolwg',
     previewBody: 'Daw ymarferoldeb rhagolwg yn fuan.',
     // Publish modal
-    publishTitle: 'Cyhoeddi',
-    publishBody: 'Daw ymarferoldeb cyhoeddi yn fuan.',
+    publishTitle: 'Cyhoeddi cynnwys',
+    publishBody: 'Bydd hyn yn gwneud y cynnwys yn weladwy i\'r cyhoedd ar y safle. Ydych chi\'n sicr am gyhoeddi?',
+    confirmPublish: 'CADARNHAU CYHOEDDI',
+    contentPublished: 'Cynnwys wedi\'i gyhoeddi.',
+    // Unpublish modal
+    unpublish: 'DADFYHOEDDI',
+    unpublishTitle: 'Dadfyhoeddi cynnwys',
+    unpublishBody: 'Bydd hyn yn cuddio\'r cynnwys o\'r safle cyhoeddus. Ydych chi\'n sicr am dadfyhoeddi?',
+    confirmUnpublish: 'CADARNHAU DADFYHOEDDI',
+    contentUnpublished: 'Cynnwys wedi\'i dadfyhoeddi.',
     // Archive modal
     archiveTitle: 'Archifio cynnwys',
     archiveBody: "Ydych chi'n sicr am archifio'r eitem cynnwys hon? Bydd yn gudd i'r cyhoedd ond gellir ei hadfer yn ddiweddarach.",
@@ -346,6 +364,8 @@ export const uiStrings = {
     imageUploadedSuccessfully: 'Delwedd wedi\'i huwchlwytho\'n llwyddiannus.',
     // AudioGuide
     audioGuide: 'Canllaw Sain',
+    audioGuideEnglish: 'Canllaw Sain Saesneg',
+    audioGuideWelsh: 'Canllaw Sain Cymraeg',
     uploadingAudio: 'YN UWCHLWYTHO...',
     uploadAudioGuide: 'UWCHLWYTHO CANLLAW SAIN',
     audioFileRequirements: 'Gofynion ffeil – Fformat .mp3 neu .mp4, Maint uchaf 15mb',

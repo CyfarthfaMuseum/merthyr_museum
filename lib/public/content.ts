@@ -239,7 +239,11 @@ async function getPublicMedia(
     .filter((item): item is NonNullable<typeof item> => item !== null)
     .sort((a, b) => a.sortOrder - b.sortOrder)
 
-  const audioMedia = media.find(isAudioMedia) ?? null
+  const audioMedia =
+    media.find((item) => item.role === `audio_${lang}`) ??
+    media.find((item) => item.role === "audio") ??
+    media.find(isAudioMedia) ??
+    null
   const imageMedia = media.filter(isImageMedia)
   const primaryImage =
     imageMedia.find((item) => item.isPrimary) ??

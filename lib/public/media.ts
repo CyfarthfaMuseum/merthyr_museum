@@ -1,6 +1,7 @@
 import { GetObjectCommand } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import { getStorageClient } from "@/lib/r2"
+import { getOptionalStorageEnv } from "@/lib/storage-env"
 import type { PublicLanguage, PublicMedia } from "./types"
 
 type MediaAssetTranslationRow = {
@@ -46,19 +47,18 @@ export async function resolvePublicMediaUrl(storagePath: string | null | undefin
     return rawValue
   }
 
-  const publicBaseUrl = (process.env.STORAGE_PUBLIC_BASE_URL ?? "").trim().replace(/\/+$/, "")
+  const { bucketName, publicBaseUrl } = getOptionalStorageEnv()
   const normalizedPath = rawValue.replace(/^\/+/, "")
 
   if (publicBaseUrl) {
     return `${publicBaseUrl}/${normalizedPath}`
   }
 
-  const bucket = process.env.STORAGE_BUCKET_NAME
-  if (!bucket) return ""
+  if (!bucketName) return ""
 
   try {
     const command = new GetObjectCommand({
-      Bucket: bucket,
+      Bucket: bucketName,
       Key: normalizedPath,
     })
     return await getSignedUrl(getStorageClient(), command, { expiresIn: 60 * 15 })
@@ -104,7 +104,7 @@ export async function mapContentMediaRow(
 }
 
 export function isAudioMedia(media: PublicMedia) {
-  return media.role === "audio" || media.mimeType.startsWith("audio/")
+  return media.role === "audio" || media.role === "audio_en" || media.role === "audio_cy" || media.mimeType.startsWith("audio/")
 }
 
 export function isImageMedia(media: PublicMedia) {
