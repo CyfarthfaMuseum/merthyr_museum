@@ -233,6 +233,7 @@ async function getPublicMedia(
     .eq("content_item_id", contentItemId)
     .order("sort_order", { ascending: true })
 
+  const seenIds = new Set<string>()
   const media = (
     await Promise.all(
       ((data ?? []) as ContentMediaRow[]).map((row) => mapContentMediaRow(row, lang))
@@ -240,6 +241,11 @@ async function getPublicMedia(
   )
     .filter((item): item is NonNullable<typeof item> => item !== null)
     .sort((a, b) => a.sortOrder - b.sortOrder)
+    .filter((item) => {
+      if (seenIds.has(item.id)) return false
+      seenIds.add(item.id)
+      return true
+    })
 
   const audioMedia =
     media.find((item) => item.role === `audio_${lang}`) ??

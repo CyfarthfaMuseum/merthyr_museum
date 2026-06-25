@@ -13,12 +13,12 @@ import PublicMapSidebar from "./PublicMapSidebar"
 
 type CategoryKey = "painting" | "book" | "story" | "artefact" | "biography"
 
-const CATEGORY_CONFIG: Record<CategoryKey, { texture: string; icon: string }> = {
-  painting:  { texture: "/watercolour-texture-creativity.jpg", icon: "/Creations_Selected.svg"   },
-  story:     { texture: "/watercolour-texture-stories.jpg",    icon: "/Stories_Selected.svg"     },
-  artefact:  { texture: "/watercolour-texture-events.jpg",     icon: "/Discoveries_Selected.svg" },
-  biography: { texture: "/watercolour-texture-figures.jpg",    icon: "/Figures_Selected.svg"     },
-  book:      { texture: "/watercolour-texture-books.jpg",      icon: "/Books_Selected.svg"       },
+const CATEGORY_CONFIG: Record<CategoryKey, { color: string; texture: string; icon: string }> = {
+  painting:  { color: "#eca12c", texture: "/watercolour-texture-creativity.jpg", icon: "/Creations_Selected.svg"   },
+  story:     { color: "#046335", texture: "/watercolour-texture-stories.jpg",    icon: "/Stories_Selected.svg"     },
+  artefact:  { color: "#054693", texture: "/watercolour-texture-events.jpg",     icon: "/Discoveries_Selected.svg" },
+  biography: { color: "#685889", texture: "/watercolour-texture-figures.jpg",    icon: "/Figures_Selected.svg"     },
+  book:      { color: "#ab4134", texture: "/watercolour-texture-books.jpg",      icon: "/Books_Selected.svg"       },
 }
 type OpenPanel = "left" | "right" | null
 type MapLngLat = [number, number]
@@ -185,11 +185,9 @@ export default function PublicMapShell({
   const [mapError, setMapError] = useState<string | null>(null)
   const [mapReady, setMapReady] = useState(false)
 
-  const categories = useMemo(
-    () =>
-      [...new Set(currentLocations.flatMap((location) => location.categories))] as CategoryKey[],
-    [currentLocations]
-  )
+  const ALL_CATEGORIES: CategoryKey[] = ["painting", "story", "artefact", "biography", "book"]
+
+  const categories = ALL_CATEGORIES
 
   const filteredLocations = useMemo(
     () =>
@@ -384,8 +382,8 @@ mapRef.current = map
                   ? `background-image:url(${cfg.texture});background-size:cover;background-position:center`
                   : "background:#00744b"
                 const pinIcon = cfg
-                  ? `<img src="${cfg.icon}" alt="" width="30" height="30" style="display:block" />`
-                  : `<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 4.99-5.54 10.19-7.4 11.78a1 1 0 0 1-1.2 0C9.54 20.19 4 14.99 4 10a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>`
+                  ? `<img src="${cfg.icon}" alt="" width="26" height="26" style="display:block" />`
+                  : `<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(45deg);width:22px;height:22px"><path d="M20 10c0 4.99-5.54 10.19-7.4 11.78a1 1 0 0 1-1.2 0C9.54 20.19 4 14.99 4 10a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>`
                 el.innerHTML = `
                   <span class="public-map-marker__label">${pinLabel}</span>
                   <span class="public-map-marker__pin" style="${pinBg}">${pinIcon}</span>

@@ -11,13 +11,13 @@ const ui = {
   "nav.paintings":    { en: "Paintings",    cy: "Peintiadau" },
   "nav.closeMenu":    { en: "Close menu",   cy: "Cau'r ddewislen" },
 
-  // Category filter chips
+  // Category filter chips (labels match the left-panel nav)
   "filter.all":        { en: "All",          cy: "Pob un" },
-  "filter.painting":   { en: "Paintings",    cy: "Peintiadau" },
+  "filter.painting":   { en: "Creations",    cy: "Creadigaethau" },
   "filter.book":       { en: "Books",        cy: "Llyfrau" },
   "filter.story":      { en: "Stories",      cy: "Straeon" },
-  "filter.artefact":   { en: "Artefacts",    cy: "Arteffactau" },
-  "filter.biography":  { en: "Biographies",  cy: "Bywgraffiadau" },
+  "filter.artefact":   { en: "Discoveries",  cy: "Darganfyddiadau" },
+  "filter.biography":  { en: "Figures",      cy: "Ffigurau" },
 
   // Content type labels
   "type.painting":     { en: "Painting",     cy: "Peintiad" },
