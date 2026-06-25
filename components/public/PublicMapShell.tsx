@@ -13,12 +13,12 @@ import PublicMapSidebar from "./PublicMapSidebar"
 
 type CategoryKey = "painting" | "book" | "story" | "artefact" | "biography"
 
-const CATEGORY_CONFIG: Record<CategoryKey, { color: string; texture: string; icon: string }> = {
-  painting:  { color: "#eca12c", texture: "/watercolour-texture-creativity.jpg", icon: "/Creations_Selected.svg"   },
-  story:     { color: "#046335", texture: "/watercolour-texture-stories.jpg",    icon: "/Stories_Selected.svg"     },
-  artefact:  { color: "#054693", texture: "/watercolour-texture-events.jpg",     icon: "/Discoveries_Selected.svg" },
-  biography: { color: "#685889", texture: "/watercolour-texture-figures.jpg",    icon: "/Figures_Selected.svg"     },
-  book:      { color: "#ab4134", texture: "/watercolour-texture-books.jpg",      icon: "/Books_Selected.svg"       },
+const CATEGORY_CONFIG: Record<CategoryKey, { texture: string; icon: string }> = {
+  painting:  { texture: "/watercolour-texture-creativity.jpg", icon: "/Creations_Selected.svg"   },
+  story:     { texture: "/watercolour-texture-stories.jpg",    icon: "/Stories_Selected.svg"     },
+  artefact:  { texture: "/watercolour-texture-events.jpg",     icon: "/Discoveries_Selected.svg" },
+  biography: { texture: "/watercolour-texture-figures.jpg",    icon: "/Figures_Selected.svg"     },
+  book:      { texture: "/watercolour-texture-books.jpg",      icon: "/Books_Selected.svg"       },
 }
 type OpenPanel = "left" | "right" | null
 type MapLngLat = [number, number]
@@ -379,14 +379,16 @@ mapRef.current = map
                 el.className = "public-map-marker"
                 el.setAttribute("aria-label", `Open ${mapItem.content.title}`)
                 const pinLabel = mapItem.content.title
+                const cfg = CATEGORY_CONFIG[mapItem.content.contentType as CategoryKey]
+                const pinBg = cfg
+                  ? `background-image:url(${cfg.texture});background-size:cover;background-position:center`
+                  : "background:#00744b"
+                const pinIcon = cfg
+                  ? `<img src="${cfg.icon}" alt="" width="30" height="30" style="display:block" />`
+                  : `<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 4.99-5.54 10.19-7.4 11.78a1 1 0 0 1-1.2 0C9.54 20.19 4 14.99 4 10a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>`
                 el.innerHTML = `
                   <span class="public-map-marker__label">${pinLabel}</span>
-                  <span class="public-map-marker__pin">
-                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M20 10c0 4.99-5.54 10.19-7.4 11.78a1 1 0 0 1-1.2 0C9.54 20.19 4 14.99 4 10a8 8 0 0 1 16 0Z"></path>
-                      <circle cx="12" cy="10" r="3"></circle>
-                    </svg>
-                  </span>
+                  <span class="public-map-marker__pin" style="${pinBg}">${pinIcon}</span>
                 `
                 el.addEventListener("click", () => {
                   const item = mapItemsRef.current.find((i) => i.id === id)
@@ -500,24 +502,22 @@ mapRef.current = map
                 type="button"
                 onClick={() => selectCategory(category)}
                 aria-pressed={selectedCategories.has(category)}
-                style={{ backgroundColor: cfg.color }}
-                className={`relative flex h-11 shrink-0 items-center gap-2 overflow-hidden rounded-full pl-2 pr-4 text-[14px] font-semibold text-white shadow-md transition-all duration-200 hover:-translate-y-0.5 ${
-                  isActive ? "opacity-100" : "opacity-50"
+                style={{
+                  backgroundImage: `url(${cfg.texture})`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                }}
+                className={`flex h-11 shrink-0 items-center gap-2 rounded-full pl-2 pr-4 text-[14px] font-semibold text-white shadow-md transition-all duration-200 hover:-translate-y-0.5 ${
+                  isActive ? "opacity-100" : "opacity-60"
                 }`}
               >
-                <img
-                  src={cfg.texture}
-                  alt=""
-                  aria-hidden="true"
-                  className="pointer-events-none absolute inset-0 h-full w-full object-cover mix-blend-soft-light"
-                />
                 <img
                   src={cfg.icon}
                   alt=""
                   aria-hidden="true"
-                  className="relative z-10 h-7 w-7 shrink-0 drop-shadow-sm"
+                  className="h-7 w-7 shrink-0 drop-shadow-sm"
                 />
-                <span className="relative z-10 drop-shadow-sm">
+                <span className="drop-shadow-sm">
                   {t(`filter.${category}`, currentLang)}
                 </span>
               </button>
@@ -563,7 +563,7 @@ mapRef.current = map
                 { key: "nav.creativity", href: "/paintings",   iconOff: "/icons/creativity-off.svg", iconOn: "/icons/creativity-on.svg"  },
                 { key: "nav.activism",   href: "/stories",     iconOff: "/icons/activism-off.svg",   iconOn: "/icons/activism-on.svg"    },
                 { key: "nav.industry",   href: "/artefacts",   iconOff: "/icons/industry-off.svg",   iconOn: "/icons/industry-on.svg"    },
-                { key: "nav.everyday",   href: "/biographies", iconOff: "/icons/everyday-off.svg",   iconOn: "/icons/everyday-on.svg"    },
+                { key: "nav.everyday",   href: "/biographies", iconOff: "/Figures_NotSelected.svg",  iconOn: "/Figures_Selected.svg"     },
                 { key: "nav.books",      href: "/books",       iconOff: "/icons/books-off.svg",      iconOn: "/icons/books-on.svg"       },
               ] as const).map((item) => {
                 const isActive = "active" in item

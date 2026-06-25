@@ -74,7 +74,7 @@ body {
   width: 52px;
 }
 
-.public-map-marker__pin svg {
-  height: 28px;
-  width: 28px;
+.public-map-marker__pin img {
+  height: 30px;
+  width: 30px;
 }
