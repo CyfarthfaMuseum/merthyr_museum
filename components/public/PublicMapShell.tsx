@@ -181,7 +181,7 @@ export default function PublicMapShell({
   const onScreenByIdRef = useRef<Record<string, MapMarker>>({})
   const [openPanel, setOpenPanel] = useState<OpenPanel>(null)
   const [selectedItem, setSelectedItem] = useState<SelectedItem | null>(null)
-  const [selectedCategory, setSelectedCategory] = useState<CategoryKey | null>(null)
+  const [selectedCategories, setSelectedCategories] = useState<Set<CategoryKey>>(new Set())
   const [mapError, setMapError] = useState<string | null>(null)
   const [mapReady, setMapReady] = useState(false)
 
@@ -193,10 +193,12 @@ export default function PublicMapShell({
 
   const filteredLocations = useMemo(
     () =>
-      selectedCategory === null
+      selectedCategories.size === 0
         ? currentLocations
-        : currentLocations.filter((location) => location.categories.includes(selectedCategory)),
-    [currentLocations, selectedCategory]
+        : currentLocations.filter((location) =>
+            location.categories.some((c) => selectedCategories.has(c))
+          ),
+    [currentLocations, selectedCategories]
   )
 
   const mapItems = useMemo((): MapItem[] => {
@@ -233,7 +235,12 @@ export default function PublicMapShell({
   }
 
   function selectCategory(category: CategoryKey) {
-    setSelectedCategory((prev) => (prev === category ? null : category))
+    setSelectedCategories((prev) => {
+      const next = new Set(prev)
+      if (next.has(category)) next.delete(category)
+      else next.add(category)
+      return next
+    })
     setOpenPanel(null)
   }
 
@@ -486,13 +493,13 @@ mapRef.current = map
           {categories.map((category) => {
             const cfg = CATEGORY_CONFIG[category]
             if (!cfg) return null
-            const isActive = selectedCategory === null || selectedCategory === category
+            const isActive = selectedCategories.size === 0 || selectedCategories.has(category)
             return (
               <button
                 key={category}
                 type="button"
                 onClick={() => selectCategory(category)}
-                aria-pressed={selectedCategory === category}
+                aria-pressed={selectedCategories.has(category)}
                 style={{ backgroundColor: cfg.color }}
                 className={`relative flex h-11 shrink-0 items-center gap-2 overflow-hidden rounded-full pl-2 pr-4 text-[14px] font-semibold text-white shadow-md transition-all duration-200 hover:-translate-y-0.5 ${
                   isActive ? "opacity-100" : "opacity-50"
