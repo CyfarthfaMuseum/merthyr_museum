@@ -3,21 +3,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import {
-  BookOpen,
   ChevronLeft,
   ChevronRight,
-  Feather,
-  Hammer,
-  Map,
   MapPin,
-  Sparkles,
-  UserRound,
 } from "lucide-react"
 import { publicHref, type PublicLanguage, type PublicMapContentSummary, type PublicMapLocation } from "@/lib/public/types"
 import { t } from "@/lib/public/i18n"
 import PublicMapSidebar from "./PublicMapSidebar"
 
-type CategoryKey = "all" | "painting" | "book" | "story" | "artefact" | "biography"
+type CategoryKey = "painting" | "book" | "story" | "artefact" | "biography"
+
+const CATEGORY_CONFIG: Record<CategoryKey, { color: string; texture: string; icon: string }> = {
+  painting:  { color: "#eca12c", texture: "/watercolour-texture-creativity.jpg", icon: "/Creations_Selected.svg"   },
+  story:     { color: "#046335", texture: "/watercolour-texture-stories.jpg",    icon: "/Stories_Selected.svg"     },
+  artefact:  { color: "#054693", texture: "/watercolour-texture-events.jpg",     icon: "/Discoveries_Selected.svg" },
+  biography: { color: "#685889", texture: "/watercolour-texture-figures.jpg",    icon: "/Figures_Selected.svg"     },
+  book:      { color: "#ab4134", texture: "/watercolour-texture-books.jpg",      icon: "/Books_Selected.svg"       },
+}
 type OpenPanel = "left" | "right" | null
 type MapLngLat = [number, number]
 
@@ -179,22 +181,19 @@ export default function PublicMapShell({
   const onScreenByIdRef = useRef<Record<string, MapMarker>>({})
   const [openPanel, setOpenPanel] = useState<OpenPanel>(null)
   const [selectedItem, setSelectedItem] = useState<SelectedItem | null>(null)
-  const [selectedCategory, setSelectedCategory] = useState<CategoryKey>("all")
+  const [selectedCategory, setSelectedCategory] = useState<CategoryKey | null>(null)
   const [mapError, setMapError] = useState<string | null>(null)
   const [mapReady, setMapReady] = useState(false)
 
   const categories = useMemo(
     () =>
-      [
-        "all",
-        ...new Set(currentLocations.flatMap((location) => location.categories)),
-      ] as CategoryKey[],
+      [...new Set(currentLocations.flatMap((location) => location.categories))] as CategoryKey[],
     [currentLocations]
   )
 
   const filteredLocations = useMemo(
     () =>
-      selectedCategory === "all"
+      selectedCategory === null
         ? currentLocations
         : currentLocations.filter((location) => location.categories.includes(selectedCategory)),
     [currentLocations, selectedCategory]
@@ -234,7 +233,7 @@ export default function PublicMapShell({
   }
 
   function selectCategory(category: CategoryKey) {
-    setSelectedCategory(category)
+    setSelectedCategory((prev) => (prev === category ? null : category))
     setOpenPanel(null)
   }
 
@@ -461,7 +460,7 @@ mapRef.current = map
   }, [mapItems, mapReady])
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#f8f6ed] text-neutral-950">
+    <main className="relative h-screen overflow-hidden bg-[#f8f6ed] text-neutral-950">
       <section className="relative h-screen min-h-[620px]">
         <div
           ref={mapContainerRef}
@@ -483,22 +482,40 @@ mapRef.current = map
         ) : null}
 
 
-        <div className="absolute bottom-5 left-1/2 z-20 flex max-w-[calc(100%-2rem)] -translate-x-1/2 gap-2 overflow-x-auto px-1">
-          {categories.map((category) => (
-            <button
-              key={category}
-              type="button"
-              onClick={() => selectCategory(category)}
-              className={`flex h-11 shrink-0 items-center rounded-full border px-5 text-[15px] font-semibold shadow-sm transition hover:-translate-y-0.5 ${
-                selectedCategory === category
-                  ? "border-white/80 bg-[#f0a51b] text-white"
-                  : "border-white/70 bg-[#00744b] text-white hover:bg-[#00613f]"
-              }`}
-              aria-pressed={selectedCategory === category}
-            >
-              {t(`filter.${category}`, currentLang)}
-            </button>
-          ))}
+        <div className="absolute bottom-5 left-1/2 z-20 flex max-w-[calc(100%-2rem)] -translate-x-1/2 gap-2 overflow-x-auto px-1 pb-1">
+          {categories.map((category) => {
+            const cfg = CATEGORY_CONFIG[category]
+            if (!cfg) return null
+            const isActive = selectedCategory === null || selectedCategory === category
+            return (
+              <button
+                key={category}
+                type="button"
+                onClick={() => selectCategory(category)}
+                aria-pressed={selectedCategory === category}
+                style={{ backgroundColor: cfg.color }}
+                className={`relative flex h-11 shrink-0 items-center gap-2 overflow-hidden rounded-full pl-2 pr-4 text-[14px] font-semibold text-white shadow-md transition-all duration-200 hover:-translate-y-0.5 ${
+                  isActive ? "opacity-100" : "opacity-50"
+                }`}
+              >
+                <img
+                  src={cfg.texture}
+                  alt=""
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 h-full w-full object-cover mix-blend-soft-light"
+                />
+                <img
+                  src={cfg.icon}
+                  alt=""
+                  aria-hidden="true"
+                  className="relative z-10 h-7 w-7 shrink-0 drop-shadow-sm"
+                />
+                <span className="relative z-10 drop-shadow-sm">
+                  {t(`filter.${category}`, currentLang)}
+                </span>
+              </button>
+            )
+          })}
         </div>
 
         <div className="relative h-screen min-h-[620px] w-full pointer-events-none" />
@@ -535,42 +552,46 @@ mapRef.current = map
 
             <nav className="space-y-1">
               {([
-                { key: "nav.map",        href: "/map",         icon: Map,      active: true },
-                { key: "nav.creativity", href: "/paintings",   icon: Sparkles  },
-                { key: "nav.activism",   href: "/stories",     icon: Feather   },
-                { key: "nav.industry",   href: "/artefacts",   icon: Hammer    },
-                { key: "nav.everyday",   href: "/biographies", icon: UserRound },
-                { key: "nav.books",      href: "/books",       icon: BookOpen  },
+                { key: "nav.map",        href: "/map",         iconOff: "/icons/map-off.svg",        iconOn: "/icons/map-on.svg",        active: true },
+                { key: "nav.creativity", href: "/paintings",   iconOff: "/icons/creativity-off.svg", iconOn: "/icons/creativity-on.svg"  },
+                { key: "nav.activism",   href: "/stories",     iconOff: "/icons/activism-off.svg",   iconOn: "/icons/activism-on.svg"    },
+                { key: "nav.industry",   href: "/artefacts",   iconOff: "/icons/industry-off.svg",   iconOn: "/icons/industry-on.svg"    },
+                { key: "nav.everyday",   href: "/biographies", iconOff: "/icons/everyday-off.svg",   iconOn: "/icons/everyday-on.svg"    },
+                { key: "nav.books",      href: "/books",       iconOff: "/icons/books-off.svg",      iconOn: "/icons/books-on.svg"       },
               ] as const).map((item) => {
-                const Icon = item.icon
+                const isActive = "active" in item
                 const label = t(item.key, currentLang)
                 return (
                   <Link
                     key={item.key}
                     href={publicHref(item.href, currentLang)}
-                    className={`ml-4 flex h-12 items-center justify-between px-4 font-serif text-[18px] font-semibold transition ${"active" in item
-                      ? "rounded-l-full bg-neutral-950 text-white"
-                      : "rounded-l-full text-neutral-800 hover:bg-neutral-100"
+                    className={`ml-4 flex h-12 items-center justify-between px-4 font-serif text-[18px] font-semibold transition ${
+                      isActive
+                        ? "rounded-l-full bg-neutral-950 text-white"
+                        : "rounded-l-full text-neutral-800 hover:bg-neutral-100"
                     }`}
                   >
                     <span className="flex items-center gap-3">
-                      <Icon className="h-5 w-5" />
+                      <img
+                        src={isActive ? item.iconOn : item.iconOff}
+                        alt=""
+                        aria-hidden="true"
+                        className="h-7 w-7 object-contain"
+                      />
                       {label}
                     </span>
-                    {"active" in item
-                      ? null
-                      : <ChevronRight className="h-5 w-5 text-neutral-300" />}
+                    {isActive ? null : <ChevronRight className="h-5 w-5 text-neutral-300" />}
                   </Link>
                 )
               })}
             </nav>
 
             <div className="mt-auto flex flex-col items-center px-6 pb-6">
-              <div className="mb-6">
+              <div className="mb-8">
                 <img
-                  src="/logos.png"
+                  src="/MCBC.jpg"
                   alt="Welsh Government and Merthyr Tydfil County Borough Council"
-                  className="h-40 w-auto object-contain"
+                  className="h-20 w-auto object-contain"
                 />
               </div>
               <div className="flex w-full overflow-hidden rounded-full border border-neutral-300">

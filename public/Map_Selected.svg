@@ -1,0 +1,9 @@
+<svg id="Map_Selected" xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+  <path id="Subtraction_11" data-name="Subtraction 11" d="M-4449.172-1668.043c-5.79,0-10.5-1.794-10.5-4,0-1.3,1.675-2.529,4.481-3.278.263.272.541.55.826.824a14.332,14.332,0,0,0-1.875.561c-1.794.683-2.431,1.447-2.431,1.893s.637,1.211,2.431,1.894a20.6,20.6,0,0,0,7.069,1.106,20.6,20.6,0,0,0,7.069-1.106c1.794-.684,2.431-1.448,2.431-1.894s-.637-1.211-2.431-1.893a14.272,14.272,0,0,0-1.851-.555c.282-.272.56-.548.825-.823,2.791.75,4.457,1.973,4.457,3.271C-4438.671-1669.838-4443.382-1668.043-4449.172-1668.043Z" transform="translate(4473.672 1705.043)" fill="#fff"/>
+  <path id="Path_32" data-name="Path 32" d="M8.763,0a8.653,8.653,0,0,1,8.763,8.539,12.753,12.753,0,0,1-2.567,7.936,47.715,47.715,0,0,1-6.2,6.586,47.715,47.715,0,0,1-6.2-6.586A12.509,12.509,0,0,1,0,8.539,8.653,8.653,0,0,1,8.763,0Z" transform="translate(15.736 10.184)" fill="#fff"/>
+  <circle id="Ellipse_6" data-name="Ellipse 6" cx="1.5" cy="1.5" r="1.5" transform="translate(23 15)" fill="#222"/>
+  <rect id="Rectangle_22" data-name="Rectangle 22" width="3" height="5" transform="translate(23 20)" fill="#222"/>
+  <g id="Map_Selected-2" data-name="Map_Selected">
+    <rect id="Rectangle_162" data-name="Rectangle 162" width="48" height="48" fill="none"/>
+  </g>
+</svg>

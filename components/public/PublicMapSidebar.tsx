@@ -66,9 +66,11 @@ function detailFields(detail: PublicContentItemViewModel, lang: PublicLanguage):
 }
 
 function aboutText(detail: PublicContentItemViewModel): string | null {
+  // For books: admin "exposition" (detailed content) is saved to content_item_translations.body,
+  // while book_translations.excerpt holds the summary (already shown in the header).
+  // All other types also use body as their detailed content fallback.
   return (
     detail.painting?.detailNotes ??
-    detail.book?.excerpt ??
     detail.artefact?.notes ??
     detail.story?.eventDetails ??
     detail.biography?.biographyText ??
@@ -161,7 +163,7 @@ export default function PublicMapSidebar({ content, location, lang, isOpen, onCl
       ) : null}
 
       {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto overscroll-contain min-h-0">
 
         {/* Primary image */}
         {displayImage ? (

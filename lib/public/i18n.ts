@@ -3,10 +3,10 @@ import type { PublicLanguage } from "./types"
 const ui = {
   // Navigation / left menu
   "nav.map":          { en: "Map",          cy: "Map" },
-  "nav.creativity":   { en: "Creativity",   cy: "Creadigrwydd" },
-  "nav.activism":     { en: "Activism",     cy: "Actifiaeth" },
-  "nav.industry":     { en: "Industry",     cy: "Diwydiant" },
-  "nav.everyday":     { en: "Everyday",     cy: "Bob Dydd" },
+  "nav.creativity":   { en: "Creations",    cy: "Creadigaethau" },
+  "nav.activism":     { en: "Stories",      cy: "Straeon" },
+  "nav.industry":     { en: "Discoveries",  cy: "Darganfyddiadau" },
+  "nav.everyday":     { en: "Figures",      cy: "Ffigurau" },
   "nav.books":        { en: "Books",        cy: "Llyfrau" },
   "nav.paintings":    { en: "Paintings",    cy: "Peintiadau" },
   "nav.closeMenu":    { en: "Close menu",   cy: "Cau'r ddewislen" },
