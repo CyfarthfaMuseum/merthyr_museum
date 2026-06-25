@@ -489,7 +489,7 @@ mapRef.current = map
         ) : null}
 
 
-        <div className="absolute bottom-5 left-1/2 z-20 flex max-w-[calc(100%-2rem)] -translate-x-1/2 gap-2 overflow-x-auto px-1 pb-1">
+        <div className="absolute bottom-5 left-1/2 z-20 flex max-w-[calc(100%-2rem)] -translate-x-1/2 gap-2 overflow-x-auto px-1 pb-1 pt-1">
           {categories.map((category) => {
             const cfg = CATEGORY_CONFIG[category]
             if (!cfg) return null
