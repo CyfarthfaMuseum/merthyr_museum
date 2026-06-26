@@ -68,12 +68,6 @@ type MapTilerSDK = {
   LngLatBounds: new (southWest: MapLngLat, northEast: MapLngLat) => MapBounds
 }
 
-declare global {
-  interface Window {
-    maptilersdk?: MapTilerSDK
-  }
-}
-
 const mapTilerApiKey =
   process.env.NEXT_PUBLIC_MAPTILER_API_KEY ?? process.env.NEXT_PUBLIC_MAPTILER_KEY ?? ""
 const mapTilerScriptUrl =
