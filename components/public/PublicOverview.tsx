@@ -126,7 +126,7 @@ export default function PublicOverview({
       <PublicNavMenu lang={lang} langSwitchHref="/home" />
 
       <main className="min-h-screen bg-white text-neutral-950">
-        <header className="flex h-[60px] items-center gap-3 border-b border-neutral-200 pl-14 pr-4">
+        <header className="flex h-[60px] items-center gap-3 pl-14 pr-4 md:pl-32 md:pr-10">
           <Link href={publicHref("/home", lang)} className="shrink-0">
             <img
               src={lang === "cy" ? "/menuLogo-cy.png" : "/menuLogo.png"}
@@ -136,7 +136,7 @@ export default function PublicOverview({
           </Link>
 
           {/* Search */}
-          <div className="ml-3 flex min-w-0 flex-1 items-center gap-2 rounded-full border border-neutral-300 px-3 py-1.5 focus-within:border-neutral-500">
+          <div className="ml-auto flex min-w-0 w-full max-w-xs items-center gap-2 rounded-full border border-neutral-300 px-3 py-1.5 focus-within:border-neutral-500">
             <Search className="h-3.5 w-3.5 shrink-0 text-neutral-400" strokeWidth={2} />
             <input
               type="search"
@@ -148,7 +148,7 @@ export default function PublicOverview({
           </div>
         </header>
 
-        <div className="px-4 pb-16 pt-4">
+        <div className="px-4 pb-16 pt-4 md:pl-32 md:pr-10">
           <div className="relative mb-5 h-[160px] overflow-hidden rounded-sm">
             <PublicOverviewMap />
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
