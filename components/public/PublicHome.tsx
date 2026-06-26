@@ -1,58 +1,63 @@
 import Link from "next/link"
-import { Menu } from "lucide-react"
+import { ChevronRight } from "lucide-react"
 import { publicHref, type PublicLanguage } from "@/lib/public/types"
-import { t } from "@/lib/public/i18n"
 
 export default function PublicHome({ lang }: { lang: PublicLanguage }) {
-  return (
-    <main className="min-h-screen bg-white text-neutral-950">
-      <header className="mx-auto flex h-[68px] max-w-[1280px] items-center justify-between px-4 sm:px-6 lg:px-8">
-        <img
-            src={lang === "cy" ? "/mainLogo-cy.png" : "/mainLogo.svg"}
-            alt="Her Stories"
-            className="h-10 w-auto object-contain"
-          />
-        <button
-          type="button"
-          className="flex h-11 w-11 items-center justify-center bg-neutral-200"
-          aria-label="Open menu"
-        >
-          <Menu className="h-5 w-5" />
-        </button>
-      </header>
+  const isWelsh = lang === "cy"
 
-      <section className="mx-auto max-w-[1280px] px-4 py-8 sm:px-6 lg:px-8 lg:py-14">
-        <aside className="flex flex-col justify-between border-t border-neutral-200 pt-6 lg:border-t-0 lg:pt-0">
-          <div>
-            <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-neutral-500">
-              Merthyr Museum
-            </p>
-            <h2 className="mt-4 font-serif text-[48px] leading-[1.05] text-neutral-950 sm:text-[64px]">
-              Hanes-Hi
-            </h2>
-          </div>
-          <div className="mt-10 flex flex-wrap gap-3">
-            <Link
-              href={publicHref("/map", lang)}
-              className="inline-flex h-12 items-center bg-neutral-950 px-6 text-[13px] font-semibold uppercase tracking-[0.14em] text-white transition hover:bg-neutral-800"
-            >
-              {t("home.openMap", lang)}
-            </Link>
-            <Link
-              href={publicHref("/books", lang)}
-              className="inline-flex h-12 items-center border border-neutral-200 px-5 text-[13px] font-semibold uppercase tracking-[0.14em] text-neutral-700 transition hover:border-neutral-950"
-            >
-              {t("home.books", lang)}
-            </Link>
-            <Link
-              href={publicHref("/paintings", lang)}
-              className="inline-flex h-12 items-center border border-neutral-200 px-5 text-[13px] font-semibold uppercase tracking-[0.14em] text-neutral-700 transition hover:border-neutral-950"
-            >
-              {t("home.paintings", lang)}
-            </Link>
-          </div>
-        </aside>
-      </section>
+  return (
+    <main className="flex h-screen flex-col overflow-hidden bg-neutral-950 md:flex-row">
+
+      {/* Mobile: top bar with language toggle (hidden on desktop) */}
+      <div className="flex h-16 flex-none items-center justify-center md:hidden">
+        <Link
+          href={isWelsh ? "/" : publicHref("/", "cy")}
+          className="rounded-full border border-white/40 px-4 py-1.5 text-[13px] text-white/90 transition hover:border-white/70 hover:text-white"
+        >
+          {isWelsh ? "English" : "Cymraeg"}
+        </Link>
+      </div>
+
+      {/* Image — top portion on mobile, full left panel on desktop */}
+      <div className="h-[40%] w-full flex-none md:h-full md:w-[42%]">
+        <img
+          src="/splash-hero.png"
+          alt=""
+          aria-hidden="true"
+          className="h-full w-full object-cover object-top"
+        />
+      </div>
+
+      {/* Text panel — below image on mobile, right panel on desktop */}
+      <div className="relative flex flex-1 flex-col items-center justify-center">
+
+        {/* Desktop: language toggle top-right (hidden on mobile) */}
+        <div className="absolute right-6 top-6 hidden md:block">
+          <Link
+            href={isWelsh ? "/" : publicHref("/", "cy")}
+            className="rounded-full border border-white/40 px-4 py-1.5 text-[13px] text-white/90 transition hover:border-white/70 hover:text-white"
+          >
+            {isWelsh ? "English" : "Cymraeg"}
+          </Link>
+        </div>
+
+        {/* Logo */}
+        <img
+          src={isWelsh ? "/hanesHi.svg" : "/HerStoriesEng.png"}
+          alt={isWelsh ? "Hanes Hi" : "Her Stories"}
+          className="w-[80%] max-w-sm object-contain md:w-[60%] md:max-w-xs"
+        />
+
+        {/* CTA */}
+        <Link
+          href={publicHref("/home", lang)}
+          className="absolute bottom-10 flex items-center gap-1 text-[13px] font-semibold uppercase tracking-[0.2em] text-white transition hover:opacity-70"
+        >
+          {isWelsh ? "Dechrau" : "Start"}
+          <ChevronRight className="h-4 w-4" strokeWidth={2.5} />
+        </Link>
+      </div>
+
     </main>
   )
 }

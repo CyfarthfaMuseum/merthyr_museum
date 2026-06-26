@@ -58,9 +58,12 @@ const ui = {
   "field.person":          { en: "Person",           cy: "Person" },
 
   // Home page
-  "home.openMap":    { en: "Open Map",  cy: "Agor y Map" },
-  "home.books":      { en: "Books",     cy: "Llyfrau" },
-  "home.paintings":  { en: "Paintings", cy: "Peintiadau" },
+  "home.openMap":        { en: "Open Map",       cy: "Agor y Map" },
+  "home.books":          { en: "Books",           cy: "Llyfrau" },
+  "home.paintings":      { en: "Paintings",       cy: "Peintiadau" },
+  "home.browseMerthyr":  { en: "Browse Merthyr",  cy: "Pori Merthyr" },
+  "home.search":         { en: "Search",          cy: "Chwilio" },
+  "home.seeAll":         { en: "See all",         cy: "Gweld i gyd" },
 } satisfies Record<string, Record<"en" | "cy", string>>
 
 export type UIKey = keyof typeof ui

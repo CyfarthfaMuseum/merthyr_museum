@@ -894,7 +894,7 @@ async function getEditDraft(
   draft: OverviewDraft
   editId: string | null
   editType: ContentType | null
-  initialLocation: { address: string; lat: number; lng: number } | null
+  initialLocation: { id: string; address: string; lat: number; lng: number } | null
   initialAudio: AudioItems
   initialRelatedContent: ConnectedItem[]
 }> {
@@ -939,7 +939,7 @@ async function getEditDraft(
     .eq('relationship_type', 'primary')
     .maybeSingle()
 
-  let initialLocation: { address: string; lat: number; lng: number } | null = null
+  let initialLocation: { id: string; address: string; lat: number; lng: number } | null = null
   if (locationLink?.location_id) {
     const { data: loc } = await adminSupabase
       .from('locations')
@@ -956,7 +956,7 @@ async function getEditDraft(
       ].filter(Boolean)
       initialLocation =
         Number.isFinite(parsedLat) && Number.isFinite(parsedLng)
-          ? { address: addressParts.join(', '), lat: parsedLat, lng: parsedLng }
+          ? { id: locationLink.location_id as string, address: addressParts.join(', '), lat: parsedLat, lng: parsedLng }
           : null
     }
   }

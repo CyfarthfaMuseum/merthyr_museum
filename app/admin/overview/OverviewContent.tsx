@@ -85,7 +85,7 @@ type Props = {
     credit: string
     isPrimary: boolean
   }[]
-  initialLocation: { address: string; lat: number; lng: number } | null
+  initialLocation: { id: string; address: string; lat: number; lng: number } | null
   initialAudio: AudioItems
   initialRelatedContent: ConnectedItem[]
 }

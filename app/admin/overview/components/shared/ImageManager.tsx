@@ -31,7 +31,7 @@ type Props = {
   onSlugChange: (value: string) => void
   onUploaded?: (mediaAssetId: string) => void
   initialImages?: InitialImage[]
-  initialLocation?: { address: string; lat: number; lng: number } | null
+  initialLocation?: { id?: string; address: string; lat: number; lng: number } | null
   sidebarLocations?: SidebarLocation[]
   onLocationSaved?: (location: { id: string; address: string; lat: number; lng: number }) => void
   uiLang: UiLang
@@ -129,7 +129,7 @@ export default function ImageManager({
   })
   const [locationMessage, setLocationMessage] = useState('')
   const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false)
-  const [selectedLocationId, setSelectedLocationId] = useState('')
+  const [selectedLocationId, setSelectedLocationId] = useState(initialLocation?.id ?? '')
   const [localLocations, setLocalLocations] = useState(sidebarLocations)
   const [locationAddress, setLocationAddress] = useState(initialLocation?.address ?? '')
   const [selectedCoordinates, setSelectedCoordinates] = useState<{ lat: number; lng: number } | null>(
