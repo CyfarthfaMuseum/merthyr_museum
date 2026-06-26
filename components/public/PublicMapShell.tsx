@@ -86,7 +86,7 @@ function loadMapTiler() {
   }
 
   if (window.maptilersdk) {
-    return Promise.resolve(window.maptilersdk)
+    return Promise.resolve(window.maptilersdk as MapTilerSDK)
   }
 
   if (!document.querySelector(`link[href="${mapTilerCssUrl}"]`)) {
@@ -104,7 +104,7 @@ function loadMapTiler() {
 
       if (existingScript) {
         existingScript.addEventListener("load", () => {
-          if (window.maptilersdk) resolve(window.maptilersdk)
+          if (window.maptilersdk) resolve(window.maptilersdk as MapTilerSDK)
         })
         existingScript.addEventListener("error", () => reject(new Error("MapTiler failed to load.")))
         return
@@ -115,7 +115,7 @@ function loadMapTiler() {
       script.async = true
       script.onload = () => {
         if (window.maptilersdk) {
-          resolve(window.maptilersdk)
+          resolve(window.maptilersdk as MapTilerSDK)
         } else {
           reject(new Error("MapTiler did not initialize."))
         }
@@ -428,7 +428,7 @@ mapRef.current = map
     if (!mapReady || !mapRef.current || !window.maptilersdk) return
 
     const map = mapRef.current
-    const maptilersdk = window.maptilersdk
+    const maptilersdk = window.maptilersdk as MapTilerSDK
     const source = map.getSource("locations")
     if (!source) return
 
