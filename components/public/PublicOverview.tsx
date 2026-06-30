@@ -128,10 +128,20 @@ export default function PublicOverview({
       <main className="min-h-screen bg-white text-neutral-950">
         <header className="flex h-[60px] items-center gap-3 pl-14 pr-4 md:pl-32 md:pr-10">
           <Link href={publicHref("/home", lang)} className="shrink-0">
-            <img
-              src={lang === "cy" ? "/menuLogo-cy.png" : "/menuLogo.png"}
-              alt={lang === "cy" ? "Hanes Hi" : "Her Stories"}
-              className="h-7 w-auto object-contain"
+            <span
+              role="img"
+              aria-label={lang === "cy" ? "Hanes Hi" : "Her Stories"}
+              className="block h-7 w-[140px] bg-[#006132]"
+              style={{
+                WebkitMaskImage: `url(${lang === "cy" ? "/hanesHi.svg" : "/HerStoriesEng.png"})`,
+                maskImage: `url(${lang === "cy" ? "/hanesHi.svg" : "/HerStoriesEng.png"})`,
+                WebkitMaskSize: "contain",
+                maskSize: "contain",
+                WebkitMaskRepeat: "no-repeat",
+                maskRepeat: "no-repeat",
+                WebkitMaskPosition: "left center",
+                maskPosition: "left center",
+              }}
             />
           </Link>
 

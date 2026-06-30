@@ -8,7 +8,7 @@ function resolveLang(value: string | string[] | undefined): PublicLanguage {
   return candidate && isPublicLanguage(candidate) ? candidate : "en"
 }
 
-export default async function PublicPaintingsPage({
+export default async function PublicStoriesPage({
   searchParams,
 }: {
   searchParams?: Promise<{ lang?: string | string[] }>
@@ -16,7 +16,7 @@ export default async function PublicPaintingsPage({
   if (process.env.NEXT_PUBLIC_SHOW_CATALOGUE !== "true") notFound()
   const params = searchParams ? await searchParams : {}
   const lang = resolveLang(params.lang)
-  const items = await getPublicOverviewSection("painting", lang, 1000)
+  const items = await getPublicOverviewSection("story", lang, 1000)
 
-  return <PublicCatalogue type="painting" lang={lang} items={items} />
+  return <PublicCatalogue type="story" lang={lang} items={items} />
 }

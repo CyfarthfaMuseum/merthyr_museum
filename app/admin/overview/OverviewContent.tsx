@@ -1262,6 +1262,7 @@ export default function OverviewContent({
             ×
           </button>
           <PublicContentDetail
+            hideNav
             content={buildPreviewContent({
               draft,
               language: activeLanguage,

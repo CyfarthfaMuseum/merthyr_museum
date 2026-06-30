@@ -547,7 +547,7 @@ mapRef.current = map
           <button
             type="button"
             onClick={openLeftMenu}
-            className="flex h-14 w-14 shrink-0 items-center justify-center bg-neutral-950/45 text-white shadow-sm backdrop-blur-sm transition hover:bg-neutral-950/60"
+            className="flex h-10 w-10 shrink-0 items-center justify-center bg-neutral-950/45 text-white shadow-sm backdrop-blur-sm transition hover:bg-neutral-950/60 lg:h-14 lg:w-14"
             aria-label={openPanel === "left" ? t("nav.closeMenu", currentLang) : "Open menu"}
             aria-expanded={openPanel === "left"}
           >
@@ -558,7 +558,7 @@ mapRef.current = map
               strokeWidth="2.2"
               strokeLinecap="round"
               strokeLinejoin="round"
-              className="h-7 w-7"
+              className="h-5 w-5 lg:h-7 lg:w-7"
               aria-hidden="true"
             >
               <line

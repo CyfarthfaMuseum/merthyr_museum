@@ -55,7 +55,7 @@ export default function PublicNavMenu({ lang, activePath, langSwitchHref = "/hom
         <button
           type="button"
           onClick={toggle}
-          className="flex h-10 w-10 shrink-0 items-center justify-center bg-neutral-950/45 text-white shadow-sm backdrop-blur-sm transition hover:bg-neutral-950/60"
+          className="flex h-10 w-10 shrink-0 items-center justify-center bg-neutral-950/45 text-white shadow-sm backdrop-blur-sm transition hover:bg-neutral-950/60 lg:h-14 lg:w-14"
           aria-label={isOpen ? "Close menu" : "Open menu"}
           aria-expanded={isOpen}
         >
@@ -66,7 +66,7 @@ export default function PublicNavMenu({ lang, activePath, langSwitchHref = "/hom
             strokeWidth="2.2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className="h-5 w-5"
+            className="h-5 w-5 lg:h-7 lg:w-7"
             aria-hidden="true"
           >
             <line

@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { useMemo, useState } from "react"
 import {
   ArrowLeft,
@@ -8,7 +9,6 @@ import {
   Headphones,
   ImageIcon,
   MapPin,
-  Menu,
   ZoomIn,
 } from "lucide-react"
 import {
@@ -16,6 +16,8 @@ import {
   type PublicContentItemViewModel,
   type PublicMedia,
 } from "@/lib/public/types"
+import PublicNavMenu from "./PublicNavMenu"
+import ImageLightbox from "./ImageLightbox"
 
 type DetailRow = {
   label: string
@@ -111,7 +113,7 @@ function ProseText({ children }: { children: string | null | undefined }) {
   }
 
   return (
-    <div className="space-y-4 text-[16px] leading-8 text-neutral-800">
+    <div className="space-y-4 break-words text-[16px] leading-8 text-neutral-800">
       {children.split(/\n{2,}/).map((paragraph) => (
         <p key={paragraph}>{paragraph}</p>
       ))}
@@ -207,11 +209,14 @@ function buildTabs(content: PublicContentItemViewModel): Tab[] {
 
 export default function PublicContentDetail({
   content,
+  hideNav = false,
 }: {
   content: PublicContentItemViewModel
+  hideNav?: boolean
 }) {
   const [selectedMediaId, setSelectedMediaId] = useState(content.primaryImage?.id ?? "")
   const [zoomed, setZoomed] = useState(false)
+  const [lightboxOpen, setLightboxOpen] = useState(false)
   const tabs = useMemo(() => buildTabs(content), [content])
   const [activeTabId, setActiveTabId] = useState(tabs[0]?.id ?? "caption")
   const selectedMedia =
@@ -221,38 +226,29 @@ export default function PublicContentDetail({
     null
   const creator = getCreatorLabel(content)
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0]
-  const mapHref = publicHref("/map", content.language)
+  const router = useRouter()
 
   return (
-    <main className="min-h-screen bg-white text-neutral-950">
-      <div className="mx-auto flex min-h-screen w-full max-w-[1480px] flex-col px-4 py-4 sm:px-6 lg:px-8">
-        <header className="flex h-[52px] items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Link
-              href={mapHref}
-              className="flex h-11 w-11 items-center justify-center bg-neutral-200 text-neutral-900 transition hover:bg-neutral-300"
-              aria-label="Back to map"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
-            <Link
-              href={publicHref("/", content.language)}
-              className="hidden h-11 items-center px-4 text-[13px] font-semibold uppercase tracking-[0.14em] text-neutral-700 transition hover:text-neutral-950 sm:flex"
-            >
-              Her Stories
-            </Link>
-          </div>
+    <main className="min-h-screen overflow-x-hidden bg-white text-neutral-950">
+      {hideNav ? null : (
+        <>
+          <PublicNavMenu lang={content.language} />
           <button
             type="button"
-            className="flex h-11 w-11 items-center justify-center bg-neutral-200 text-neutral-900 transition hover:bg-neutral-300"
-            aria-label="Open menu"
+            onClick={() => router.back()}
+            className="fixed left-12 top-0 z-30 flex h-10 w-10 shrink-0 items-center justify-center bg-neutral-950/45 text-white shadow-sm backdrop-blur-sm transition hover:bg-neutral-950/60 lg:left-16 lg:h-14 lg:w-14"
+            aria-label="Go back"
           >
-            <Menu className="h-5 w-5" />
+            <ArrowLeft className="h-5 w-5 lg:h-7 lg:w-7" />
           </button>
-        </header>
+        </>
+      )}
 
-        <section className="grid flex-1 gap-8 py-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)] lg:gap-12 lg:py-10">
-          <div className="flex min-h-[440px] flex-col">
+      <div className="mx-auto flex min-h-screen w-full max-w-[1480px] flex-col px-4 py-4 sm:px-6 lg:px-8">
+        {hideNav ? null : <div className="h-[52px] lg:h-[68px]" aria-hidden="true" />}
+
+        <section className="grid min-w-0 flex-1 grid-cols-1 gap-8 py-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)] lg:gap-12 lg:py-10">
+          <div className="flex min-h-[440px] min-w-0 flex-col">
             <div className="relative flex min-h-[360px] flex-1 items-center justify-center overflow-hidden bg-neutral-100">
               {selectedMedia ? (
                 <img
@@ -272,9 +268,9 @@ export default function PublicContentDetail({
               {selectedMedia ? (
                 <button
                   type="button"
-                  onClick={() => setZoomed((current) => !current)}
+                  onClick={() => setLightboxOpen(true)}
                   className="absolute bottom-4 right-4 flex h-11 w-11 items-center justify-center bg-white/90 text-neutral-900 shadow-sm transition hover:bg-white"
-                  aria-label="Toggle image zoom"
+                  aria-label="View image full screen"
                 >
                   <ZoomIn className="h-5 w-5" />
                 </button>
@@ -309,7 +305,7 @@ export default function PublicContentDetail({
             ) : null}
           </div>
 
-          <article className="flex flex-col">
+          <article className="flex min-w-0 flex-col">
             <div className="border-b border-neutral-200 pb-7">
               <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-neutral-500">
                 {content.contentType.code}
@@ -396,6 +392,14 @@ export default function PublicContentDetail({
           </article>
         </section>
       </div>
+
+      {lightboxOpen && selectedMedia ? (
+        <ImageLightbox
+          src={selectedMedia.url}
+          alt={selectedMedia.altText}
+          onClose={() => setLightboxOpen(false)}
+        />
+      ) : null}
     </main>
   )
 }

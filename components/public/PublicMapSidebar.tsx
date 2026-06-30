@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { ChevronLeft, ChevronRight, MapPin } from "lucide-react"
 import {
@@ -103,6 +103,24 @@ export default function PublicMapSidebar({ content, location, lang, isOpen, onCl
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<SidebarTab>("about")
 
+  // Mobile bottom-sheet drag state. On desktop (md+) the panel is a fixed-width
+  // right-hand sidebar instead, so none of this applies.
+  const [isDesktop, setIsDesktop] = useState(true)
+  const [expanded, setExpanded] = useState(false)
+  const [dragY, setDragY] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
+  const dragStartYRef = useRef<number | null>(null)
+  const sheetHeightPxRef = useRef(0)
+  const rawDeltaRef = useRef(0)
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)")
+    const update = () => setIsDesktop(mq.matches)
+    update()
+    mq.addEventListener("change", update)
+    return () => mq.removeEventListener("change", update)
+  }, [])
+
   useEffect(() => {
     setDetail(null)
     setSelectedImageId(null)
@@ -113,6 +131,42 @@ export default function PublicMapSidebar({ content, location, lang, isOpen, onCl
       .then((data) => { if (data) setDetail(data as PublicContentItemViewModel) })
       .catch(() => {})
   }, [content.id, content.slug, lang])
+
+  useEffect(() => {
+    setExpanded(false)
+    setDragY(0)
+  }, [content.id, isOpen])
+
+  function handleDragStart(e: React.PointerEvent<HTMLDivElement>) {
+    dragStartYRef.current = e.clientY
+    sheetHeightPxRef.current = e.currentTarget.parentElement?.getBoundingClientRect().height ?? 0
+    setIsDragging(true)
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+
+  function handleDragMove(e: React.PointerEvent<HTMLDivElement>) {
+    if (dragStartYRef.current === null) return
+    const delta = e.clientY - dragStartYRef.current
+    rawDeltaRef.current = delta
+    setDragY(Math.max(0, delta))
+  }
+
+  function handleDragEnd() {
+    if (dragStartYRef.current === null) return
+    const threshold = 60
+    const delta = rawDeltaRef.current
+    setIsDragging(false)
+    setDragY(0)
+    dragStartYRef.current = null
+    rawDeltaRef.current = 0
+
+    if (delta < -threshold || delta < -(sheetHeightPxRef.current * 0.15)) {
+      setExpanded(true)
+    } else if (delta > threshold) {
+      if (expanded) setExpanded(false)
+      else onClose()
+    }
+  }
 
   const images: PublicMedia[] = detail?.galleryMedia ?? content.galleryMedia
   const primaryImage = detail?.primaryImage ?? content.primaryImage
@@ -135,15 +189,37 @@ export default function PublicMapSidebar({ content, location, lang, isOpen, onCl
 
   return (
     <aside
-      className={`absolute inset-y-0 right-0 z-40 flex w-[min(90vw,390px)] flex-col border-l border-neutral-200 bg-white shadow-2xl transition-transform duration-300 ease-out ${
-        isOpen ? "translate-x-0" : "translate-x-full"
+      style={
+        isDesktop
+          ? undefined
+          : {
+              height: expanded ? "100dvh" : "75dvh",
+              transform: isOpen ? `translateY(${dragY}px)` : "translateY(100%)",
+              transition: isDragging
+                ? "none"
+                : "transform 300ms ease-out, height 300ms ease-out",
+            }
+      }
+      className={`fixed inset-x-0 bottom-0 z-40 flex flex-col rounded-t-2xl border-t border-neutral-200 bg-white shadow-2xl md:absolute md:inset-x-auto md:inset-y-0 md:right-0 md:bottom-auto md:h-full md:w-[min(90vw,390px)] md:rounded-none md:border-l md:border-t-0 md:transition-transform md:duration-300 md:ease-out ${
+        isOpen ? "md:translate-x-0" : "md:translate-x-full"
       }`}
       aria-hidden={!isOpen}
       inert={!isOpen}
     >
-      {/* External arrows – only visible when open */}
+      {/* Drag handle – mobile bottom-sheet only */}
+      <div
+        className="flex shrink-0 touch-none items-center justify-center py-2 active:cursor-grabbing md:hidden"
+        onPointerDown={handleDragStart}
+        onPointerMove={handleDragMove}
+        onPointerUp={handleDragEnd}
+        onPointerCancel={handleDragEnd}
+      >
+        <span className="h-1.5 w-10 rounded-full bg-neutral-300" />
+      </div>
+
+      {/* External arrows – desktop only, visible when open */}
       {isOpen ? (
-        <div className="absolute left-0 top-8 z-10 -translate-x-full flex flex-col gap-1 pr-2">
+        <div className="absolute left-0 top-8 z-10 -translate-x-full hidden md:flex flex-col gap-1 pr-2">
           <Link
             href={contentHref}
             className="flex h-11 w-11 items-center justify-center bg-white shadow-md text-neutral-900 transition hover:bg-neutral-50"

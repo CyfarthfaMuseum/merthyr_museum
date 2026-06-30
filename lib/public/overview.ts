@@ -22,6 +22,8 @@ export type PublicOverviewItem = {
   dateLabel: string | null
   primaryImage: PublicMedia | null
   locationTitle: string | null
+  /** Genre (book) / category (artefact) label, when the type supports one */
+  category: string | null
 }
 
 type SupabaseClient = ReturnType<typeof createPublicClient>
@@ -153,6 +155,86 @@ async function batchTypeData(
   return result
 }
 
+// ─── Categories (book genre / artefact category) ──────────────────────────────
+
+async function batchCategoryLabels(
+  supabase: SupabaseClient,
+  ids: string[],
+  type: PublicContentType,
+  lang: PublicLanguage
+): Promise<Map<string, string | null>> {
+  const result = new Map<string, string | null>(ids.map((id) => [id, null]))
+  if (!ids.length) return result
+
+  const langs = lang === "en" ? ["en"] : [lang, "en"]
+
+  if (type === "book") {
+    const { data: links } = await supabase
+      .from("book_theme_books")
+      .select("book_content_item_id, book_theme_id")
+      .in("book_content_item_id", ids)
+
+    const themeIdByItem = new Map<string, string>()
+    for (const row of links ?? []) {
+      const itemId = row.book_content_item_id as string
+      if (!themeIdByItem.has(itemId)) themeIdByItem.set(itemId, row.book_theme_id as string)
+    }
+
+    const themeIds = [...new Set(themeIdByItem.values())]
+    if (!themeIds.length) return result
+
+    const { data: translations } = await supabase
+      .from("book_theme_translations")
+      .select("book_theme_id, language_code, title")
+      .in("book_theme_id", themeIds)
+      .in("language_code", langs)
+
+    const titleByTheme = new Map<string, string>()
+    for (const row of translations ?? []) {
+      const themeId = row.book_theme_id as string
+      if (!titleByTheme.has(themeId) || row.language_code === lang)
+        titleByTheme.set(themeId, row.title as string)
+    }
+
+    for (const [itemId, themeId] of themeIdByItem)
+      result.set(itemId, titleByTheme.get(themeId) ?? null)
+  }
+
+  else if (type === "artefact") {
+    const { data: artefacts } = await supabase
+      .from("artefacts")
+      .select("content_item_id, artefact_category_id")
+      .in("content_item_id", ids)
+
+    const categoryIdByItem = new Map<string, string>()
+    for (const row of artefacts ?? []) {
+      const categoryId = row.artefact_category_id as string | null
+      if (categoryId) categoryIdByItem.set(row.content_item_id as string, categoryId)
+    }
+
+    const categoryIds = [...new Set(categoryIdByItem.values())]
+    if (!categoryIds.length) return result
+
+    const { data: translations } = await supabase
+      .from("artefact_category_translations")
+      .select("artefact_category_id, language_code, label")
+      .in("artefact_category_id", categoryIds)
+      .in("language_code", langs)
+
+    const labelByCategory = new Map<string, string>()
+    for (const row of translations ?? []) {
+      const categoryId = row.artefact_category_id as string
+      if (!labelByCategory.has(categoryId) || row.language_code === lang)
+        labelByCategory.set(categoryId, row.label as string)
+    }
+
+    for (const [itemId, categoryId] of categoryIdByItem)
+      result.set(itemId, labelByCategory.get(categoryId) ?? null)
+  }
+
+  return result
+}
+
 // ─── Locations ───────────────────────────────────────────────────────────────
 
 async function batchFirstLocations(
@@ -251,7 +333,7 @@ export async function getPublicOverviewSection(
   const ids = items.map((item) => item.id as string)
   const langs = language === "en" ? ["en"] : [language, "en"]
 
-  const [{ data: translations }, images, typeData, locationTitles] = await Promise.all([
+  const [{ data: translations }, images, typeData, locationTitles, categoryLabels] = await Promise.all([
     supabase
       .from("content_item_translations")
       .select("content_item_id, language_code, title, summary")
@@ -260,6 +342,7 @@ export async function getPublicOverviewSection(
     batchPrimaryImages(supabase, ids, language),
     batchTypeData(supabase, ids, type, language),
     batchFirstLocations(supabase, ids, language),
+    batchCategoryLabels(supabase, ids, type, language),
   ])
 
   const transByItem = new Map<string, { language_code: string; title: string; summary: string | null }[]>()
@@ -294,6 +377,7 @@ export async function getPublicOverviewSection(
       dateLabel: td.dateLabel,
       primaryImage: images.get(id) ?? null,
       locationTitle: locationTitles.get(id) ?? null,
+      category: categoryLabels.get(id) ?? null,
     })
   }
 
