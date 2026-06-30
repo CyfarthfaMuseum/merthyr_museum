@@ -507,6 +507,8 @@ export default function ImageManager({
       onLocationSaved?.(savedLoc)
     } else {
       console.warn('[handleConfirmLocation] no contentItemId — location will not be persisted')
+      setLocationMessage('Pin dropped, but not saved yet — save the book first, then set its location.')
+      return
     }
 
     setLocationMessage(t.locationConfirmed)
