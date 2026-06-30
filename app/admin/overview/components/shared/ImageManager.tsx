@@ -34,7 +34,18 @@ type Props = {
   initialLocation?: { id?: string; address: string; lat: number; lng: number } | null
   sidebarLocations?: SidebarLocation[]
   onLocationSaved?: (location: { id: string; address: string; lat: number; lng: number }) => void
+  onImagesChange?: (images: PreviewImage[]) => void
   uiLang: UiLang
+}
+
+export type PreviewImage = {
+  id: string
+  previewUrl: string
+  fileName: string
+  altText: string
+  caption: string
+  credit: string
+  isPrimary: boolean
 }
 
 type ImageItem = {
@@ -104,6 +115,7 @@ export default function ImageManager({
   initialLocation = null,
   sidebarLocations = [],
   onLocationSaved,
+  onImagesChange,
   uiLang,
 }: Props) {
   const t = uiStrings[uiLang]
@@ -116,6 +128,21 @@ export default function ImageManager({
 
   const [images, setImages] = useState<ImageItem[]>(() => toImageItems(initialImages))
   const [selectedImageId, setSelectedImageId] = useState<string | null>(() => toImageItems(initialImages)[0]?.localId ?? null)
+
+  useEffect(() => {
+    onImagesChange?.(
+      images.map((image) => ({
+        id: image.mediaAssetId ?? image.localId,
+        previewUrl: image.previewUrl,
+        fileName: image.fileName,
+        altText: image.altText,
+        caption: image.caption,
+        credit: image.credit,
+        isPrimary: image.isPrimary,
+      }))
+    )
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [images])
   const [isUploading, setIsUploading] = useState(false)
   const [imageryMessage, setImageryMessage] = useState('')
   const [qrMessage, setQrMessage] = useState('')

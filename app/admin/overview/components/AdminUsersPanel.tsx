@@ -119,7 +119,7 @@ export default function AdminUsersPanel({ initialUsers, currentUserId }: Props) 
   return (
     <div className="mx-auto max-w-[920px] space-y-10">
       <div className="flex items-center gap-3">
-        <img src="/admin-icon.png" alt="" className="h-[24px] w-[24px]" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+        <img src="/user-icon.svg" alt="" className="h-[24px] w-[24px]" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
         <h1 className="text-[22px] font-semibold">Admin Users ({users.length})</h1>
       </div>
 
