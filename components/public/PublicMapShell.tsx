@@ -3,7 +3,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { ChevronLeft, ChevronRight, MapPin } from "lucide-react"
-import { publicHref, type PublicLanguage, type PublicMapContentSummary, type PublicMapLocation } from "@/lib/public/types"
+import {
+  publicHref,
+  type PublicLanguage,
+  type PublicMapContentSummary,
+  type PublicMapLocation,
+  type PublicRelatedContent,
+} from "@/lib/public/types"
 import { t } from "@/lib/public/i18n"
 import PublicMapSidebar from "./PublicMapSidebar"
 import PublicNavPanel from "./PublicNavPanel"
@@ -214,6 +220,30 @@ export default function PublicMapShell({
     setSelectedItem(item)
     setOpenPanel("right")
   }, [])
+
+  // Related-content click inside the sidebar: select the item on the map instead of
+  // navigating to its detail page. Returns false if the item has no map location
+  // (e.g. it's been filtered/hidden), so the caller can fall back to normal navigation.
+  const selectRelatedItem = useCallback(
+    (related: PublicRelatedContent): boolean => {
+      for (const location of currentLocations) {
+        const content = location.content.find((c) => c.id === related.id)
+        if (!content) continue
+
+        setSelectedCategories(new Set())
+        openItem({ content, location })
+
+        const coords = coordinatesFor(location)
+        if (coords && mapRef.current) {
+          mapRef.current.flyTo({ center: coords, zoom: 14.5, duration: 600 })
+        }
+
+        return true
+      }
+      return false
+    },
+    [currentLocations, openItem]
+  )
 
   function openLeftMenu() {
     setOpenPanel((current) => (current === "left" ? null : "left"))
@@ -600,6 +630,7 @@ mapRef.current = map
             lang={currentLang}
             isOpen={openPanel === "right"}
             onClose={closePanels}
+            onSelectRelated={selectRelatedItem}
           />
         ) : null}
       </section>

@@ -151,7 +151,6 @@ async function upsertContentItemTranslation(
     title: string
     summary?: string | null
     body?: string | null
-    customPeriodLabel?: string | null
     seoTitle?: string | null
     seoDescription?: string | null
   }
@@ -163,7 +162,6 @@ async function upsertContentItemTranslation(
       title: values.title,
       summary: values.summary ?? null,
       body: values.body ?? null,
-      custom_period_label: values.customPeriodLabel ?? null,
       seo_title: values.seoTitle ?? null,
       seo_description: values.seoDescription ?? null,
     },
@@ -1181,6 +1179,34 @@ export async function saveContentAction({
         return { success: false, error: storyError.message }
       }
 
+      // Save date / period / era fields on content_items
+      const storyStartYear = draft.story.startYear ? Number(draft.story.startYear) : null
+      const storyStartMonth = draft.story.startMonth ? Number(draft.story.startMonth) : null
+      const storyStartDay = draft.story.startDay ? Number(draft.story.startDay) : null
+      const storyEndYear = draft.story.endYear ? Number(draft.story.endYear) : null
+      const storyEndMonth = draft.story.endMonth ? Number(draft.story.endMonth) : null
+      const storyEndDay = draft.story.endDay ? Number(draft.story.endDay) : null
+
+      const { error: storyDateUpdateError } = await adminSupabase
+        .from('content_items')
+        .update({
+          start_date_year: Number.isFinite(storyStartYear) ? storyStartYear : null,
+          start_date_month: Number.isFinite(storyStartMonth) ? storyStartMonth : null,
+          start_date_day: Number.isFinite(storyStartDay) ? storyStartDay : null,
+          start_date_era: draft.story.startEra || 'AD',
+          end_date_year: Number.isFinite(storyEndYear) ? storyEndYear : null,
+          end_date_month: Number.isFinite(storyEndMonth) ? storyEndMonth : null,
+          end_date_day: Number.isFinite(storyEndDay) ? storyEndDay : null,
+          end_date_era: draft.story.endEra || 'AD',
+          historical_period_id: draft.story.periodId || null,
+          historical_era_id: draft.story.eraId || null,
+        })
+        .eq('id', contentItemId)
+
+      if (storyDateUpdateError) {
+        return { success: false, error: storyDateUpdateError.message }
+      }
+
       // English translation
       const { error: translationEnError } = await adminSupabase
         .from('story_translations')
@@ -1379,7 +1405,6 @@ export async function saveContentAction({
         title: draft.artifact.title,
         summary: draft.artifact.description || null,
         body: draft.artifact.description || null,
-        customPeriodLabel: draft.artifact.customPeriod || null,
         seoTitle: draft.seoTitle || draft.artifact.title,
         seoDescription: draft.seoDescription || draft.artifact.description || null,
       })
@@ -1405,7 +1430,6 @@ export async function saveContentAction({
           title: draft.artifactCy.title,
           summary: draft.artifactCy.description || null,
           body: draft.artifactCy.description || null,
-          customPeriodLabel: draft.artifact.customPeriod || null,
           seoTitle: draft.seoTitleCy || draft.artifactCy.title,
           seoDescription: draft.seoDescriptionCy || draft.artifactCy.description || null,
         })

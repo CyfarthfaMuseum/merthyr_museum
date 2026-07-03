@@ -51,10 +51,10 @@ export default function PublicHome({ lang }: { lang: PublicLanguage }) {
         {/* CTA */}
         <Link
           href={publicHref("/home", lang)}
-          className="absolute bottom-10 flex items-center gap-1 text-[13px] font-semibold uppercase tracking-[0.2em] text-white transition hover:opacity-70"
+          className="absolute bottom-10 flex items-center gap-1 text-[13px] font-semibold uppercase tracking-[0.2em] text-white transition hover:opacity-70 md:text-[18px]"
         >
           {isWelsh ? "Dechrau" : "Start"}
-          <ChevronRight className="h-4 w-4" strokeWidth={2.5} />
+          <ChevronRight className="h-4 w-4 md:h-5 md:w-5" strokeWidth={2.5} />
         </Link>
       </div>
 

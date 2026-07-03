@@ -52,6 +52,8 @@ export type PublicRelatedContent = {
   contentType: PublicContentType
   href: string
   relationshipType: string
+  primaryImage: PublicMedia | null
+  creatorLabel: string | null
 }
 
 export type PublicPaintingData = {

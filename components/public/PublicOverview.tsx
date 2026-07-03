@@ -17,11 +17,11 @@ const SECTIONS: {
   icon: string
   href: string
 }[] = [
-  { key: "painting",   labelKey: "nav.creativity", icon: "/Creations_Selected.svg",   href: "/paintings"   },
-  { key: "artefact",   labelKey: "nav.industry",   icon: "/Discoveries_Selected.svg", href: "/artefacts"   },
-  { key: "story",      labelKey: "nav.activism",   icon: "/Stories_Selected.svg",     href: "/stories"     },
-  { key: "biography",  labelKey: "nav.everyday",   icon: "/Figures_Selected.svg",     href: "/biographies" },
-  { key: "book",       labelKey: "nav.books",      icon: "/Books_Selected.svg",       href: "/books"       },
+  { key: "painting",   labelKey: "nav.creativity", icon: "/Creations_NotSelected.svg",   href: "/paintings"   },
+  { key: "artefact",   labelKey: "nav.industry",   icon: "/Discoveries_NotSelected.svg", href: "/artefacts"   },
+  { key: "story",      labelKey: "nav.activism",   icon: "/Stories_NotSelected.svg",     href: "/stories"     },
+  { key: "biography",  labelKey: "nav.everyday",   icon: "/Figures_NotSelected.svg",     href: "/biographies" },
+  { key: "book",       labelKey: "nav.books",      icon: "/Books_NotSelected.svg",       href: "/books"       },
 ]
 
 // ─── Filtering ────────────────────────────────────────────────────────────────
@@ -131,7 +131,7 @@ export default function PublicOverview({
             <span
               role="img"
               aria-label={lang === "cy" ? "Hanes Hi" : "Her Stories"}
-              className="block h-7 w-[140px] bg-[#006132]"
+              className="block h-7 w-[140px] bg-[#006132] md:h-10 md:w-[200px]"
               style={{
                 WebkitMaskImage: `url(${lang === "cy" ? "/hanesHi.svg" : "/HerStoriesEng.png"})`,
                 maskImage: `url(${lang === "cy" ? "/hanesHi.svg" : "/HerStoriesEng.png"})`,

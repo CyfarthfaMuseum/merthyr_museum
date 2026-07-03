@@ -5,6 +5,7 @@ import { randomUUID } from 'crypto'
 import { createAdminClient } from '@/utils/supabase/admin'
 import { createClient } from '@/utils/supabase/server'
 import type { ConnectedItem } from './types'
+import { resolveThumbnailUrls } from './media-helpers'
 
 type SaveImageArgs = {
   contentItemId?: string | null
@@ -428,17 +429,13 @@ export async function searchContentAction(args: {
 
   if (ids.length === 0) return { success: true, results: [] }
 
-  const [{ data: items }, { data: typeTranslations }, { data: primaryImages }] = await Promise.all([
+  const [{ data: items }, { data: typeTranslations }, imageUrlById] = await Promise.all([
     adminSupabase.from('content_items').select('id, content_type_id').in('id', ids),
     adminSupabase
       .from('content_type_translations')
       .select('content_type_id, label')
       .eq('language_code', 'en'),
-    adminSupabase
-      .from('content_media')
-      .select('content_item_id, media_assets(storage_path)')
-      .in('content_item_id', ids)
-      .eq('is_primary', true),
+    resolveThumbnailUrls(adminSupabase, ids),
   ])
 
   const typeIdByItemId = new Map(
@@ -449,12 +446,6 @@ export async function searchContentAction(args: {
   )
   const titleById = new Map(
     (translations ?? []).map((t) => [t.content_item_id as string, t.title as string])
-  )
-  const imageUrlById = new Map(
-    (primaryImages ?? []).map((m) => {
-      const asset = m.media_assets as unknown as { storage_path: string } | null
-      return [m.content_item_id as string, asset?.storage_path ?? null]
-    })
   )
 
   const results: ConnectedItem[] = ids.map((id) => {
@@ -512,6 +503,8 @@ export async function removeRelatedContentAction(args: {
   const { error } = await adminSupabase
     .from('related_content')
     .delete()
+    .eq('parent_content_item_id', args.parentId)
+    .eq('child_content_item_id', args.childId)
   if (error) return { success: false, error: error.message }
   return { success: true }
 }

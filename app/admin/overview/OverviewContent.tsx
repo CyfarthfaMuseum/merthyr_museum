@@ -92,6 +92,11 @@ type Props = {
   initialRelatedContent: ConnectedItem[]
 }
 
+const EMPTY_DATE_PATCH = {
+  startDay: '', startMonth: '', startYear: '', startEra: 'AD' as const,
+  endDay: '', endMonth: '', endYear: '', endEra: 'AD' as const,
+}
+
 function slugify(value: string) {
   return value
     .toLowerCase()
@@ -517,10 +522,11 @@ export default function OverviewContent({
             ? current
             : [...current, result.period!].sort((a, b) => a.name.localeCompare(b.name))
         )
-        setDraft((current) => ({
-          ...current,
-          artifact: { ...current.artifact, periodId: result.period!.id },
-        }))
+        setDraft((current) =>
+          current.contentType === 'stories'
+            ? { ...current, story: { ...current.story, periodId: result.period!.id, eraId: '', ...EMPTY_DATE_PATCH } }
+            : { ...current, artifact: { ...current.artifact, periodId: result.period!.id, eraId: '', ...EMPTY_DATE_PATCH } }
+        )
       }
       setPeriodModalOpen(false)
       setNewPeriodName('')
@@ -546,10 +552,11 @@ export default function OverviewContent({
             ? current
             : [...current, result.era!].sort((a, b) => a.name.localeCompare(b.name))
         )
-        setDraft((current) => ({
-          ...current,
-          artifact: { ...current.artifact, eraId: result.era!.id },
-        }))
+        setDraft((current) =>
+          current.contentType === 'stories'
+            ? { ...current, story: { ...current.story, eraId: result.era!.id, periodId: '', ...EMPTY_DATE_PATCH } }
+            : { ...current, artifact: { ...current.artifact, eraId: result.era!.id, periodId: '', ...EMPTY_DATE_PATCH } }
+        )
       }
       setEraModalOpen(false)
       setNewEraName('')
@@ -856,6 +863,10 @@ export default function OverviewContent({
                           }))
                         }
                         uiLang={uiLang}
+                        availableHistoricalPeriods={historicalPeriods}
+                        availableHistoricalEras={historicalEras}
+                        onAddPeriod={() => setPeriodModalOpen(true)}
+                        onAddEra={() => setEraModalOpen(true)}
                       />
                     </>
                   )}

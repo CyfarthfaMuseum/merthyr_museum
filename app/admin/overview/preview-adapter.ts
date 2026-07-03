@@ -87,7 +87,6 @@ export function buildPreviewContent(args: {
   let title = ''
   let summary: string | null = null
   let body: string | null = null
-  let customPeriodLabel: string | null = null
   let dateLabel: string | null = null
   const typeData: Pick<
     PublicContentItemViewModel,
@@ -132,7 +131,6 @@ export function buildPreviewContent(args: {
     title = (isCy ? draft.artifactCy.title : '') || draft.artifact.title
     summary = (isCy ? draft.artifactCy.description : '') || draft.artifact.description || null
     body = summary
-    customPeriodLabel = draft.artifact.customPeriod || null
     dateLabel = artifactDateLabel(draft.artifact)
     typeData.artefact = {
       maker: draft.artifact.maker || null,
@@ -176,7 +174,7 @@ export function buildPreviewContent(args: {
     body,
     seoTitle: (isCy ? draft.seoTitleCy : draft.seoTitle) || null,
     seoDescription: (isCy ? draft.seoDescriptionCy : draft.seoDescription) || null,
-    customPeriodLabel,
+    customPeriodLabel: null,
     featured: draft.isFeatured,
     publishedAt: draft.isPublished ? new Date().toISOString() : null,
     dateLabel,

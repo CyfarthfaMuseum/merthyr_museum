@@ -56,6 +56,22 @@ const ui = {
   "field.born":            { en: "Born",             cy: "Ganwyd" },
   "field.occupation":      { en: "Occupation",       cy: "Galwedigaeth" },
   "field.person":          { en: "Person",           cy: "Person" },
+  "field.name":            { en: "Name",             cy: "Enw" },
+  "field.origin":          { en: "Origin",           cy: "Tarddiad" },
+  "field.birthPlace":      { en: "Birth place",      cy: "Man geni" },
+  "field.created":         { en: "Created",          cy: "Crëwyd" },
+
+  // Detail page tabs
+  "tab.caption":  { en: "Caption",  cy: "Capsiwn" },
+  "tab.location": { en: "Location", cy: "Lleoliad" },
+
+  // Detail page states / actions
+  "state.detailsToFollow": { en: "Details to follow.", cy: "Manylion i ddilyn." },
+  "state.contentToFollow": { en: "Content to follow.", cy: "Cynnwys i ddilyn." },
+  "state.imagePending":    { en: "Image pending",      cy: "Delwedd ar y ffordd" },
+  "action.goBack":         { en: "Go back",             cy: "Yn ôl" },
+  "action.viewFullScreen": { en: "View image full screen", cy: "Gweld y ddelwedd yn llawn sgrin" },
+  "media.galleryImage":    { en: "Gallery image",      cy: "Delwedd oriel" },
 
   // Home page
   "home.openMap":        { en: "Open Map",       cy: "Agor y Map" },

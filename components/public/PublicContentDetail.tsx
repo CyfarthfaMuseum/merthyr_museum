@@ -1,22 +1,26 @@
 "use client"
 
-import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useMemo, useState } from "react"
 import {
   ArrowLeft,
-  BookOpen,
   Headphones,
   ImageIcon,
+  Link2,
   MapPin,
   ZoomIn,
 } from "lucide-react"
 import {
+  contentTypeToRouteSegment,
   publicHref,
   type PublicContentItemViewModel,
+  type PublicLanguage,
   type PublicMedia,
 } from "@/lib/public/types"
+import { t } from "@/lib/public/i18n"
 import PublicNavMenu from "./PublicNavMenu"
+import RelatedContentCards from "./RelatedContentCards"
+import MarkdownContent from "./MarkdownContent"
 import ImageLightbox from "./ImageLightbox"
 
 type DetailRow = {
@@ -30,36 +34,36 @@ type Tab = {
   content: React.ReactNode
 }
 
-function detailRowsFor(content: PublicContentItemViewModel): DetailRow[] {
+function detailRowsFor(content: PublicContentItemViewModel, lang: PublicLanguage): DetailRow[] {
   if (content.painting) {
     return [
-      { label: "Artist", value: content.painting.artistName },
-      { label: "Year", value: content.painting.yearCreated },
-      { label: "Medium", value: content.painting.medium },
-      { label: "Dimensions", value: content.painting.dimensions },
-      { label: "Collection", value: content.painting.currentCollection },
-      { label: "Image credit", value: content.painting.imageCredit },
+      { label: t("field.artist", lang), value: content.painting.artistName },
+      { label: t("field.year", lang), value: content.painting.yearCreated },
+      { label: t("field.medium", lang), value: content.painting.medium },
+      { label: t("field.dimensions", lang), value: content.painting.dimensions },
+      { label: t("field.collection", lang), value: content.painting.currentCollection },
+      { label: t("field.imageCredit", lang), value: content.painting.imageCredit },
     ]
   }
 
   if (content.book) {
     return [
-      { label: "Author", value: content.book.author },
-      { label: "Publisher", value: content.book.publisher },
-      { label: "Publication year", value: content.book.publicationYear },
-      { label: "ISBN", value: content.book.isbn },
+      { label: t("field.author", lang), value: content.book.author },
+      { label: t("field.publisher", lang), value: content.book.publisher },
+      { label: t("field.publicationYear", lang), value: content.book.publicationYear },
+      { label: t("field.isbn", lang), value: content.book.isbn },
     ]
   }
 
   if (content.artefact) {
     return [
-      { label: "Maker", value: content.artefact.maker },
-      { label: "Origin", value: content.artefact.originPlace },
-      { label: "Date", value: content.artefact.dateCreatedLabel ?? content.dateLabel },
-      { label: "Material", value: content.artefact.material },
-      { label: "Dimensions", value: content.artefact.dimensions },
-      { label: "Collection", value: content.artefact.collectionHolder },
-      { label: "Reference", value: content.artefact.catalogueReference },
+      { label: t("field.maker", lang), value: content.artefact.maker },
+      { label: t("field.origin", lang), value: content.artefact.originPlace },
+      { label: t("field.date", lang), value: content.artefact.dateCreatedLabel ?? content.dateLabel },
+      { label: t("field.material", lang), value: content.artefact.material },
+      { label: t("field.dimensions", lang), value: content.artefact.dimensions },
+      { label: t("field.collection", lang), value: content.artefact.collectionHolder },
+      { label: t("field.reference", lang), value: content.artefact.catalogueReference },
     ]
   }
 
@@ -69,34 +73,34 @@ function detailRowsFor(content: PublicContentItemViewModel): DetailRow[] {
       .join("-")
 
     return [
-      { label: "Name", value: content.biography.personName },
-      { label: "Dates", value: lifeDates || null },
-      { label: "Birth place", value: content.biography.birthPlace },
-      { label: "Occupation", value: content.biography.occupation },
+      { label: t("field.name", lang), value: content.biography.personName },
+      { label: t("field.dates", lang), value: lifeDates || null },
+      { label: t("field.birthPlace", lang), value: content.biography.birthPlace },
+      { label: t("field.occupation", lang), value: content.biography.occupation },
     ]
   }
 
   if (content.story) {
     return [
-      { label: "Person", value: content.story.relatedPersonName },
-      { label: "Date", value: content.dateLabel },
+      { label: t("field.person", lang), value: content.story.relatedPersonName },
+      { label: t("field.date", lang), value: content.dateLabel },
     ]
   }
 
-  return [{ label: "Date", value: content.dateLabel }]
+  return [{ label: t("field.date", lang), value: content.dateLabel }]
 }
 
-function DetailsList({ rows }: { rows: DetailRow[] }) {
+function DetailsList({ rows, lang }: { rows: DetailRow[]; lang: PublicLanguage }) {
   const visibleRows = rows.filter((row) => row.value !== null && row.value !== undefined && row.value !== "")
 
   if (visibleRows.length === 0) {
-    return <p className="text-[15px] leading-7 text-neutral-600">Details to follow.</p>
+    return <p className="text-[15px] leading-7 text-neutral-600">{t("state.detailsToFollow", lang)}</p>
   }
 
   return (
     <dl className="grid gap-4 sm:grid-cols-2">
       {visibleRows.map((row) => (
-        <div key={row.label} className="border-t border-neutral-200 pt-3">
+        <div key={row.label} className="pt-3">
           <dt className="text-[11px] font-semibold uppercase tracking-[0.16em] text-neutral-500">
             {row.label}
           </dt>
@@ -107,22 +111,16 @@ function DetailsList({ rows }: { rows: DetailRow[] }) {
   )
 }
 
-function ProseText({ children }: { children: string | null | undefined }) {
+function ProseText({ children, lang }: { children: string | null | undefined; lang: PublicLanguage }) {
   if (!children) {
-    return <p className="text-[15px] leading-7 text-neutral-600">Content to follow.</p>
+    return <p className="text-[15px] leading-7 text-neutral-600">{t("state.contentToFollow", lang)}</p>
   }
 
-  return (
-    <div className="space-y-4 break-words text-[16px] leading-8 text-neutral-800">
-      {children.split(/\n{2,}/).map((paragraph) => (
-        <p key={paragraph}>{paragraph}</p>
-      ))}
-    </div>
-  )
+  return <MarkdownContent>{children}</MarkdownContent>
 }
 
-function mediaLabel(media: PublicMedia) {
-  return media.caption || media.fileName || "Gallery image"
+function mediaLabel(media: PublicMedia, lang: PublicLanguage) {
+  return media.caption || media.fileName || t("media.galleryImage", lang)
 }
 
 function getCreatorLabel(content: PublicContentItemViewModel) {
@@ -131,12 +129,12 @@ function getCreatorLabel(content: PublicContentItemViewModel) {
     content.book?.author ||
     content.artefact?.maker ||
     content.story?.relatedPersonName ||
-    content.biography?.personName ||
+    content.biography?.occupation ||
     null
   )
 }
 
-function buildTabs(content: PublicContentItemViewModel): Tab[] {
+function buildTabs(content: PublicContentItemViewModel, lang: PublicLanguage): Tab[] {
   const captionText =
     content.painting?.detailNotes ??
     content.book?.excerpt ??
@@ -149,27 +147,28 @@ function buildTabs(content: PublicContentItemViewModel): Tab[] {
   const tabs: Tab[] = [
     {
       id: "caption",
-      label: "Caption",
-      content: <ProseText>{captionText}</ProseText>,
+      label: t("tab.caption", lang),
+      content: <ProseText lang={lang}>{captionText}</ProseText>,
     },
     {
       id: "details",
-      label: "Details",
-      content: <DetailsList rows={detailRowsFor(content)} />,
+      label: t("sidebar.details", lang),
+      content: <DetailsList rows={detailRowsFor(content, lang)} lang={lang} />,
     },
   ]
 
   if (content.painting) {
     tabs.push({
       id: "origin",
-      label: "Origin",
+      label: t("field.origin", lang),
       content: (
         <DetailsList
           rows={[
-            { label: "Created", value: content.painting.yearCreated },
-            { label: "Collection", value: content.painting.currentCollection },
-            { label: "Date", value: content.dateLabel },
+            { label: t("field.created", lang), value: content.painting.yearCreated },
+            { label: t("field.collection", lang), value: content.painting.currentCollection },
+            { label: t("field.date", lang), value: content.dateLabel },
           ]}
+          lang={lang}
         />
       ),
     })
@@ -178,7 +177,7 @@ function buildTabs(content: PublicContentItemViewModel): Tab[] {
   if (content.locations.length > 0) {
     tabs.push({
       id: "location",
-      label: "Location",
+      label: t("tab.location", lang),
       content: (
         <div className="space-y-5">
           {content.locations.map((location) => (
@@ -214,10 +213,11 @@ export default function PublicContentDetail({
   content: PublicContentItemViewModel
   hideNav?: boolean
 }) {
+  const lang = content.language
   const [selectedMediaId, setSelectedMediaId] = useState(content.primaryImage?.id ?? "")
   const [zoomed, setZoomed] = useState(false)
   const [lightboxOpen, setLightboxOpen] = useState(false)
-  const tabs = useMemo(() => buildTabs(content), [content])
+  const tabs = useMemo(() => buildTabs(content, lang), [content, lang])
   const [activeTabId, setActiveTabId] = useState(tabs[0]?.id ?? "caption")
   const selectedMedia =
     content.galleryMedia.find((media) => media.id === selectedMediaId) ??
@@ -232,24 +232,27 @@ export default function PublicContentDetail({
     <main className="min-h-screen overflow-x-hidden bg-white text-neutral-950">
       {hideNav ? null : (
         <>
-          <PublicNavMenu lang={content.language} />
+          <PublicNavMenu
+            lang={lang}
+            langSwitchHref={`/${contentTypeToRouteSegment(content.contentType.code)}/${content.slug}`}
+          />
           <button
             type="button"
             onClick={() => router.back()}
             className="fixed left-12 top-0 z-30 flex h-10 w-10 shrink-0 items-center justify-center bg-neutral-950/45 text-white shadow-sm backdrop-blur-sm transition hover:bg-neutral-950/60 lg:left-16 lg:h-14 lg:w-14"
-            aria-label="Go back"
+            aria-label={t("action.goBack", lang)}
           >
             <ArrowLeft className="h-5 w-5 lg:h-7 lg:w-7" />
           </button>
         </>
       )}
 
-      <div className="mx-auto flex min-h-screen w-full max-w-[1480px] flex-col px-4 py-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex min-h-screen w-full max-w-[1480px] flex-col px-4 py-4 sm:px-6 lg:h-screen lg:overflow-hidden lg:px-8">
         {hideNav ? null : <div className="h-[52px] lg:h-[68px]" aria-hidden="true" />}
 
-        <section className="grid min-w-0 flex-1 grid-cols-1 gap-8 py-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)] lg:gap-12 lg:py-10">
+        <section className="grid min-w-0 flex-1 grid-cols-1 items-start gap-8 py-6 lg:grid-cols-[minmax(0,1fr)_minmax(360px,1fr)] lg:grid-rows-[1fr] lg:flex-none lg:gap-12 lg:py-10 lg:h-[calc(100vh-140px)]">
           <div className="flex min-h-[440px] min-w-0 flex-col">
-            <div className="relative flex min-h-[360px] flex-1 items-center justify-center overflow-hidden bg-neutral-100">
+            <div className="relative flex min-h-[360px] items-center justify-center overflow-hidden bg-neutral-100 lg:h-[72vh]">
               {selectedMedia ? (
                 <img
                   src={selectedMedia.url}
@@ -262,7 +265,7 @@ export default function PublicContentDetail({
               ) : (
                 <div className="flex h-full min-h-[360px] flex-col items-center justify-center gap-3 text-neutral-500">
                   <ImageIcon className="h-10 w-10" />
-                  <span className="text-[14px]">Image pending</span>
+                  <span className="text-[14px]">{t("state.imagePending", lang)}</span>
                 </div>
               )}
               {selectedMedia ? (
@@ -270,7 +273,7 @@ export default function PublicContentDetail({
                   type="button"
                   onClick={() => setLightboxOpen(true)}
                   className="absolute bottom-4 right-4 flex h-11 w-11 items-center justify-center bg-white/90 text-neutral-900 shadow-sm transition hover:bg-white"
-                  aria-label="View image full screen"
+                  aria-label={t("action.viewFullScreen", lang)}
                 >
                   <ZoomIn className="h-5 w-5" />
                 </button>
@@ -292,7 +295,7 @@ export default function PublicContentDetail({
                         ? "border-neutral-950"
                         : "border-neutral-200"
                     }`}
-                    aria-label={mediaLabel(media)}
+                    aria-label={mediaLabel(media, lang)}
                   >
                     <img
                       src={media.url}
@@ -305,10 +308,10 @@ export default function PublicContentDetail({
             ) : null}
           </div>
 
-          <article className="flex min-w-0 flex-col">
+          <article className="flex min-w-0 flex-col lg:h-full lg:min-h-0 lg:overflow-y-auto lg:pr-2">
             <div className="border-b border-neutral-200 pb-7">
               <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-neutral-500">
-                {content.contentType.code}
+                {t(`type.${content.contentType.code}`, lang)}
               </p>
               <h1 className="mt-4 font-serif text-[42px] leading-[1.05] text-neutral-950 sm:text-[56px] lg:text-[64px]">
                 {content.title}
@@ -339,14 +342,14 @@ export default function PublicContentDetail({
               <section className="border-b border-neutral-200 py-5">
                 <div className="mb-3 flex items-center gap-2 text-[13px] font-semibold uppercase tracking-[0.14em] text-neutral-600">
                   <Headphones className="h-4 w-4" />
-                  Audio
+                  {t("sidebar.audio", lang)}
                 </div>
                 <audio controls src={content.audioMedia.url} className="w-full" />
               </section>
             ) : null}
 
             <section className="py-6">
-              <div className="flex gap-7 overflow-x-auto border-b border-neutral-200">
+              <div className="flex gap-7 overflow-x-auto border-b border-neutral-950">
                 {tabs.map((tab) => (
                   <button
                     type="button"
@@ -354,7 +357,7 @@ export default function PublicContentDetail({
                     onClick={() => setActiveTabId(tab.id)}
                     className={`shrink-0 border-b-2 pb-3 text-[14px] font-semibold uppercase tracking-[0.14em] transition ${
                       tab.id === activeTab?.id
-                        ? "border-neutral-950 text-neutral-950"
+                        ? "border-[#FAB041] text-neutral-950"
                         : "border-transparent text-neutral-500 hover:text-neutral-900"
                     }`}
                   >
@@ -368,25 +371,10 @@ export default function PublicContentDetail({
             {content.relatedContent.length > 0 ? (
               <section className="mt-auto border-t border-neutral-200 pt-6">
                 <div className="mb-4 flex items-center gap-2 text-[13px] font-semibold uppercase tracking-[0.14em] text-neutral-600">
-                  <BookOpen className="h-4 w-4" />
-                  Related
+                  <Link2 className="h-4 w-4" />
+                  {t("sidebar.related", lang)}
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {content.relatedContent.map((item) => (
-                    <Link
-                      key={item.id}
-                      href={item.href}
-                      className="border border-neutral-200 p-4 transition hover:border-neutral-950"
-                    >
-                      <p className="text-[12px] uppercase tracking-[0.14em] text-neutral-500">
-                        {item.contentType}
-                      </p>
-                      <p className="mt-2 text-[16px] font-medium text-neutral-950">
-                        {item.title}
-                      </p>
-                    </Link>
-                  ))}
-                </div>
+                <RelatedContentCards items={content.relatedContent} lang={lang} />
               </section>
             ) : null}
           </article>

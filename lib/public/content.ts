@@ -481,12 +481,30 @@ async function getPublicTags(
   })
 }
 
+function creatorLabelFromTypeData(data: {
+  painting?: PublicPaintingData | null
+  book?: PublicBookData | null
+  artefact?: PublicArtefactData | null
+  story?: PublicStoryData | null
+  biography?: PublicBiographyData | null
+}): string | null {
+  return (
+    data.painting?.artistName ??
+    data.book?.author ??
+    data.artefact?.maker ??
+    data.story?.relatedPersonName ??
+    data.biography?.occupation ??
+    null
+  )
+}
+
 async function getPublicRelatedContent(
   supabase: SupabaseClient,
   contentItemId: string,
   lang: PublicLanguage
 ): Promise<PublicRelatedContent[]> {
-  const { data: links } = await supabase
+  const adminClient = createAdminClient()
+  const { data: links } = await adminClient
     .from("related_content")
     .select("child_content_item_id, relationship_type, sort_order")
     .eq("parent_content_item_id", contentItemId)
@@ -513,6 +531,11 @@ async function getPublicRelatedContent(
 
     const link = (links ?? []).find((row) => row.child_content_item_id === item.id)
 
+    const [media, typeData] = await Promise.all([
+      getPublicMedia(supabase, item.id, lang),
+      getTypeSpecificData(supabase, item.id, visibility.contentType.code, lang),
+    ])
+
     related.push({
       id: item.id,
       slug: item.slug,
@@ -521,6 +544,8 @@ async function getPublicRelatedContent(
       contentType: visibility.contentType.code,
       href: publicContentHref(visibility.contentType.code, item.slug, lang),
       relationshipType: String(link?.relationship_type ?? "related"),
+      primaryImage: media.primaryImage,
+      creatorLabel: creatorLabelFromTypeData(typeData),
     })
   }
 
@@ -820,6 +845,6 @@ export function getContentCreatorLabel(content: PublicContentItemViewModel) {
     toNullableString(content.book?.author) ??
     toNullableString(content.artefact?.maker) ??
     toNullableString(content.story?.relatedPersonName) ??
-    toNullableString(content.biography?.personName)
+    toNullableString(content.biography?.occupation)
   )
 }

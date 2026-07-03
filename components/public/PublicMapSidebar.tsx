@@ -10,8 +10,11 @@ import {
   type PublicMapContentSummary,
   type PublicMapLocation,
   type PublicMedia,
+  type PublicRelatedContent,
 } from "@/lib/public/types"
 import { t } from "@/lib/public/i18n"
+import RelatedContentCards from "./RelatedContentCards"
+import MarkdownContent from "./MarkdownContent"
 
 type SidebarTab = "about" | "audio" | "details"
 
@@ -85,9 +88,24 @@ function creatorLabel(detail: PublicContentItemViewModel): string | null {
     detail.book?.author ??
     detail.artefact?.maker ??
     detail.story?.relatedPersonName ??
-    detail.biography?.personName ??
+    detail.biography?.occupation ??
     null
   )
+}
+
+function tabsForType(contentType: string, lang: PublicLanguage): { id: SidebarTab; label: string }[] {
+  if (contentType === "painting" || contentType === "artefact") {
+    return [
+      { id: "about", label: t("sidebar.about", lang) },
+      { id: "details", label: t("sidebar.details", lang) },
+    ]
+  }
+
+  return [
+    { id: "about", label: t("sidebar.about", lang) },
+    { id: "audio", label: t("sidebar.audio", lang) },
+    { id: "details", label: t("sidebar.details", lang) },
+  ]
 }
 
 type Props = {
@@ -96,9 +114,17 @@ type Props = {
   lang: PublicLanguage
   isOpen: boolean
   onClose: () => void
+  onSelectRelated?: (item: PublicRelatedContent) => boolean
 }
 
-export default function PublicMapSidebar({ content, location, lang, isOpen, onClose }: Props) {
+export default function PublicMapSidebar({
+  content,
+  location,
+  lang,
+  isOpen,
+  onClose,
+  onSelectRelated,
+}: Props) {
   const [detail, setDetail] = useState<PublicContentItemViewModel | null>(null)
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<SidebarTab>("about")
@@ -180,12 +206,8 @@ export default function PublicMapSidebar({ content, location, lang, isOpen, onCl
   const body = detail ? aboutText(detail) : null
   const fields = detail ? detailFields(detail, lang) : []
   const contentHref = publicHref(content.href, lang)
-
-  const tabs: { id: SidebarTab; label: string }[] = [
-    { id: "about",   label: t("sidebar.about",   lang) },
-    { id: "audio",   label: t("sidebar.audio",   lang) },
-    { id: "details", label: t("sidebar.details", lang) },
-  ]
+  const showLocationInline = content.contentType === "story"
+  const tabs = tabsForType(content.contentType, lang)
 
   return (
     <aside
@@ -282,15 +304,50 @@ export default function PublicMapSidebar({ content, location, lang, isOpen, onCl
           <h2 className="mt-1 font-serif text-[28px] leading-tight text-neutral-950">
             {content.title}
           </h2>
-          {detail?.dateLabel ? (
-            <p className="mt-1 text-[14px] text-neutral-500">{detail.dateLabel}</p>
-          ) : null}
-          {creator ? (
-            <p className="mt-1 text-[15px] font-medium text-neutral-700">{creator}</p>
-          ) : null}
-          {detail?.summary ? (
-            <p className="mt-4 text-[15px] leading-7 text-neutral-700">{detail.summary}</p>
-          ) : null}
+
+          {content.contentType === "story" ? (
+            <>
+              {detail?.dateLabel ? (
+                <p className="mt-1 text-[14px] text-neutral-500">{detail.dateLabel}</p>
+              ) : null}
+              {location.address ? (
+                <div className="mt-1 flex items-start gap-1.5 text-[14px] text-neutral-500">
+                  <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-neutral-300" />
+                  <span>{location.address}</span>
+                </div>
+              ) : null}
+              {detail?.audioMedia ? (
+                <audio controls src={detail.audioMedia.url} className="mt-3 w-full" />
+              ) : null}
+              {detail?.summary ? (
+                <p className="mt-4 text-[15px] leading-7 text-neutral-700">{detail.summary}</p>
+              ) : null}
+            </>
+          ) : content.contentType === "painting" || content.contentType === "artefact" ? (
+            <>
+              {creator ? (
+                <p className="mt-1 text-[15px] font-medium text-neutral-700">{creator}</p>
+              ) : null}
+              {detail?.audioMedia ? (
+                <audio controls src={detail.audioMedia.url} className="mt-3 w-full" />
+              ) : null}
+              {detail?.summary ? (
+                <p className="mt-4 text-[15px] leading-7 text-neutral-700">{detail.summary}</p>
+              ) : null}
+            </>
+          ) : (
+            <>
+              {detail?.dateLabel ? (
+                <p className="mt-1 text-[14px] text-neutral-500">{detail.dateLabel}</p>
+              ) : null}
+              {creator ? (
+                <p className="mt-1 text-[15px] font-medium text-neutral-700">{creator}</p>
+              ) : null}
+              {detail?.summary ? (
+                <p className="mt-4 text-[15px] leading-7 text-neutral-700">{detail.summary}</p>
+              ) : null}
+            </>
+          )}
         </div>
 
         {/* Tabs */}
@@ -317,11 +374,9 @@ export default function PublicMapSidebar({ content, location, lang, isOpen, onCl
               {/* About tab */}
               {activeTab === "about" ? (
                 body ? (
-                  <div className="space-y-3 text-[15px] leading-7 text-neutral-700">
-                    {body.split(/\n{2,}/).map((para) => (
-                      <p key={para}>{para}</p>
-                    ))}
-                  </div>
+                  <MarkdownContent className="text-[15px] leading-7 text-neutral-700">
+                    {body}
+                  </MarkdownContent>
                 ) : (
                   <p className="text-[14px] text-neutral-400">{t("sidebar.noContent", lang)}</p>
                 )
@@ -365,7 +420,7 @@ export default function PublicMapSidebar({ content, location, lang, isOpen, onCl
         )}
 
         {/* Location */}
-        {location.address ? (
+        {!showLocationInline && location.address ? (
           <div className="border-t border-neutral-100 px-5 py-4">
             <div className="flex items-start gap-2 text-[14px] text-neutral-500">
               <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-neutral-300" />
@@ -380,25 +435,11 @@ export default function PublicMapSidebar({ content, location, lang, isOpen, onCl
             <p className="mb-3 text-[12px] font-semibold uppercase tracking-[0.16em] text-neutral-400">
               {t("sidebar.related", lang)}
             </p>
-            <div className="space-y-2">
-              {detail.relatedContent.map((item) => (
-                <Link
-                  key={item.id}
-                  href={publicHref(item.href, lang)}
-                  className="flex items-center gap-3 border border-neutral-100 p-3 transition hover:border-neutral-950"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#00744b]">
-                      {t(`type.${item.contentType}`, lang)}
-                    </p>
-                    <p className="mt-0.5 truncate text-[14px] font-medium text-neutral-950">
-                      {item.title}
-                    </p>
-                  </div>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-neutral-300" />
-                </Link>
-              ))}
-            </div>
+            <RelatedContentCards
+              items={detail.relatedContent}
+              lang={lang}
+              onSelect={onSelectRelated}
+            />
           </div>
         ) : (
           <div className="pb-24" />
