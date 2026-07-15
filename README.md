@@ -34,3 +34,9 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Supabase keep-awake cron
+
+This project includes a Vercel Cron Job that calls `/api/cron/keep-supabase-awake` once per day at 08:00 UTC. The endpoint performs a tiny read from the `content_types` table so the Supabase project receives regular traffic.
+
+Set a `CRON_SECRET` environment variable in Vercel. Vercel automatically sends it to the cron endpoint as a `Bearer` token, and the endpoint rejects requests without it.
