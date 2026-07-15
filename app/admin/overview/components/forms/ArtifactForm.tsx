@@ -6,72 +6,11 @@ import SectionTitle from '../ui/SectionTitle'
 import Select from '../ui/Select'
 import Textarea from '../ui/Textarea'
 import Divider from '../ui/Divider'
-import YearInput from '../ui/YearInput'
+import DateRow from '../shared/DateRow'
 
-const DAYS = Array.from({ length: 31 }, (_, i) => i + 1)
-const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1)
-
-type DateRowProps = {
-  label: string
-  dayValue: string
-  monthValue: string
-  yearValue: string
-  eraValue: 'AD' | 'BC'
-  dayPlaceholder: string
-  monthPlaceholder: string
-  yearPlaceholder: string
-  onDayChange: (v: string) => void
-  onMonthChange: (v: string) => void
-  onYearChange: (v: string) => void
-  onEraToggle: () => void
-}
-
-function DateRow({
-  label, dayValue, monthValue, yearValue, eraValue,
-  dayPlaceholder, monthPlaceholder, yearPlaceholder,
-  onDayChange, onMonthChange, onYearChange, onEraToggle,
-}: DateRowProps) {
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      <span className="w-16 text-sm font-medium text-neutral-600 shrink-0">{label}</span>
-      <Select
-        value={dayValue}
-        onChange={(e) => onDayChange(e.target.value)}
-        className="w-[90px]"
-      >
-        <option value="">{dayPlaceholder}</option>
-        {DAYS.map((d) => (
-          <option key={d} value={String(d)}>{d}</option>
-        ))}
-      </Select>
-      <span className="text-neutral-400">/</span>
-      <Select
-        value={monthValue}
-        onChange={(e) => onMonthChange(e.target.value)}
-        className="w-[90px]"
-      >
-        <option value="">{monthPlaceholder}</option>
-        {MONTHS.map((m) => (
-          <option key={m} value={String(m)}>{m}</option>
-        ))}
-      </Select>
-      <div className="flex items-center gap-1 rounded-lg border border-neutral-300 bg-white px-3 h-10">
-        <YearInput
-          value={yearValue}
-          onChange={onYearChange}
-          placeholder={yearPlaceholder}
-          className="w-16"
-        />
-        <button
-          type="button"
-          onClick={onEraToggle}
-          className="text-xs font-bold text-neutral-700 hover:text-black ml-1 select-none"
-        >
-          {eraValue}
-        </button>
-      </div>
-    </div>
-  )
+const EMPTY_DATE_PATCH = {
+  startDay: '', startMonth: '', startYear: '', startEra: 'AD' as const,
+  endDay: '', endMonth: '', endYear: '', endEra: 'AD' as const,
 }
 
 type Props = {
@@ -104,6 +43,19 @@ export default function ArtifactForm({
   const langSuffix = language !== uiLang ? `(${language === 'cy' ? t.welshSuffix : t.englishSuffix})` : ''
   const withSuffix = (label: string) => langSuffix ? `${label} ${langSuffix}` : label
 
+  // An artefact may have an era, a period, or a date range — not more than one at a time.
+  function onDateFieldChange(patch: Partial<ArtifactDraft>) {
+    onChange({ ...patch, periodId: '', eraId: '' })
+  }
+
+  function onPeriodChange(periodId: string) {
+    onChange({ periodId, eraId: '', ...EMPTY_DATE_PATCH })
+  }
+
+  function onEraChange(eraId: string) {
+    onChange({ eraId, periodId: '', ...EMPTY_DATE_PATCH })
+  }
+
   return (
     <div className="space-y-6">
       {/* ── Date / Time Period ── */}
@@ -119,10 +71,10 @@ export default function ArtifactForm({
           dayPlaceholder={t.dateDay}
           monthPlaceholder={t.dateMonth}
           yearPlaceholder={t.dateYear}
-          onDayChange={(v) => onChange({ startDay: v })}
-          onMonthChange={(v) => onChange({ startMonth: v })}
-          onYearChange={(v) => onChange({ startYear: v })}
-          onEraToggle={() => onChange({ startEra: value.startEra === 'AD' ? 'BC' : 'AD' })}
+          onDayChange={(v) => onDateFieldChange({ startDay: v })}
+          onMonthChange={(v) => onDateFieldChange({ startMonth: v })}
+          onYearChange={(v) => onDateFieldChange({ startYear: v })}
+          onEraToggle={() => onDateFieldChange({ startEra: value.startEra === 'AD' ? 'BC' : 'AD' })}
         />
         <DateRow
           label={t.dateEnd}
@@ -133,19 +85,19 @@ export default function ArtifactForm({
           dayPlaceholder={t.dateDay}
           monthPlaceholder={t.dateMonth}
           yearPlaceholder={t.dateYear}
-          onDayChange={(v) => onChange({ endDay: v })}
-          onMonthChange={(v) => onChange({ endMonth: v })}
-          onYearChange={(v) => onChange({ endYear: v })}
-          onEraToggle={() => onChange({ endEra: value.endEra === 'AD' ? 'BC' : 'AD' })}
+          onDayChange={(v) => onDateFieldChange({ endDay: v })}
+          onMonthChange={(v) => onDateFieldChange({ endMonth: v })}
+          onYearChange={(v) => onDateFieldChange({ endYear: v })}
+          onEraToggle={() => onDateFieldChange({ endEra: value.endEra === 'AD' ? 'BC' : 'AD' })}
         />
 
-        <p className="text-xs text-neutral-500">{t.andOrHistoricalPeriod}</p>
+        <p className="text-xs text-neutral-500">{t.orHistoricalPeriodOrEra}</p>
 
         <div className="flex items-center gap-3">
           <span className="w-16 text-sm font-medium text-neutral-600 shrink-0">{t.periodLabel}</span>
           <Select
             value={value.periodId}
-            onChange={(e) => onChange({ periodId: e.target.value })}
+            onChange={(e) => onPeriodChange(e.target.value)}
             className="flex-1"
           >
             <option value="">{t.selectHistoricalPeriod}</option>
@@ -166,7 +118,7 @@ export default function ArtifactForm({
           <span className="w-16 text-sm font-medium text-neutral-600 shrink-0">{t.eraLabel}</span>
           <Select
             value={value.eraId}
-            onChange={(e) => onChange({ eraId: e.target.value })}
+            onChange={(e) => onEraChange(e.target.value)}
             className="flex-1"
           >
             <option value="">{t.selectHistoricalEra}</option>
@@ -181,15 +133,6 @@ export default function ArtifactForm({
           >
             {t.addEra}
           </button>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <span className="w-16 text-sm font-medium text-neutral-600 shrink-0">{t.customPeriodLabel}</span>
-          <Input
-            value={value.customPeriod}
-            onChange={(e) => onChange({ customPeriod: e.target.value })}
-            placeholder={t.customPeriodPlaceholder}
-          />
         </div>
       </div>
 

@@ -1,7 +1,3 @@
-import { GetObjectCommand } from "@aws-sdk/client-s3"
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
-import { getStorageClient } from "@/lib/r2"
-import { getOptionalStorageEnv } from "@/lib/storage-env"
 import type { PublicLanguage, PublicMedia } from "./types"
 
 type MediaAssetTranslationRow = {
@@ -39,32 +35,40 @@ function isAbsoluteUrl(value: string) {
   return /^https?:\/\//i.test(value)
 }
 
+// Storage objects are always served through our own /api/media proxy rather than
+// directly from the bucket's domain, so ad/tracker blockers (which commonly flag
+// cross-site requests with UUID-style filenames as tracking pixels) don't strip
+// images from the public site. This extracts the bare object key whether the
+// stored value is already a bare key or a legacy absolute URL into our bucket.
+function extractStorageKey(rawValue: string): string | null {
+  if (!isAbsoluteUrl(rawValue)) {
+    return rawValue.replace(/^\/+/, "")
+  }
+
+  try {
+    const url = new URL(rawValue)
+    if (/\.storage\.dev$/i.test(url.hostname) || /\.tigrisfiles\.io$/i.test(url.hostname)) {
+      return decodeURIComponent(url.pathname.replace(/^\/+/, ""))
+    }
+  } catch {
+    return null
+  }
+
+  return null
+}
+
 export async function resolvePublicMediaUrl(storagePath: string | null | undefined) {
   const rawValue = (storagePath ?? "").trim()
   if (!rawValue) return ""
 
-  if (isAbsoluteUrl(rawValue)) {
+  const key = extractStorageKey(rawValue)
+  if (key === null) {
+    // Not one of our buckets (e.g. a genuinely external URL) — pass through as-is.
     return rawValue
   }
+  if (!key) return ""
 
-  const { bucketName, publicBaseUrl } = getOptionalStorageEnv()
-  const normalizedPath = rawValue.replace(/^\/+/, "")
-
-  if (publicBaseUrl) {
-    return `${publicBaseUrl}/${normalizedPath}`
-  }
-
-  if (!bucketName) return ""
-
-  try {
-    const command = new GetObjectCommand({
-      Bucket: bucketName,
-      Key: normalizedPath,
-    })
-    return await getSignedUrl(getStorageClient(), command, { expiresIn: 60 * 15 })
-  } catch {
-    return ""
-  }
+  return `/api/media/${key.split("/").map(encodeURIComponent).join("/")}`
 }
 
 export async function mapContentMediaRow(

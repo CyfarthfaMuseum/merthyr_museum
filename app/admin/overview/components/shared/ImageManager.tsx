@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
-import { MapPin, Pencil, Plus, Printer, Trash2, X } from 'lucide-react'
+import { MapPin, Plus, Printer, Trash2, X } from 'lucide-react'
 import Input from '../ui/Input'
 import { BlackButton } from '../ui/Buttons'
+import Modal from '../ui/Modal'
 import SectionTitle from '../ui/SectionTitle'
 import { uploadImageToR2 } from '../../upload-image'
 import { deleteImageAction, saveImageMetadataAction, saveLocationAction, linkLocationAction } from '../../image-actions'
@@ -31,10 +32,21 @@ type Props = {
   onSlugChange: (value: string) => void
   onUploaded?: (mediaAssetId: string) => void
   initialImages?: InitialImage[]
-  initialLocation?: { address: string; lat: number; lng: number } | null
+  initialLocation?: { id?: string; address: string; lat: number; lng: number } | null
   sidebarLocations?: SidebarLocation[]
   onLocationSaved?: (location: { id: string; address: string; lat: number; lng: number }) => void
+  onImagesChange?: (images: PreviewImage[]) => void
   uiLang: UiLang
+}
+
+export type PreviewImage = {
+  id: string
+  previewUrl: string
+  fileName: string
+  altText: string
+  caption: string
+  credit: string
+  isPrimary: boolean
 }
 
 type ImageItem = {
@@ -104,6 +116,7 @@ export default function ImageManager({
   initialLocation = null,
   sidebarLocations = [],
   onLocationSaved,
+  onImagesChange,
   uiLang,
 }: Props) {
   const t = uiStrings[uiLang]
@@ -116,6 +129,22 @@ export default function ImageManager({
 
   const [images, setImages] = useState<ImageItem[]>(() => toImageItems(initialImages))
   const [selectedImageId, setSelectedImageId] = useState<string | null>(() => toImageItems(initialImages)[0]?.localId ?? null)
+  const [imagePendingDeleteId, setImagePendingDeleteId] = useState<string | null>(null)
+
+  useEffect(() => {
+    onImagesChange?.(
+      images.map((image) => ({
+        id: image.mediaAssetId ?? image.localId,
+        previewUrl: image.previewUrl,
+        fileName: image.fileName,
+        altText: image.altText,
+        caption: image.caption,
+        credit: image.credit,
+        isPrimary: image.isPrimary,
+      }))
+    )
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [images])
   const [isUploading, setIsUploading] = useState(false)
   const [imageryMessage, setImageryMessage] = useState('')
   const [qrMessage, setQrMessage] = useState('')
@@ -129,7 +158,7 @@ export default function ImageManager({
   })
   const [locationMessage, setLocationMessage] = useState('')
   const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false)
-  const [selectedLocationId, setSelectedLocationId] = useState('')
+  const [selectedLocationId, setSelectedLocationId] = useState(initialLocation?.id ?? '')
   const [localLocations, setLocalLocations] = useState(sidebarLocations)
   const [locationAddress, setLocationAddress] = useState(initialLocation?.address ?? '')
   const [selectedCoordinates, setSelectedCoordinates] = useState<{ lat: number; lng: number } | null>(
@@ -507,6 +536,8 @@ export default function ImageManager({
       onLocationSaved?.(savedLoc)
     } else {
       console.warn('[handleConfirmLocation] no contentItemId — location will not be persisted')
+      setLocationMessage('Pin dropped, but not saved yet — save the book first, then set its location.')
+      return
     }
 
     setLocationMessage(t.locationConfirmed)
@@ -536,11 +567,15 @@ export default function ImageManager({
           <div className="space-y-2">
             <p className="text-[18px] text-neutral-800">{t.primary}</p>
             {primaryImage ? (
-              <>
+              <div className="w-32 space-y-2">
                 <button
                   type="button"
                   onClick={() => setSelectedImageId(primaryImage.localId)}
-                  className="h-32 w-32 overflow-hidden rounded-md border border-neutral-300"
+                  className={`h-32 w-32 overflow-hidden rounded-md border-2 transition-transform duration-150 ${
+                    selectedImageId === primaryImage.localId
+                      ? 'scale-105 border-neutral-900 ring-2 ring-neutral-900'
+                      : 'border-neutral-300'
+                  }`}
                 >
                   <Image
                     src={primaryImage.previewUrl}
@@ -551,15 +586,12 @@ export default function ImageManager({
                     className="h-full w-full object-cover"
                   />
                 </button>
-                <div className="flex items-center justify-center gap-3 text-neutral-700">
-                  <button type="button" onClick={() => setSelectedImageId(primaryImage.localId)}>
-                    <Pencil size={20} />
-                  </button>
-                  <button type="button" onClick={() => removeImage(primaryImage.localId)}>
+                <div className="flex justify-end text-neutral-700">
+                  <button type="button" onClick={() => setImagePendingDeleteId(primaryImage.localId)}>
                     <Trash2 size={20} />
                   </button>
                 </div>
-              </>
+              </div>
             ) : (
               <div className="h-32 w-32 rounded-md border border-dashed border-neutral-300 bg-white" />
             )}
@@ -567,7 +599,7 @@ export default function ImageManager({
 
           <div className="space-y-2">
             <p className="text-[18px] text-neutral-800">{t.additionalImagery}</p>
-            <div className="max-w-full overflow-x-auto pb-2">
+            <div className="max-w-full overflow-x-auto px-1 py-3">
               <div className="flex w-max items-start gap-3">
                 <button
                   type="button"
@@ -580,12 +612,14 @@ export default function ImageManager({
                 </button>
 
                 {additionalImages.map((image) => (
-                  <div key={image.localId} className="shrink-0 space-y-2">
+                  <div key={image.localId} className="w-32 shrink-0 space-y-2">
                     <button
                       type="button"
                       onClick={() => setSelectedImageId(image.localId)}
-                      className={`relative h-32 w-32 overflow-hidden rounded-md border ${
-                        selectedImageId === image.localId ? 'border-neutral-900' : 'border-neutral-300'
+                      className={`relative h-32 w-32 overflow-hidden rounded-md border-2 transition-transform duration-150 ${
+                        selectedImageId === image.localId
+                          ? 'scale-105 border-neutral-900 ring-2 ring-neutral-900'
+                          : 'border-neutral-300'
                       }`}
                     >
                       <Image
@@ -602,11 +636,8 @@ export default function ImageManager({
                         </span>
                       ) : null}
                     </button>
-                    <div className="flex items-center justify-center gap-3 text-neutral-700">
-                      <button type="button" onClick={() => setSelectedImageId(image.localId)}>
-                        <Pencil size={18} />
-                      </button>
-                      <button type="button" onClick={() => removeImage(image.localId)}>
+                    <div className="flex justify-end text-neutral-700">
+                      <button type="button" onClick={() => setImagePendingDeleteId(image.localId)}>
                         <Trash2 size={18} />
                       </button>
                     </div>
@@ -826,6 +857,26 @@ export default function ImageManager({
           </div>
         </div>
       ) : null}
+
+      <Modal
+        open={imagePendingDeleteId !== null}
+        title={t.deleteImageTitle}
+        onClose={() => setImagePendingDeleteId(null)}
+      >
+        <p className="text-neutral-700">{t.deleteImageBody}</p>
+        <div className="mt-6 flex justify-end gap-3">
+          <BlackButton onClick={() => setImagePendingDeleteId(null)}>{t.cancel}</BlackButton>
+          <BlackButton
+            className="bg-red-600 hover:bg-red-700"
+            onClick={() => {
+              if (imagePendingDeleteId) removeImage(imagePendingDeleteId)
+              setImagePendingDeleteId(null)
+            }}
+          >
+            {t.confirmDelete}
+          </BlackButton>
+        </div>
+      </Modal>
     </div>
   )
 }

@@ -44,12 +44,14 @@ import Modal from './components/ui/Modal'
 import SectionTitle from './components/ui/SectionTitle'
 import Textarea from './components/ui/Textarea'
 import Toast from './components/ui/Toast'
-import ImageManager from './components/shared/ImageManager'
+import ImageManager, { type PreviewImage } from './components/shared/ImageManager'
 import AudioGuide from './components/shared/AudioGuide'
 import ConnectedContent from './components/shared/ConnectedContent'
 import AdminUsersPanel from './components/AdminUsersPanel'
 import LocationsPanel from './components/LocationsPanel'
 import type { AdminUser } from './admin-users-actions'
+import PublicContentDetail from '@/components/public/PublicContentDetail'
+import { buildPreviewContent } from './preview-adapter'
 
 type Props = {
   userEmail: string
@@ -85,9 +87,14 @@ type Props = {
     credit: string
     isPrimary: boolean
   }[]
-  initialLocation: { address: string; lat: number; lng: number } | null
+  initialLocation: { id: string; address: string; lat: number; lng: number } | null
   initialAudio: AudioItems
   initialRelatedContent: ConnectedItem[]
+}
+
+const EMPTY_DATE_PATCH = {
+  startDay: '', startMonth: '', startYear: '', startEra: 'AD' as const,
+  endDay: '', endMonth: '', endYear: '', endEra: 'AD' as const,
 }
 
 function slugify(value: string) {
@@ -110,8 +117,8 @@ export default function OverviewContent({
   sidebarBios,
   sidebarLocations,
   initialDraft,
-  mode,
-  editId,
+  mode: modeProp,
+  editId: editIdProp,
   availableBookGenres,
   availableStoryTypes,
   availablePaintingMediums,
@@ -129,6 +136,8 @@ export default function OverviewContent({
   initialUiLang,
 }: Props) {
   const [draft, setDraft] = useState<OverviewDraft>(initialDraft)
+  const [mode, setMode] = useState<EditorMode>(modeProp)
+  const [editId, setEditId] = useState<string | null>(editIdProp)
   const [activeLanguage, setActiveLanguage] = useState<'en' | 'cy'>('en')
   const [uiLang, setUiLang] = useState<UiLang>(initialUiLang ?? 'en')
   const [genres, setGenres] = useState<BookGenreOption[]>(availableBookGenres)
@@ -185,6 +194,8 @@ export default function OverviewContent({
   const [unpublishModalOpen, setUnpublishModalOpen] = useState(false)
   const [archiveModalOpen, setArchiveModalOpen] = useState(false)
   const [savedContentItemId, setSavedContentItemId] = useState<string | null>(editId)
+  const [currentImages, setCurrentImages] = useState<PreviewImage[]>([])
+  const [currentLocation, setCurrentLocation] = useState(initialLocation)
   const [pendingMediaAssetIds, setPendingMediaAssetIds] = useState<string[]>([])
   const [currentAudio, setCurrentAudio] = useState<AudioItems>(initialAudio)
   const [pendingAudioAssetIds, setPendingAudioAssetIds] = useState<{ en: string | null; cy: string | null }>({
@@ -197,11 +208,13 @@ export default function OverviewContent({
   const editorIdentityRef = useRef<string | null>(null)
 
   useEffect(() => {
-    const identity = `${mode}:${editId ?? 'new'}`
+    const identity = `${modeProp}:${editIdProp ?? 'new'}`
     if (editorIdentityRef.current === identity) return
 
     editorIdentityRef.current = identity
     setDraft(initialDraft)
+    setMode(modeProp)
+    setEditId(editIdProp)
     setActiveLanguage('en')
     setGenres(availableBookGenres)
     setStoryTypes(availableStoryTypes)
@@ -209,20 +222,29 @@ export default function OverviewContent({
     setArtifactCategories(availableArtifactCategories)
     setHistoricalPeriods(availableHistoricalPeriods)
     setHistoricalEras(availableHistoricalEras)
-    setSlugEditedManually(mode === 'edit')
-    setSeoTitleEditedManually(mode === 'edit')
-    setSeoDescriptionEditedManually(mode === 'edit')
-    setSavedContentItemId(editId)
+    setSlugEditedManually(modeProp === 'edit')
+    setSeoTitleEditedManually(modeProp === 'edit')
+    setSeoDescriptionEditedManually(modeProp === 'edit')
+    setSavedContentItemId(editIdProp)
+    setCurrentLocation(initialLocation)
     setPendingMediaAssetIds([])
     setCurrentAudio(initialAudio)
     setPendingAudioAssetIds({ en: null, cy: null })
-  }, [initialDraft, availableBookGenres, availableStoryTypes, availablePaintingMediums, availableArtifactCategories, availableHistoricalPeriods, availableHistoricalEras, initialAudio, mode, editId])
+  }, [initialDraft, availableBookGenres, availableStoryTypes, availablePaintingMediums, availableArtifactCategories, availableHistoricalPeriods, availableHistoricalEras, initialAudio, initialLocation, modeProp, editIdProp])
 
   useEffect(() => {
     if (!toastOpen) return
     const timer = setTimeout(() => setToastOpen(false), 3000)
     return () => clearTimeout(timer)
   }, [toastOpen])
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [])
 
   const generatedSlug = useMemo(() => {
     if (draft.contentType === 'book') {
@@ -500,10 +522,11 @@ export default function OverviewContent({
             ? current
             : [...current, result.period!].sort((a, b) => a.name.localeCompare(b.name))
         )
-        setDraft((current) => ({
-          ...current,
-          artifact: { ...current.artifact, periodId: result.period!.id },
-        }))
+        setDraft((current) =>
+          current.contentType === 'stories'
+            ? { ...current, story: { ...current.story, periodId: result.period!.id, eraId: '', ...EMPTY_DATE_PATCH } }
+            : { ...current, artifact: { ...current.artifact, periodId: result.period!.id, eraId: '', ...EMPTY_DATE_PATCH } }
+        )
       }
       setPeriodModalOpen(false)
       setNewPeriodName('')
@@ -529,10 +552,11 @@ export default function OverviewContent({
             ? current
             : [...current, result.era!].sort((a, b) => a.name.localeCompare(b.name))
         )
-        setDraft((current) => ({
-          ...current,
-          artifact: { ...current.artifact, eraId: result.era!.id },
-        }))
+        setDraft((current) =>
+          current.contentType === 'stories'
+            ? { ...current, story: { ...current.story, eraId: result.era!.id, periodId: '', ...EMPTY_DATE_PATCH } }
+            : { ...current, artifact: { ...current.artifact, eraId: result.era!.id, periodId: '', ...EMPTY_DATE_PATCH } }
+        )
       }
       setEraModalOpen(false)
       setNewEraName('')
@@ -574,6 +598,8 @@ export default function OverviewContent({
       }
 
       setSavedContentItemId(result.id)
+      setMode('edit')
+      setEditId(result.id)
       setPendingMediaAssetIds([])
       setPendingAudioAssetIds({ en: null, cy: null })
       showToast(mode === 'edit' ? t.contentUpdated : t.contentSaved, 'success')
@@ -609,6 +635,8 @@ export default function OverviewContent({
       }
 
       setSavedContentItemId(result.id)
+      setMode('edit')
+      setEditId(result.id)
       setDraft(unpublishedDraft)
       showToast(t.contentUnpublished, 'success')
     })
@@ -649,6 +677,8 @@ export default function OverviewContent({
       }
 
       setSavedContentItemId(result.id)
+      setMode('edit')
+      setEditId(result.id)
       setPendingMediaAssetIds([])
       setPendingAudioAssetIds({ en: null, cy: null })
       setDraft(publishedDraft)
@@ -833,6 +863,10 @@ export default function OverviewContent({
                           }))
                         }
                         uiLang={uiLang}
+                        availableHistoricalPeriods={historicalPeriods}
+                        availableHistoricalEras={historicalEras}
+                        onAddPeriod={() => setPeriodModalOpen(true)}
+                        onAddEra={() => setEraModalOpen(true)}
                       />
                     </>
                   )}
@@ -960,7 +994,7 @@ export default function OverviewContent({
                   <Divider />
 
                   <ImageManager
-                    key={editId ?? savedContentItemId ?? `draft-${draft.contentType}`}
+                    key={editIdProp ?? `draft-${draft.contentType}`}
                     contentItemId={savedContentItemId}
                     contentType={draft.contentType}
                     slugValue={draft.slug}
@@ -976,7 +1010,9 @@ export default function OverviewContent({
                           ? current.map((l) => l.id === newLoc.id ? { ...l, ...newLoc, isAssigned: true } : l)
                           : [...current, { ...newLoc, isAssigned: true }]
                       })
+                      setCurrentLocation(newLoc)
                     }}
+                    onImagesChange={setCurrentImages}
                     onUploaded={(mediaAssetId) => {
                       setPendingMediaAssetIds((current) =>
                         current.includes(mediaAssetId) ? current : [...current, mediaAssetId]
@@ -991,7 +1027,7 @@ export default function OverviewContent({
                   <Divider />
 
                   <AudioGuide
-                    key={`audio-en-${editId ?? savedContentItemId ?? `draft-${draft.contentType}`}`}
+                    key={`audio-en-${editIdProp ?? `draft-${draft.contentType}`}`}
                     contentItemId={savedContentItemId}
                     contentType={draft.contentType}
                     initialAudio={currentAudio.en}
@@ -1009,7 +1045,7 @@ export default function OverviewContent({
                   />
 
                   <AudioGuide
-                    key={`audio-cy-${editId ?? savedContentItemId ?? `draft-${draft.contentType}`}`}
+                    key={`audio-cy-${editIdProp ?? `draft-${draft.contentType}`}`}
                     contentItemId={savedContentItemId}
                     contentType={draft.contentType}
                     initialAudio={currentAudio.cy}
@@ -1029,7 +1065,7 @@ export default function OverviewContent({
                   <Divider />
 
                   <ConnectedContent
-                    key={`connected-${editId ?? savedContentItemId ?? `draft-${draft.contentType}`}`}
+                    key={`connected-${editIdProp ?? `draft-${draft.contentType}`}`}
                     contentItemId={savedContentItemId}
                     contentType={draft.contentType}
                     initialConnected={initialRelatedContent}
@@ -1226,12 +1262,30 @@ export default function OverviewContent({
 
       <Toast open={toastOpen} message={toastMessage} tone={toastTone} />
 
-      <Modal open={previewModalOpen} title={t.previewTitle} onClose={() => setPreviewModalOpen(false)}>
-        <p className="text-neutral-700">{t.previewBody}</p>
-        <div className="mt-6 flex justify-end">
-          <BlackButton onClick={() => setPreviewModalOpen(false)}>{t.close}</BlackButton>
+      {previewModalOpen ? (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-white">
+          <button
+            type="button"
+            onClick={() => setPreviewModalOpen(false)}
+            className="fixed right-4 top-4 z-[60] flex h-11 w-11 items-center justify-center rounded-full bg-neutral-900 text-xl text-white shadow-lg transition hover:opacity-90"
+            aria-label={t.close}
+          >
+            ×
+          </button>
+          <PublicContentDetail
+            hideNav
+            content={buildPreviewContent({
+              draft,
+              language: activeLanguage,
+              images: currentImages,
+              audio: currentAudio,
+              location: currentLocation,
+              paintingMediums,
+              contentItemId: savedContentItemId,
+            })}
+          />
         </div>
-      </Modal>
+      ) : null}
 
       <Modal open={publishModalOpen} title={t.publishTitle} onClose={() => setPublishModalOpen(false)}>
         <p className="text-neutral-700">{t.publishBody}</p>

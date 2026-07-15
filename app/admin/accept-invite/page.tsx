@@ -16,6 +16,7 @@ const strings = {
     activateAccount: 'Activate Account',
     activating: 'Activating...',
     verifying: 'Verifying invite\u2026',
+    continueInvite: 'Continue',
     invalidInvite: 'This invite link is invalid or has expired. Please ask an administrator to send a new invite.',
     passwordTooShort: 'Password must be at least 8 characters.',
     passwordMismatch: 'Passwords do not match.',
@@ -28,6 +29,7 @@ const strings = {
     activateAccount: 'Actifadu Cyfrif',
     activating: 'Yn actifadu...',
     verifying: 'Gwirio\u2019r gwahoddiad\u2026',
+    continueInvite: 'Parhau',
     invalidInvite: "Mae'r ddolen wahoddiad hon yn annilys neu wedi dod i ben. Gofynnwch i weinyddwr anfon gwahoddiad newydd.",
     passwordTooShort: "Rhaid i'r cyfrinair fod o leiaf 8 nod.",
     passwordMismatch: "Nid yw'r cyfrineiriau'n cyfateb.",
@@ -65,6 +67,8 @@ function AcceptInviteForm() {
   const [confirm, setConfirm] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [pendingTokenVerification, setPendingTokenVerification] = useState(false)
+  const [verifying, setVerifying] = useState(false)
 
   useEffect(() => {
     const urlLang = searchParams.get('lang')
@@ -85,28 +89,42 @@ function AcceptInviteForm() {
   useEffect(() => {
     const tokenHash = searchParams.get('token_hash')
     const tokenType = searchParams.get('type')
-    const supabase = createClient()
 
     if (tokenHash && tokenType === 'invite') {
-      // Verify the invite OTP client-side so the session is established directly
-      // in the browser — no server cookie hand-off needed.
-      supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'invite' }).then(({ error }) => {
-        if (error) {
-          setSessionInvalid(true)
-        } else {
-          setReady(true)
-        }
-      })
-    } else {
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session) {
-          setReady(true)
-        } else {
-          setSessionInvalid(true)
-        }
-      })
+      // Don't auto-verify on page load: invite OTPs are single-use, and
+      // institutional email security gateways often pre-visit (and fully
+      // render) links before a user ever clicks them, silently consuming
+      // the token. Require an explicit click so only a real user triggers it.
+      setPendingTokenVerification(true)
+      return
     }
+
+    const supabase = createClient()
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        setReady(true)
+      } else {
+        setSessionInvalid(true)
+      }
+    })
   }, [])
+
+  function handleVerifyInvite() {
+    const tokenHash = searchParams.get('token_hash')
+    if (!tokenHash) return
+
+    setVerifying(true)
+    const supabase = createClient()
+    supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'invite' }).then(({ error }) => {
+      setVerifying(false)
+      if (error) {
+        setSessionInvalid(true)
+      } else {
+        setPendingTokenVerification(false)
+        setReady(true)
+      }
+    })
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -157,7 +175,20 @@ function AcceptInviteForm() {
               <img src={lang === 'cy' ? '/mainLogo-cy.png' : '/mainLogo.svg'} alt="Her Stories Content Manager" className="mx-auto h-46 w-auto sm:h-24" />
             </div>
 
-            {!ready ? (
+            {pendingTokenVerification ? (
+              <div className="text-center">
+                <p className="mb-2 text-3xl font-semibold tracking-tight">{t.title}</p>
+                <p className="mb-6 text-sm text-neutral-500">{t.subtitle}</p>
+                <button
+                  type="button"
+                  onClick={handleVerifyInvite}
+                  disabled={verifying}
+                  className="flex h-16 w-full items-center justify-center rounded-xl bg-[#1f1f1f] px-6 text-2xl font-medium uppercase tracking-wide text-white shadow-lg transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {verifying ? t.verifying : t.continueInvite}
+                </button>
+              </div>
+            ) : !ready ? (
               <p className="text-center text-sm text-red-700">{sessionInvalid ? t.invalidInvite : t.verifying}</p>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-5">

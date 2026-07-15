@@ -24,11 +24,11 @@ export default function PaintingForm({ value, onChange, language, cyValue, onCyC
     <div className="space-y-4">
       <SectionTitle>{t.paintingDetails}</SectionTitle>
 
-      {/* Shared fields */}
+      {/* Title — translatable */}
       <Input
-        value={value.title}
-        onChange={(e) => onChange({ title: e.target.value })}
-        placeholder={t.title}
+        value={isCy ? cyValue.title : value.title}
+        onChange={(e) => isCy ? onCyChange({ title: e.target.value }) : onChange({ title: e.target.value })}
+        placeholder={withSuffix(t.title)}
       />
 
       <Input

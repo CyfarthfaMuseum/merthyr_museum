@@ -52,6 +52,8 @@ export type PublicRelatedContent = {
   contentType: PublicContentType
   href: string
   relationshipType: string
+  primaryImage: PublicMedia | null
+  creatorLabel: string | null
 }
 
 export type PublicPaintingData = {
@@ -154,6 +156,8 @@ export type PublicMapContentSummary = {
   title: string
   contentType: PublicContentType
   href: string
+  primaryImage: PublicMedia | null
+  galleryMedia: PublicMedia[]
 }
 
 export type PublicMapLocation = PublicLocationSummary & {

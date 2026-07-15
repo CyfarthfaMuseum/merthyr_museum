@@ -116,6 +116,17 @@ export type StoryDraft = {
   summary: string
   exposition: string
   sortOrder: string
+  // Date/Time Period
+  startDay: string
+  startMonth: string
+  startYear: string
+  startEra: 'AD' | 'BC'
+  endDay: string
+  endMonth: string
+  endYear: string
+  endEra: 'AD' | 'BC'
+  periodId: string
+  eraId: string
 }
 
 export type PaintingDraft = {
@@ -150,7 +161,6 @@ export type ArtifactDraft = {
   endEra: 'AD' | 'BC'
   periodId: string
   eraId: string
-  customPeriod: string
 }
 
 export type BioDraft = {
@@ -282,6 +292,16 @@ export const initialDraft: OverviewDraft = {
     summary: '',
     exposition: '',
     sortOrder: '0',
+    startDay: '',
+    startMonth: '',
+    startYear: '',
+    startEra: 'AD',
+    endDay: '',
+    endMonth: '',
+    endYear: '',
+    endEra: 'AD',
+    periodId: '',
+    eraId: '',
   },
   painting: {
     title: '',
@@ -313,7 +333,6 @@ export const initialDraft: OverviewDraft = {
     endEra: 'AD',
     periodId: '',
     eraId: '',
-    customPeriod: '',
   },
   bio: {
     name: '',

@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useRef, useState, useTransition } from 'react'
-import Image from 'next/image'
 import { Search, X } from 'lucide-react'
 import SectionTitle from '../ui/SectionTitle'
 import {
@@ -172,12 +171,11 @@ export default function ConnectedContent({
                 >
                   <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded bg-neutral-200">
                     {item.imageUrl && (
-                      <Image
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
                         src={item.imageUrl}
                         alt=""
-                        fill
-                        className="object-cover"
-                        sizes="32px"
+                        className="h-full w-full object-cover"
                       />
                     )}
                   </div>
@@ -199,9 +197,21 @@ export default function ConnectedContent({
               key={item.id}
               className="flex items-center justify-between rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-2"
             >
-              <div>
-                <div className="text-[14px] font-medium text-neutral-800">{item.title}</div>
-                <div className="text-[12px] text-neutral-500">{item.contentTypeLabel}</div>
+              <div className="flex items-center gap-3">
+                <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded bg-neutral-200">
+                  {item.imageUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={item.imageUrl}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  )}
+                </div>
+                <div>
+                  <div className="text-[14px] font-medium text-neutral-800">{item.title}</div>
+                  <div className="text-[12px] text-neutral-500">{item.contentTypeLabel}</div>
+                </div>
               </div>
               <button
                 type="button"

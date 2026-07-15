@@ -7,7 +7,9 @@ import {
   type PublicLocationWithContent,
   type PublicMapContentSummary,
   type PublicMapLocation,
+  type PublicMedia,
 } from "./types"
+import { type ContentMediaRow, isImageMedia, mapContentMediaRow } from "./media"
 
 type SupabaseClient = ReturnType<typeof createPublicClient>
 
@@ -70,6 +72,68 @@ function addressFor(location: LocationRow) {
     .join(", ")
 }
 
+async function batchFetchMedia(
+  supabase: SupabaseClient,
+  contentItemIds: string[],
+  lang: PublicLanguage
+): Promise<Map<string, { primaryImage: PublicMedia | null; galleryMedia: PublicMedia[] }>> {
+  if (contentItemIds.length === 0) return new Map()
+
+  const { data, error } = await supabase
+    .from("content_media")
+    .select(
+      `
+      content_item_id,
+      media_asset_id,
+      role,
+      sort_order,
+      is_primary,
+      media_assets (
+        id,
+        storage_path,
+        file_name,
+        mime_type,
+        width,
+        height,
+        duration_seconds,
+        credit,
+        media_asset_translations (
+          language_code,
+          alt_text,
+          caption
+        )
+      )
+    `
+    )
+    .in("content_item_id", contentItemIds)
+    .order("sort_order", { ascending: true })
+
+  if (error) console.error("[map:media] query error:", error)
+
+  const rowsByItemId = new Map<string, ContentMediaRow[]>()
+  for (const row of (data ?? []) as (ContentMediaRow & { content_item_id: string })[]) {
+    const itemId = (row as unknown as { content_item_id: string }).content_item_id
+    const existing = rowsByItemId.get(itemId) ?? []
+    existing.push(row)
+    rowsByItemId.set(itemId, existing)
+  }
+
+  const result = new Map<string, { primaryImage: PublicMedia | null; galleryMedia: PublicMedia[] }>()
+
+  await Promise.all(
+    Array.from(rowsByItemId.entries()).map(async ([itemId, rows]) => {
+      const mediaItems = (await Promise.all(rows.map((row) => mapContentMediaRow(row, lang))))
+        .filter((m): m is NonNullable<typeof m> => m !== null)
+        .filter((m) => isImageMedia(m))
+
+      const primaryImage = mediaItems.find((m) => m.isPrimary) ?? mediaItems[0] ?? null
+      result.set(itemId, { primaryImage, galleryMedia: mediaItems })
+    })
+  )
+
+  return result
+}
+
 async function getPublicContentSummaries(
   supabase: SupabaseClient,
   contentItemIds: string[],
@@ -77,7 +141,7 @@ async function getPublicContentSummaries(
 ) {
   if (contentItemIds.length === 0) return new Map<string, PublicMapContentSummary>()
 
-  const [{ data: items }, { data: statuses }, { data: types }, { data: translations }] =
+  const [{ data: items }, { data: statuses }, { data: types }, { data: translations }, mediaByItemId] =
     await Promise.all([
       supabase
         .from("content_items")
@@ -90,6 +154,7 @@ async function getPublicContentSummaries(
         .select("content_item_id, language_code, title")
         .in("content_item_id", contentItemIds)
         .in("language_code", lang === "en" ? ["en"] : [lang, "en"]),
+      batchFetchMedia(supabase, contentItemIds, lang),
     ])
 
   const publicStatusIds = new Set(
@@ -126,12 +191,15 @@ async function getPublicContentSummaries(
 
     if (!translation?.title) continue
 
+    const media = mediaByItemId.get(item.id as string) ?? { primaryImage: null, galleryMedia: [] }
     summaries.set(item.id as string, {
       id: item.id as string,
       slug: item.slug as string,
       title: translation.title as string,
       contentType,
       href: publicContentHref(contentType, item.slug, lang),
+      primaryImage: media.primaryImage,
+      galleryMedia: media.galleryMedia,
     })
   }
 

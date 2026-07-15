@@ -5,6 +5,7 @@ import { createAdminClient } from '@/utils/supabase/admin'
 import { createClient } from '@/utils/supabase/server'
 import { getStorageClient } from '@/lib/r2'
 import { getOptionalStorageEnv } from '@/lib/storage-env'
+import { resolveThumbnailUrls } from './media-helpers'
 import OverviewContent from './OverviewContent'
 import {
   initialDraft,
@@ -894,7 +895,7 @@ async function getEditDraft(
   draft: OverviewDraft
   editId: string | null
   editType: ContentType | null
-  initialLocation: { address: string; lat: number; lng: number } | null
+  initialLocation: { id: string; address: string; lat: number; lng: number } | null
   initialAudio: AudioItems
   initialRelatedContent: ConnectedItem[]
 }> {
@@ -939,7 +940,7 @@ async function getEditDraft(
     .eq('relationship_type', 'primary')
     .maybeSingle()
 
-  let initialLocation: { address: string; lat: number; lng: number } | null = null
+  let initialLocation: { id: string; address: string; lat: number; lng: number } | null = null
   if (locationLink?.location_id) {
     const { data: loc } = await adminSupabase
       .from('locations')
@@ -956,7 +957,7 @@ async function getEditDraft(
       ].filter(Boolean)
       initialLocation =
         Number.isFinite(parsedLat) && Number.isFinite(parsedLng)
-          ? { address: addressParts.join(', '), lat: parsedLat, lng: parsedLng }
+          ? { id: locationLink.location_id as string, address: addressParts.join(', '), lat: parsedLat, lng: parsedLng }
           : null
     }
   }
@@ -990,19 +991,24 @@ async function getEditDraft(
     .eq('parent_content_item_id', id)
   const relatedIds = (relatedLinks ?? []).map((r) => r.child_content_item_id as string)
   if (relatedIds.length > 0) {
-    const [{ data: relatedTranslations }, { data: relatedItems }, { data: typeTranslations }] =
-      await Promise.all([
-        adminSupabase
-          .from('content_item_translations')
-          .select('content_item_id, title')
-          .eq('language_code', 'en')
-          .in('content_item_id', relatedIds),
-        adminSupabase.from('content_items').select('id, content_type_id').in('id', relatedIds),
-        adminSupabase
-          .from('content_type_translations')
-          .select('content_type_id, label')
-          .eq('language_code', 'en'),
-      ])
+    const [
+      { data: relatedTranslations },
+      { data: relatedItems },
+      { data: typeTranslations },
+      imageUrlByRelatedId,
+    ] = await Promise.all([
+      adminSupabase
+        .from('content_item_translations')
+        .select('content_item_id, title')
+        .eq('language_code', 'en')
+        .in('content_item_id', relatedIds),
+      adminSupabase.from('content_items').select('id, content_type_id').in('id', relatedIds),
+      adminSupabase
+        .from('content_type_translations')
+        .select('content_type_id, label')
+        .eq('language_code', 'en'),
+      resolveThumbnailUrls(adminSupabase, relatedIds),
+    ])
     const titleById = new Map(
       (relatedTranslations ?? []).map((t) => [t.content_item_id as string, t.title as string])
     )
@@ -1019,6 +1025,7 @@ async function getEditDraft(
         title: titleById.get(relatedId) ?? 'Untitled',
         contentTypeCode: String(typeId ?? ''),
         contentTypeLabel: typeId ? (typeLabelById.get(typeId) ?? '') : '',
+        imageUrl: imageUrlByRelatedId.get(relatedId) ?? null,
       }
     })
   }
@@ -1163,6 +1170,16 @@ async function getEditDraft(
           summary: itemTranslation?.summary ?? '',
           exposition: translation?.event_details ?? itemTranslation?.body ?? '',
           sortOrder: '0',
+          startDay: itemRow.start_date_day != null ? String(itemRow.start_date_day) : '',
+          startMonth: itemRow.start_date_month != null ? String(itemRow.start_date_month) : '',
+          startYear: itemRow.start_date_year != null ? String(itemRow.start_date_year) : '',
+          startEra: ((itemRow.start_date_era as string | null) === 'BC' ? 'BC' : 'AD') as 'AD' | 'BC',
+          endDay: itemRow.end_date_day != null ? String(itemRow.end_date_day) : '',
+          endMonth: itemRow.end_date_month != null ? String(itemRow.end_date_month) : '',
+          endYear: itemRow.end_date_year != null ? String(itemRow.end_date_year) : '',
+          endEra: ((itemRow.end_date_era as string | null) === 'BC' ? 'BC' : 'AD') as 'AD' | 'BC',
+          periodId: (itemRow.historical_period_id as string | null) ?? '',
+          eraId: (itemRow.historical_era_id as string | null) ?? '',
         },
         storyCy: {
           title: itemTranslationCy?.title ?? '',
@@ -1263,7 +1280,7 @@ async function getEditDraft(
       return noEdit
     }
 
-    const [{ data: translation }, { data: translationCy }, { data: itemTranslationCy }, { data: itemTranslationEn }] = await Promise.all([
+    const [{ data: translation }, { data: translationCy }, { data: itemTranslationCy }] = await Promise.all([
       adminSupabase
         .from('artefact_translations')
         .select('*')
@@ -1281,12 +1298,6 @@ async function getEditDraft(
         .select('*')
         .eq('content_item_id', id)
         .eq('language_code', 'cy')
-        .maybeSingle(),
-      adminSupabase
-        .from('content_item_translations')
-        .select('*')
-        .eq('content_item_id', id)
-        .eq('language_code', 'en')
         .maybeSingle(),
     ])
 
@@ -1347,7 +1358,6 @@ async function getEditDraft(
           endEra: ((itemRow.end_date_era as string | null) === 'BC' ? 'BC' : 'AD') as 'AD' | 'BC',
           periodId: (itemRow.historical_period_id as string | null) ?? '',
           eraId: (itemRow.historical_era_id as string | null) ?? '',
-          customPeriod: (itemTranslationEn?.custom_period_label as string | null) ?? '',
         },
         artifactCy: {
           title: itemTranslationCy?.title ?? '',
