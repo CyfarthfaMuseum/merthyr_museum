@@ -261,6 +261,62 @@ async function getUniqueBookThemeSlug(
   return `${desiredSlug}-${suffix}`
 }
 
+async function getUniqueHistoricalPeriodSlug(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  desiredName: string
+) {
+  const baseSlug = slugify(desiredName) || 'historical-period'
+  const { data: existingRows, error } = await supabase
+    .from('historical_periods')
+    .select('slug')
+    .like('slug', `${baseSlug}%`)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  const existingSlugs = new Set((existingRows ?? []).map((row) => row.slug as string))
+
+  if (!existingSlugs.has(baseSlug)) {
+    return baseSlug
+  }
+
+  let suffix = 2
+  while (existingSlugs.has(`${baseSlug}-${suffix}`)) {
+    suffix += 1
+  }
+
+  return `${baseSlug}-${suffix}`
+}
+
+async function getUniqueHistoricalEraSlug(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  desiredName: string
+) {
+  const baseSlug = slugify(desiredName) || 'historical-era'
+  const { data: existingRows, error } = await supabase
+    .from('historical_eras')
+    .select('slug')
+    .like('slug', `${baseSlug}%`)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  const existingSlugs = new Set((existingRows ?? []).map((row) => row.slug as string))
+
+  if (!existingSlugs.has(baseSlug)) {
+    return baseSlug
+  }
+
+  let suffix = 2
+  while (existingSlugs.has(`${baseSlug}-${suffix}`)) {
+    suffix += 1
+  }
+
+  return `${baseSlug}-${suffix}`
+}
+
 export async function checkSlugAvailabilityAction(
   slug: string,
   excludeContentItemId?: string | null
@@ -884,9 +940,11 @@ export async function createHistoricalPeriodAction(args: { name: string; nameCy?
       }
     }
 
+    const slug = await getUniqueHistoricalPeriodSlug(adminSupabase, name)
+
     const { data: inserted, error: insertError } = await adminSupabase
       .from('historical_periods')
-      .insert({})
+      .insert({ slug })
       .select('id')
       .single()
 
@@ -944,9 +1002,11 @@ export async function createHistoricalEraAction(args: { name: string; nameCy?: s
       }
     }
 
+    const slug = await getUniqueHistoricalEraSlug(adminSupabase, name)
+
     const { data: inserted, error: insertError } = await adminSupabase
       .from('historical_eras')
-      .insert({})
+      .insert({ slug })
       .select('id')
       .single()
 
