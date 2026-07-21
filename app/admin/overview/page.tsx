@@ -111,8 +111,65 @@ async function getContentTypeIds(supabase: Awaited<ReturnType<typeof createClien
   return map
 }
 
+async function getArchivedStatusId(supabase: Awaited<ReturnType<typeof createClient>>): Promise<number | null> {
+  const { data, error } = await supabase
+    .from('content_statuses')
+    .select('id')
+    .eq('code', 'archived')
+    .maybeSingle()
+
+  if (error) {
+    console.error('[getArchivedStatusId] Supabase query failed:', error.message)
+    return null
+  }
+
+  return (data?.id as number | undefined) ?? null
+}
+
+async function getVisibleContentItemIdsByType(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  contentTypeId: number,
+  archivedStatusId: number | null
+): Promise<string[]> {
+  let query = supabase
+    .from('content_items')
+    .select('id')
+    .eq('content_type_id', contentTypeId)
+
+  if (archivedStatusId !== null) {
+    query = query.neq('content_status_id', archivedStatusId)
+  }
+
+  const { data, error } = await query
+
+  if (error) {
+    console.error('[getVisibleContentItemIdsByType] Supabase query failed:', error.message)
+    return []
+  }
+
+  return (data ?? []).map((item) => item.id as string)
+}
+
+function getVisibleContentCount(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  contentTypeId: number,
+  archivedStatusId: number | null
+) {
+  let query = supabase
+    .from('content_items')
+    .select('*', { count: 'exact', head: true })
+    .eq('content_type_id', contentTypeId)
+
+  if (archivedStatusId !== null) {
+    query = query.neq('content_status_id', archivedStatusId)
+  }
+
+  return query
+}
+
 async function getSidebarCounts(
-  supabase: Awaited<ReturnType<typeof createClient>>
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  archivedStatusId: number | null
 ): Promise<SidebarCounts> {
   const emptyCountResult = { count: 0 }
   const typeIds = await getContentTypeIds(supabase)
@@ -131,34 +188,19 @@ async function getSidebarCounts(
     biographiesResult,
   ] = await Promise.all([
     bookTypeId
-      ? supabase
-          .from('content_items')
-          .select('*', { count: 'exact', head: true })
-          .eq('content_type_id', bookTypeId)
+      ? getVisibleContentCount(supabase, bookTypeId, archivedStatusId)
       : Promise.resolve(emptyCountResult),
     storyTypeId
-      ? supabase
-          .from('content_items')
-          .select('*', { count: 'exact', head: true })
-          .eq('content_type_id', storyTypeId)
+      ? getVisibleContentCount(supabase, storyTypeId, archivedStatusId)
       : Promise.resolve(emptyCountResult),
     paintingTypeId
-      ? supabase
-          .from('content_items')
-          .select('*', { count: 'exact', head: true })
-          .eq('content_type_id', paintingTypeId)
+      ? getVisibleContentCount(supabase, paintingTypeId, archivedStatusId)
       : Promise.resolve(emptyCountResult),
     artefactTypeId
-      ? supabase
-          .from('content_items')
-          .select('*', { count: 'exact', head: true })
-          .eq('content_type_id', artefactTypeId)
+      ? getVisibleContentCount(supabase, artefactTypeId, archivedStatusId)
       : Promise.resolve(emptyCountResult),
     biographyTypeId
-      ? supabase
-          .from('content_items')
-          .select('*', { count: 'exact', head: true })
-          .eq('content_type_id', biographyTypeId)
+      ? getVisibleContentCount(supabase, biographyTypeId, archivedStatusId)
       : Promise.resolve(emptyCountResult),
   ])
 
@@ -179,7 +221,8 @@ async function getSidebarCounts(
 }
 
 async function getSidebarBookGroups(
-  supabase: Awaited<ReturnType<typeof createClient>>
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  archivedStatusId: number | null
 ): Promise<SidebarBookGroup[]> {
   const adminSupabase = createAdminClient()
   const typeIds = await getContentTypeIds(supabase)
@@ -187,12 +230,7 @@ async function getSidebarBookGroups(
 
   if (!bookTypeId) return []
 
-  const { data: bookItems } = await supabase
-    .from('content_items')
-    .select('id')
-    .eq('content_type_id', bookTypeId)
-
-  const bookIds = (bookItems ?? []).map((book) => book.id)
+  const bookIds = await getVisibleContentItemIdsByType(supabase, bookTypeId, archivedStatusId)
   if (bookIds.length === 0) return []
 
   const [{ data: translations }, { data: genreLinks }, { data: genreTranslations }, { data: genreTranslationsCy }] =
@@ -275,7 +313,8 @@ async function getSidebarBookGroups(
 
 
 async function getSidebarStoryGroups(
-  supabase: Awaited<ReturnType<typeof createClient>>
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  archivedStatusId: number | null
 ): Promise<SidebarStoryGroup[]> {
   const adminSupabase = createAdminClient()
   const typeIds = await getContentTypeIds(supabase)
@@ -283,12 +322,7 @@ async function getSidebarStoryGroups(
 
   if (!storyContentTypeId) return []
 
-  const { data: storyItems } = await supabase
-    .from('content_items')
-    .select('id')
-    .eq('content_type_id', storyContentTypeId)
-
-  const storyIds = (storyItems ?? []).map((story) => story.id)
+  const storyIds = await getVisibleContentItemIdsByType(supabase, storyContentTypeId, archivedStatusId)
   if (storyIds.length === 0) return []
 
   const [
@@ -566,18 +600,14 @@ async function getAvailableHistoricalEras(): Promise<HistoricalEraOption[]> {
 }
 
 async function getSidebarPaintingGroups(
-  supabase: Awaited<ReturnType<typeof createClient>>
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  archivedStatusId: number | null
 ): Promise<SidebarPaintingGroup[]> {
   const typeIds = await getContentTypeIds(supabase)
   const paintingTypeId = typeIds.get('painting')
   if (!paintingTypeId) return []
 
-  const { data: paintingItems } = await supabase
-    .from('content_items')
-    .select('id')
-    .eq('content_type_id', paintingTypeId)
-
-  const paintingIds = (paintingItems ?? []).map((p) => p.id)
+  const paintingIds = await getVisibleContentItemIdsByType(supabase, paintingTypeId, archivedStatusId)
   if (paintingIds.length === 0) return []
 
   const adminSupabase = createAdminClient()
@@ -657,18 +687,14 @@ async function getSidebarPaintingGroups(
 }
 
 async function getSidebarArtifactGroups(
-  supabase: Awaited<ReturnType<typeof createClient>>
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  archivedStatusId: number | null
 ): Promise<SidebarArtifactGroup[]> {
   const typeIds = await getContentTypeIds(supabase)
   const artefactTypeId = typeIds.get('artefact')
   if (!artefactTypeId) return []
 
-  const { data: artefactItems } = await supabase
-    .from('content_items')
-    .select('id')
-    .eq('content_type_id', artefactTypeId)
-
-  const artefactIds = (artefactItems ?? []).map((a) => a.id)
+  const artefactIds = await getVisibleContentItemIdsByType(supabase, artefactTypeId, archivedStatusId)
   if (artefactIds.length === 0) return []
 
   const adminSupabase = createAdminClient()
@@ -789,18 +815,14 @@ function surnameSort(name: string): string {
 }
 
 async function getSidebarBios(
-  supabase: Awaited<ReturnType<typeof createClient>>
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  archivedStatusId: number | null
 ): Promise<SidebarBio[]> {
   const typeIds = await getContentTypeIds(supabase)
   const biographyTypeId = typeIds.get('biography')
   if (!biographyTypeId) return []
 
-  const { data: bioItems } = await supabase
-    .from('content_items')
-    .select('id')
-    .eq('content_type_id', biographyTypeId)
-
-  const bioIds = (bioItems ?? []).map((b) => b.id)
+  const bioIds = await getVisibleContentItemIdsByType(supabase, biographyTypeId, archivedStatusId)
   if (bioIds.length === 0) return []
 
   const { data: translations } = await supabase
@@ -929,8 +951,6 @@ async function getEditDraft(
     .single()
 
   if (!itemRow) return noEdit
-
-  const rawItem = itemRow as Record<string, unknown>
 
   // Fetch location via the content_locations → locations join (admin to bypass RLS)
   const { data: locationLink } = await adminSupabase
@@ -1559,6 +1579,7 @@ export default async function OverviewPage({ searchParams }: PageProps) {
   const initialUiLang = resolvedParams.lang === 'cy' ? 'cy' : 'en'
 
   const adminSupabase = createAdminClient()
+  const archivedStatusId = await getArchivedStatusId(adminSupabase)
 
   const [
     sidebarCounts,
@@ -1577,7 +1598,7 @@ export default async function OverviewPage({ searchParams }: PageProps) {
     adminUsers,
     sidebarLocations,
   ] = await Promise.all([
-    getSidebarCounts(adminSupabase),
+    getSidebarCounts(adminSupabase, archivedStatusId),
     getEditDraft(supabase, resolvedParams.type, resolvedParams.id),
     getAvailableBookGenres(),
     getAvailableStoryTypes(),
@@ -1585,11 +1606,11 @@ export default async function OverviewPage({ searchParams }: PageProps) {
     getAvailableArtifactCategories(),
     getAvailableHistoricalPeriods(),
     getAvailableHistoricalEras(),
-    getSidebarBookGroups(adminSupabase),
-    getSidebarStoryGroups(adminSupabase),
-    getSidebarPaintingGroups(adminSupabase),
-    getSidebarArtifactGroups(adminSupabase),
-    getSidebarBios(adminSupabase),
+    getSidebarBookGroups(adminSupabase, archivedStatusId),
+    getSidebarStoryGroups(adminSupabase, archivedStatusId),
+    getSidebarPaintingGroups(adminSupabase, archivedStatusId),
+    getSidebarArtifactGroups(adminSupabase, archivedStatusId),
+    getSidebarBios(adminSupabase, archivedStatusId),
     getAdminUsers(),
     getSidebarLocations(),
   ])
