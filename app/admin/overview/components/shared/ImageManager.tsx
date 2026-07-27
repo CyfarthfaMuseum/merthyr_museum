@@ -157,6 +157,8 @@ export default function ImageManager({
     details: '',
   })
   const [locationMessage, setLocationMessage] = useState('')
+  const [locationMessageTone, setLocationMessageTone] = useState<'success' | 'error'>('success')
+  const [isSavingLocation, setIsSavingLocation] = useState(false)
   const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false)
   const [selectedLocationId, setSelectedLocationId] = useState(initialLocation?.id ?? '')
   const [localLocations, setLocalLocations] = useState(sidebarLocations)
@@ -471,6 +473,7 @@ export default function ImageManager({
 
   async function handleConfirmLocation(forceCreate = false) {
     if (!selectedCoordinates) {
+      setLocationMessageTone('error')
       setLocationMessage(t.pleaseDropPin)
       return
     }
@@ -501,12 +504,16 @@ export default function ImageManager({
     }
 
     setLocationAddress(resolvedAddress)
-    setIsLocationDialogOpen(false)
 
-    console.log('[handleConfirmLocation] contentItemId:', contentItemId, '| address:', resolvedAddress, '| lat:', lat, '| lng:', lng)
+    if (!contentItemId) {
+      setIsLocationDialogOpen(false)
+      setLocationMessageTone('error')
+      setLocationMessage('Pin dropped, but not saved yet — save the book first, then set its location.')
+      return
+    }
 
-    if (contentItemId) {
-      console.log('[handleConfirmLocation] calling saveLocationAction...')
+    setIsSavingLocation(true)
+    try {
       const result = await saveLocationAction({
         contentItemId,
         address: resolvedAddress,
@@ -518,9 +525,8 @@ export default function ImageManager({
         forceCreate,
       })
 
-      console.log('[handleConfirmLocation] saveLocationAction result:', result)
-
       if (!result.success) {
+        setLocationMessageTone('error')
         setLocationMessage(`Location selected, but saving failed: ${result.error ?? 'Unable to save location.'}`)
         return
       }
@@ -534,13 +540,18 @@ export default function ImageManager({
       })
       setSelectedLocationId(result.locationId)
       onLocationSaved?.(savedLoc)
-    } else {
-      console.warn('[handleConfirmLocation] no contentItemId — location will not be persisted')
-      setLocationMessage('Pin dropped, but not saved yet — save the book first, then set its location.')
-      return
+      setLocationMessageTone('success')
+      setLocationMessage(t.locationConfirmed)
+    } catch (error) {
+      console.error('[Location] Saving location failed', error)
+      setLocationMessageTone('error')
+      setLocationMessage(
+        `Location selected, but saving failed: ${error instanceof Error ? error.message : 'Unable to save location.'}`
+      )
+    } finally {
+      setIsSavingLocation(false)
+      setIsLocationDialogOpen(false)
     }
-
-    setLocationMessage(t.locationConfirmed)
   }
 
   return (
@@ -703,17 +714,27 @@ export default function ImageManager({
               setLocationAddress(loc.address)
               setSelectedCoordinates({ lat: loc.lat, lng: loc.lng })
               if (contentItemId) {
-                void linkLocationAction({
+                linkLocationAction({
                   contentItemId,
                   locationId: id,
-                }).then((result) => {
-                  setLocationMessage(
-                    result.success
-                      ? t.locationSaved
-                      : `${t.location}: ${result.error ?? 'Unknown error.'}`
-                  )
                 })
+                  .then((result) => {
+                    setLocationMessageTone(result.success ? 'success' : 'error')
+                    setLocationMessage(
+                      result.success
+                        ? t.locationSaved
+                        : `${t.location}: ${result.error ?? 'Unknown error.'}`
+                    )
+                  })
+                  .catch((error) => {
+                    console.error('[Location] linkLocationAction failed', error)
+                    setLocationMessageTone('error')
+                    setLocationMessage(
+                      `${t.location}: ${error instanceof Error ? error.message : 'Unknown error.'}`
+                    )
+                  })
               } else {
+                setLocationMessageTone('error')
                 setLocationMessage('Location selected. Save the content item first to persist it.')
               }
             }}
@@ -739,7 +760,17 @@ export default function ImageManager({
           </div>
         ) : null}
 
-        {locationMessage ? <p className="mt-3 text-sm text-neutral-700">{locationMessage}</p> : null}
+        {locationMessage ? (
+          <p
+            className={`mt-3 rounded-md border px-3 py-2 text-sm font-medium ${
+              locationMessageTone === 'success'
+                ? 'border-green-300 bg-green-50 text-green-800'
+                : 'border-red-300 bg-red-50 text-red-800'
+            }`}
+          >
+            {locationMessage}
+          </p>
+        ) : null}
       </div>
 
       <div className="border-t border-neutral-300 pt-8">
@@ -838,19 +869,26 @@ export default function ImageManager({
               <BlackButton
                 className="bg-white text-neutral-900 hover:bg-neutral-300"
                 onClick={() => setIsLocationDialogOpen(false)}
+                disabled={isSavingLocation}
               >
                 {t.cancel}
               </BlackButton>
-              <BlackButton onClick={() => void handleConfirmLocation(false)} disabled={!selectedCoordinates}>
+              <BlackButton
+                onClick={() => void handleConfirmLocation(false)}
+                disabled={!selectedCoordinates || isSavingLocation}
+              >
                 <span className="inline-flex items-center gap-2">
                   <MapPin size={18} />
-                  {t.updateLocation}
+                  {isSavingLocation ? 'Saving…' : t.updateLocation}
                 </span>
               </BlackButton>
-              <BlackButton onClick={() => void handleConfirmLocation(true)} disabled={!selectedCoordinates}>
+              <BlackButton
+                onClick={() => void handleConfirmLocation(true)}
+                disabled={!selectedCoordinates || isSavingLocation}
+              >
                 <span className="inline-flex items-center gap-2">
                   <MapPin size={18} />
-                  {t.addLocation}
+                  {isSavingLocation ? 'Saving…' : t.addLocation}
                 </span>
               </BlackButton>
             </div>

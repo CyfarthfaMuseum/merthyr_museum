@@ -1134,19 +1134,27 @@ export async function saveContentAction({
     ].filter((entry) => entry.mediaAssetId)
 
     for (const entry of pendingAudioEntries) {
-      await adminSupabase
+      const { error: deleteError } = await adminSupabase
         .from('content_media')
         .delete()
         .eq('content_item_id', contentItemId)
         .in('role', entry.language === 'en' ? ['audio', 'audio_en'] : ['audio_cy'])
 
-      await adminSupabase.from('content_media').insert({
+      if (deleteError) {
+        return { success: false, error: deleteError.message }
+      }
+
+      const { error: insertError } = await adminSupabase.from('content_media').insert({
         content_item_id: contentItemId,
         media_asset_id: entry.mediaAssetId,
         role: entry.role,
         sort_order: entry.language === 'en' ? 0 : 1,
         is_primary: false,
       })
+
+      if (insertError) {
+        return { success: false, error: insertError.message }
+      }
     }
 
     if (draft.contentType === 'book') {

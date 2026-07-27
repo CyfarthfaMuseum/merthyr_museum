@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { createBookGenreAction, createStoryTypeAction, createArtifactCategoryAction, createPaintingMediumAction, createHistoricalPeriodAction, createHistoricalEraAction, saveContentAction, archiveContentAction } from './actions'
 import { validateDraft } from './validation'
 import { uiStrings, type UiLang } from './ui-strings'
@@ -135,6 +136,7 @@ export default function OverviewContent({
   viewLocations,
   initialUiLang,
 }: Props) {
+  const router = useRouter()
   const [draft, setDraft] = useState<OverviewDraft>(initialDraft)
   const [mode, setMode] = useState<EditorMode>(modeProp)
   const [editId, setEditId] = useState<string | null>(editIdProp)
@@ -603,6 +605,11 @@ export default function OverviewContent({
       setPendingMediaAssetIds([])
       setPendingAudioAssetIds({ en: null, cy: null })
       showToast(mode === 'edit' ? t.contentUpdated : t.contentSaved, 'success')
+
+      // Keep the URL in sync with the saved item so a subsequent "+ New" click
+      // (which always links to the same /admin/overview?new=1 URL) is recognized
+      // as a fresh navigation instead of reusing this editor's stale state.
+      router.replace(`/admin/overview?type=${draft.contentType}&id=${result.id}`)
     })
   }
 
@@ -1027,7 +1034,7 @@ export default function OverviewContent({
                   <Divider />
 
                   <AudioGuide
-                    key={`audio-en-${editIdProp ?? `draft-${draft.contentType}`}`}
+                    key={`audio-en-${savedContentItemId ?? `draft-${draft.contentType}`}`}
                     contentItemId={savedContentItemId}
                     contentType={draft.contentType}
                     initialAudio={currentAudio.en}
@@ -1045,7 +1052,7 @@ export default function OverviewContent({
                   />
 
                   <AudioGuide
-                    key={`audio-cy-${editIdProp ?? `draft-${draft.contentType}`}`}
+                    key={`audio-cy-${savedContentItemId ?? `draft-${draft.contentType}`}`}
                     contentItemId={savedContentItemId}
                     contentType={draft.contentType}
                     initialAudio={currentAudio.cy}
@@ -1065,7 +1072,7 @@ export default function OverviewContent({
                   <Divider />
 
                   <ConnectedContent
-                    key={`connected-${editIdProp ?? `draft-${draft.contentType}`}`}
+                    key={`connected-${savedContentItemId ?? `draft-${draft.contentType}`}`}
                     contentItemId={savedContentItemId}
                     contentType={draft.contentType}
                     initialConnected={initialRelatedContent}
