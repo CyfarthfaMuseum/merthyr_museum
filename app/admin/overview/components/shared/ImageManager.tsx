@@ -462,7 +462,8 @@ export default function ImageManager({
       return
     }
 
-    const qrUrl = `http://merthyr-museum.vercel.app/${slug}`
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://herstories.merthyr.gov.uk'
+    const qrUrl = `${baseUrl.replace(/\/+$/, '')}/${slug}`
     const encoded = encodeURIComponent(qrUrl)
     const generatedQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&format=png&data=${encoded}`
 

@@ -20,6 +20,16 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Site URL
+
+Set the public site URL in the environment used to build the app:
+
+```ini
+NEXT_PUBLIC_SITE_URL=https://herstories.merthyr.gov.uk
+```
+
+The admin CMS uses this URL when generating QR codes and admin invitation links. Next.js includes `NEXT_PUBLIC_` values in the client bundle at build time, so rebuild after changing it.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
