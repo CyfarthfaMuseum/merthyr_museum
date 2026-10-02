@@ -1,4 +1,4 @@
-import { createClient } from "@/utils/supabase/server"
+import { createPublicClient } from "@/utils/supabase/public"
 import { createAdminClient } from "@/utils/supabase/admin"
 import {
   isPublicLanguage,
@@ -23,7 +23,7 @@ import {
   type ContentMediaRow,
 } from "./media"
 
-type SupabaseClient = Awaited<ReturnType<typeof createClient>>
+type SupabaseClient = ReturnType<typeof createPublicClient>
 
 type TranslationRow = {
   language_code?: string | null
@@ -271,7 +271,7 @@ export async function getPublicCatalogueItems(
   lang: string
 ): Promise<PublicCatalogueItem[]> {
   const language = normalizeLanguage(lang)
-  const supabase = await createClient()
+  const supabase = createPublicClient()
 
   const [{ data: contentType }, { data: publicStatuses }] = await Promise.all([
     supabase.from("content_types").select("id, code").eq("code", type).maybeSingle(),
@@ -763,7 +763,7 @@ export async function getPublicContentItemBySlug(
   lang: string
 ): Promise<PublicContentItemViewModel | null> {
   const language = normalizeLanguage(lang)
-  const supabase = await createClient()
+  const supabase = createPublicClient()
 
   const { data: item } = await supabase
     .from("content_items")
